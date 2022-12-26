@@ -102,10 +102,12 @@ Here's an example call:
 ```
 02-annotate.py -b ./alignment_dir/merged_alignments.cram \
 -d 21 22 \
--r WT_sRNAs_1.t ago4_sRNAs_2.t \
+-r wt_1 wt_2 \
 -o annotation_complete
 ```
-Will produce a full annotation in the output folder. A full description of the options is as follows:  
+Will produce a full annotation in the output folder.  
+  
+A full description of the options is as follows:  
 ```
 usage: 02-annotate.py [-h] -b [BAM_FILE] [-o [OUTPUT_DIRECTORY]] [-d DICERCALL [DICERCALL ...]] [-r READGROUPS [READGROUPS ...]] [-f] [--partial_wigs] [--window [WINDOW]] [--merge_dist [MERGE_DIST]]
                       [--pad [PAD]] [--rpm [RPM]] [--dicer_ratio [DICER_RATIO]] [--extension_ratio [EXTENSION_RATIO]]
