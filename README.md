@@ -58,27 +58,30 @@ ShortStack --readfile wt_1.fa wt_2.fa mut_1.fa mut_2.fa \
 This is meant to check the size distribution of reads, to help identify what are the likely sizes of dicer-derived small RNAs for the organism. In a well-known organim (like most plants or animals), you could likely just skip this step and provide a range for step 3 based on the literature.
 
 ```
-01-precheck.py -b ./alignment_dir/merged_alignments.cram -o precheck
+annotate.py precheck -b ./alignment_dir/merged_alignments.cram \
+-r wt_1 -r wt_2 \
+-o annotation_complete
 ```
 
 Produces:
 ```
-  15	0.005	622,756
-  16	0.005	595,494
-  17	0.007	808,679
-  18	0.009	1,053,851
-  19	0.022	2,665,887
-  20	0.043	5,238,861
-  21	0.115	14,118,431
-  22	0.158	19,344,300
-  23	0.079	9,648,308
-  24	0.071	8,717,748
-  25	0.07	8,622,328
-  26	0.063	7,677,058
-  27	0.064	7,867,814
-  28	0.063	7,769,189
-  29	0.064	7,800,495
-  30	0.056	6,932,318
+  length	prop	prop_highest	abundance
+  15	0.0	0.0001	169
+  16	0.0	0.0001	128
+  17	0.0	0.0001	107
+  18	0.0001	0.0005	731
+  19	0.018	0.0941	127,123
+  20	0.0467	0.2452	331,033
+  21	0.1218	0.639	862,850
+  22	0.1907	1.0	1,350,239
+  23	0.1169	0.613	827,728
+  24	0.0735	0.3853	520,239
+  25	0.0777	0.4074	550,146
+  26	0.0738	0.3869	522,364
+  27	0.0744	0.3904	527,094
+  28	0.0702	0.368	496,933
+  29	0.0701	0.3677	496,491
+  30	0.0661	0.3466	467,936
 ```
 Showing the sRNA length, proportion, and depth. This result clearly points to what we already knew from the literature: this species produces mostly 21 and 22 nt sRNAs. If this is more vague, you might use a more broad setting for the following step.
   
@@ -105,39 +108,52 @@ To run, we must specify a few important options:
   
 Here's an example call:
 ```
-02-annotate.py -b ./alignment_dir/merged_alignments.cram \
--d 21 22 \
--r wt_1 wt_2 \
+annotate.py annotate -b ./alignment_dir/merged_alignments.cram \
+-d 21 -d 22 \
+-r wt_1 -r wt_2 \
 -o annotation_complete
 ```
 Will produce a full annotation in the output folder.  
   
+  
 A full description of the options is as follows:  
 ```
-usage: 02-annotate.py [-h] -b [BAM_FILE] [-o [OUTPUT_DIRECTORY]] [-d DICERCALL [DICERCALL ...]] [-r READGROUPS [READGROUPS ...]] [-f] [--partial_wigs] [--window [WINDOW]] [--merge_dist [MERGE_DIST]]
-                      [--pad [PAD]] [--rpm [RPM]] [--dicer_ratio [DICER_RATIO]] [--extension_ratio [EXTENSION_RATIO]]
+annotate.py annotate --help
+Usage: annotate.py annotate [OPTIONS]
 
-options:
-  -h, --help            show this help message and exit
-  -b [BAM_FILE], --bam_file [BAM_FILE]
-                        bamfile of aligned small RNAs (tested with shortstack)
-  -o [OUTPUT_DIRECTORY], --output_directory [OUTPUT_DIRECTORY]
-                        working folder for locus analysis
-  -d DICERCALL [DICERCALL ...], --dicercall DICERCALL [DICERCALL ...]
-                        list of sRNA sizes to be analyzed separately
-  -r READGROUPS [READGROUPS ...], --readgroups READGROUPS [READGROUPS ...]
-                        list of read groups (libraries) to be considered for the annotation. All present read groups will be considered for counting.
-  -f, --force           force remake of supporting files
-  --partial_wigs        only make wiggle files associated with essential functions (ignoring size and strand specific coverages)
-  --window [WINDOW]     kernel desity bandwith window
-  --merge_dist [MERGE_DIST]
-                        maximum gap size between valid regions to merge to a single locus
-  --pad [PAD]           number of bases added to either end of a defined locus (arbitrary)
-  --rpm [RPM]           rpm depth threshold for nucleating a locus
-  --dicer_ratio [DICER_RATIO]
-                        ratio of dicer to non-dicer reads to be considered for a locus region
-  --extension_ratio [EXTENSION_RATIO]
-                        fraction of rpm threshold to be considered for extending a locus' boundaries
+  Main annotation suite.
+
+Options:
+  -a, --alignment_file PATH       Alignment file input (bam or cram).
+                                  [required]
+  -r, --annotation_readgroups TEXT
+                                  List of read groups (RGs, libraries) to be
+                                  considered for the annotation. 'ALL' uses
+                                  all readgroups for annotation, but often
+                                  pertainent RGs will need to be specified
+                                  individually.  [required]
+  -d, --dicercall INTEGER         List of sRNA lengths that derive from dicer.
+  -o, --output_directory PATH     Directory name for annotation output
+  -f, --force                     Force remake of supporting files
+  --partial_wigs                  Only make wiggle files associated with
+                                  essential functions (ignoring size and
+                                  strand specific coverages. (May improve
+                                  speed)
+  --window INTEGER                Window size (centered on position) for
+                                  determining DCR vs non-DCR read ratio
+                                  (counting overlapping reads).
+  --merge_dist INTEGER            Maximum gap size between valid regions to
+                                  merge to a single locus.
+  --pad INTEGER                   Number of bases arbitrarily added to either
+                                  end of a defined locus.
+  --rpm_cutoff FLOAT              RPM depth threshold for DCR-sized reads to
+                                  be considered as a valid region.
+  --extension_ratio FLOAT         Fraction of RPM threshold to be considered
+                                  for extending a locus boundaries
+  --dicer_ratio FLOAT             Ratio of dicer to non-dicer reads to be
+                                  considered for a valid region
+  --help                          Show this message and exit.
+
 
 ```
 
