@@ -273,7 +273,9 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 
 
 	Path(output_directory).mkdir(parents=True, exist_ok=True)
-	Path(f'./{output_directory}/coverages').mkdir(parents=True, exist_ok=True)
+	Path(f'./{output_directory}/wigs').mkdir(parents=True, exist_ok=True)
+	Path(f'./{output_directory}/bigwigs').mkdir(parents=True, exist_ok=True)
+
 
 	log_file = f"{output_directory}/Log_annotation.txt"
 	sys.stdout = Logger(log_file)
@@ -482,7 +484,7 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 
 	class wiggleClass():
 		def __init__(self, file):
-			self.file = f"./{output_directory}/coverages/{file}.wig"
+			self.file = f"./{output_directory}/wigs/{file}.wig"
 			self.outf = open(self.file, 'w')
 			self.reset()
 
@@ -513,6 +515,7 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 			wig = self.file
 
 			bigwig = wig.replace(".wig", ".bigwig")
+			bigwig = wig.replace("/wigs/", "/bigwigs/")
 			print(f"  {wig} -> {bigwig}", flush=True)
 
 			call = f"wigToBigWig {wig} ./{output_directory}/chrom.sizes.txt {bigwig}"
