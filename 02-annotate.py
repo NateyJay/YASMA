@@ -7,7 +7,7 @@ from pprint import pprint
 from subprocess import PIPE, Popen, call
 from pathlib import Path
 
-from os.path import isfile
+from os.path import isfile, isdir
 
 from time import time
 from collections import Counter, deque
@@ -657,15 +657,15 @@ def main():
 
 	assert isfile(input_bam), f"{input_bam} does not exist"
 
+	message = f"output_directory is already exists ({out_dir}). The annotator will not over-write by default (use --force to override). Be warned: this will trigger the overwrite of all files in this folder!"
+	assert not isdir(out_dir) or force, message
+
+
+
 	Path(out_dir).mkdir(parents=True, exist_ok=True)
 	Path(f'./{out_dir}/coverages').mkdir(parents=True, exist_ok=True)
 
-
 	log_file = f"{out_dir}/Log.txt"
-
-	if isfile(log_file) and not force:
-		sys.exit(f"Error: Log file is already exists ({log_file}). The annotator will not over-write by default (use --force to override). Be warned: this will trigger the overwrite of all files in this folder!")
-
 	sys.stdout = Logger(log_file)
 
 
@@ -678,6 +678,10 @@ def main():
 	half_window = int(window / 2)
 
 
+
+	# possible names:
+	# DicerLocus
+	# smallDicer
 
 
 	print()
