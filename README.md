@@ -180,7 +180,7 @@ The annotator produces several key output files:
 * **miRNA discovery methods.** This will focus on folding stranded regions of loci, including outside of locus boundaries, to try to find stable hairpins which meet miRNA rules. These will be reported as separate, possibly "daughter" loci.
 * **Preset settings.** These can be used to mimic different annotation rules - for example shortstack or the default settings for this software.
 * **Dicer agnositic settings.** This requires more thinking, as dicer-dependency is an essential aspect of this tool. However, there will likely be examples where it is hard or impossible to discern a proper dicer-range. It may be important to have informed settings for this tool to handle annotation lacking dicer information.
-
+* **JBrowse configuration.** Automatically producing configuration file for jbrowse.
 
 
 
