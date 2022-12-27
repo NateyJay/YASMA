@@ -1,14 +1,14 @@
 # annotator
  
 
-A general look at better ways to define loci in sRNA seq data.
-
 
 ### Problems with current approaches
-* ShortStack does a good job, with a easily understood algorithm and set of rules. However, it misses lots of miRNAs because of concatenation of loci.
-* This problem is exacerbated in fungi - high background sRNA levels make it hard to distinguish off-sized, degradation-related, and other loci from dicer or RNAi-related loci.
-* Moreover, ShortStack defines the boundaries of loci based on a merge window that require only a single read to extend. This means in libraries which are overly-deep compared to the genome size, loci can be come trivially large (annotating the whole genome). This is what we see in several fungi.
-* **The problems we see in fungi should be the emphasis of this software**
+* ShortStack does a good job, with a easily understood algorithm and set of rules. However, it misses lots of miRNAs because of concatenation of loci.  
+  
+* This problem is exacerbated in fungi - high background sRNA levels make it hard to distinguish off-sized, degradation-related, and other loci from dicer or RNAi-related loci.  
+  
+* Moreover, ShortStack defines the boundaries of loci based on a merge window that require only a single read to extend. This means in libraries which are overly-deep compared to the genome size, loci can be come trivially large (annotating the whole genome). **This is what we see in several fungi.**
+
 
 
 ### Ideas for implementation
@@ -76,7 +76,7 @@ Produces:
   30	0.056	6,932,318
 ```
 Showing the sRNA length, proportion, and depth. This result clearly points to what we already knew from the literature: this species produces mostly 21 and 22 nt sRNAs. If this is more vague, you might use a more broad setting for the following step.
-
+  
 
 #### **3)** Annotation
 Here the actual annotation takes place. Many options can affect the quality and discrimination of this step, so default and presets (a future option) are recommended for basic users. This approach basically takes 2 filters to define sRNA-producing regions and subsequently merges them to build loci.
