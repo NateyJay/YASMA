@@ -33,8 +33,13 @@
 
 
 ## Current approach
-
-The current version of the code is generally similar to ShortStack, but implements some of the changes above and some more suitable defaults to account for the changes. The pipeline currently follows 3 steps: 
+  
+The current version of the code is generally similar to ShortStack, but implements some of the changes above and some more suitable defaults to account for the changes. The pipeline currently follows 3 steps.
+  
+#### Assumptions
+As an input for this pipeline, libraries should be trimmed to remove any trace of adapter sequences. As with all sRNA-seq analyses, untrimmed reads should be removed. Some size selection at the trimming step might be important, as reads shorter than ~15 nt become quite problematic for alignment. However, this tool relies on non-sRNA-related reads to also be included in the alignment to function properly.  
+  
+A good recommended trimming range would be retaining 15-30 nt reads, though this might need to be flexible depending on your organism of interest.
 
 #### **1)** Alignment
 Currently, this approach uses ShortStack as its aligner protocol (based on Bowtie1). This is most simply run with all (trimmed) libraries and the ```--alignment_only``` option. 
