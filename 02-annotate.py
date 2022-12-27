@@ -662,6 +662,10 @@ def main():
 
 
 	log_file = f"{out_dir}/Log.txt"
+
+	if isfile(log_file) and not force:
+		sys.exit(f"Error: Log file is already exists ({log_file}). The annotator will not over-write by default (use --force to override). Be warned: this will trigger the overwrite of all files in this folder!")
+
 	sys.stdout = Logger(log_file)
 
 
@@ -775,7 +779,7 @@ def main():
 
 	print()
 	print('\033[1m[Depth settings]\033[0m')
-	print(f'   library_depth: {library_depth:,} reads')
+	print(f'    ann_rg_depth: {library_depth:,} reads')
 	print(f'          1 read: {round(read_equivalent,5)} rpm')
 	print(f"      rpm_cutoff: {rpm_cutoff} rpm -> {round(depth_cutoff,2)} reads")
 	print(f"      ext_cutoff: {ext_cutoff} rpm > {round(depth_cutoff*extension_multiplier,2)} reads")
@@ -803,12 +807,15 @@ def main():
 
 
 	total_locus_count = 0
+	chrom_count = 0
 
 	for chrom, chrom_length in chromosomes:
+		chrom_count += 1
 
 
 		print()
 		print()
+		print(f"{chrom_count} / {len(chromosomes)}")
 		print(f"chrom: {chrom}")
 		print(f"       {chrom_length:,} bp")
 		pos = 0
