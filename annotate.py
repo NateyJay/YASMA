@@ -309,9 +309,9 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 	def check_reqs():
 		tool_responses = {
 		'samtools version' : 'Samtools compilation details:',
-		'gt --version' : 'gt (GenomeTools)',
-		'bgzip --version' : 'bgzip (htslib)',
-		'tabix --version' : 'tabix (htslib)',
+		# 'gt --version' : 'gt (GenomeTools)',
+		# 'bgzip --version' : 'bgzip (htslib)',
+		# 'tabix --version' : 'tabix (htslib)',
 		'wigToBigWig' : 'wigToBigWig v 2.8',
 		}
 
@@ -342,29 +342,29 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 			print(" ", pass_str, tool)
 			# sys.exit()
 
-		do_not_prepare_gff = False
+		# do_not_prepare_gff = False
 		do_not_make_bigwig = False
 
 		if 'samtools' in fails:
 			sys.exit("Error: samtools not found in PATH (required)")
 
-		for tool in ['gt','bgzip','tabix']:
-			if tool in fails:
-				do_not_prepare_gff = True
-				break
+		# for tool in ['gt','bgzip','tabix']:
+		# 	if tool in fails:
+		# 		do_not_prepare_gff = True
+		# 		break
 
 		if 'wigToBigWig' in fails:
 			do_not_make_bigwig = True
 
-		if do_not_prepare_gff:
-			print("Warning: will not prepare indexed gff for jbrowse due to missing reqs")
+		# if do_not_prepare_gff:
+		# 	print("Warning: will not prepare indexed gff for jbrowse due to missing reqs")
 		if do_not_make_bigwig:
 			print("Warning: will not prepare bigwig files due to missing reqs")
 
-		return(do_not_prepare_gff, do_not_make_bigwig)
+		return(do_not_make_bigwig)
 
 
-	do_not_prepare_gff, do_not_make_bigwig = check_reqs()
+	do_not_make_bigwig = check_reqs()
 
 	# rpm_cutoff = round(rpm_cutoff / window, 6)
 
@@ -934,7 +934,16 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 					cov = coverages[size].get()
 					coverage_buffer[size].append(cov)
 					coverage_buffer[size].popleft()
-					wig_d[size].add(round(coverage_buffer[size][0] * read_equivalent,4), corrected_pos, chrom)
+
+					cov = coverage_buffer[size][0]
+
+					if size[-1] == "-":
+						cov = cov * -1
+
+
+
+
+					wig_d[size].add(round(cov * read_equivalent,4), corrected_pos, chrom)
 
 					if size in ['dcr','non']:
 						win_cov[size] = window_coverages[size].get()
@@ -953,7 +962,7 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 					wig_d['rpm_passing'].add(1, corrected_pos, chrom)
 
 				elif t1 == 'e':
-					wig_d['rpm_passing'].add(0.5, corrected_pos, chrom)
+					wig_d['rpm_passing'].add(0.3, corrected_pos, chrom)
 
 				else:
 					wig_d['rpm_passing'].add(0, corrected_pos, chrom)
@@ -977,7 +986,7 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 
 				elif tests == "n-" or t1 == 'e':
 					locus.hit(corrected_pos, 'ext')
-					wig_d['passing_all'].add(0.5, corrected_pos, chrom)
+					wig_d['passing_all'].add(0.3, corrected_pos, chrom)
 
 				else:
 					wig_d['passing_all'].add(0, corrected_pos, chrom)
@@ -1032,7 +1041,7 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 		print(f"  {med_length:,} median length")
 		print(f"  {med_gap:,} median gap")
 
-		break
+		# break
 
 
 	print()
@@ -1075,12 +1084,12 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 		call(c4.split())
 
 
-	print()
-	if not do_not_prepare_gff:
-		print("indexing GFF for jbrowse...")
-		prepare_gff(gff_file)
-	else:
-		print("Not preparing indexed gff due to missing reqs...")
+	# print()
+	# if not do_not_prepare_gff:
+	# 	print("indexing GFF for jbrowse...")
+	# 	prepare_gff(gff_file)
+	# else:
+	# 	print("Not preparing indexed gff due to missing reqs...")
 
 cli.add_command(precheck)
 cli.add_command(annotate)
