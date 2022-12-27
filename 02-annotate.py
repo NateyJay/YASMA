@@ -661,7 +661,7 @@ def main():
 	Path(f'./{out_dir}/coverages').mkdir(parents=True, exist_ok=True)
 
 
-	log_file = f"{out_dir}/log.txt"
+	log_file = f"{out_dir}/Log.txt"
 	sys.stdout = Logger(log_file)
 
 
