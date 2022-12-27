@@ -80,14 +80,14 @@ Showing the sRNA length, proportion, and depth. This result clearly points to wh
 
 #### **3)** Annotation
 Here the actual annotation takes place. Many options can affect the quality and discrimination of this step, so default and presets (a future option) are recommended for basic users. This approach basically takes 2 filters to define sRNA-producing regions and subsequently merges them to build loci.
-
+  
 Regions are defined by 2 rules:
 1) Positions passing a minimal coverage of DCR-sized sRNAs (default 1.0 RPM). Regions with lower RPMs are also considered (default 1.0 RPM * 0.5), but only for extending loci which have contain a fully-passing region. 
 2) Positions where a in a user-defined window (default 100 nt) there are more DCR-sized sRNAs overlapping by a certain fold (default 3 fold).
-
+  
 These regions are then merged based on a distance (default 150 nt), expanded to incorporate any overlapping reads, and padded to add some 'wiggle room' (default 10 nt).
-
-
+  
+  
 To run, we must specify a few important options:  
 ```--bamfile (-b)``` for the merged alignment from before.  
   
@@ -97,7 +97,7 @@ To run, we must specify a few important options:
   
 ```--readgroups (-r)``` takes a list of the read-groups (libraries) from which you want to form the annotation. For example, you might want to exclude libraries which have a sRNA-biogenesis mutation, otherwise you would would specifically annotate non-sRNAs. Read-groups excluded here will still be included in the counts table. 
   
-
+  
 Here's an example call:
 ```
 02-annotate.py -b ./alignment_dir/merged_alignments.cram \
@@ -152,8 +152,13 @@ The annotator produces several key output files:
   
 ```Coverages``` is a folder containing wig and bigwig (assuming prerequisites) coverage files. This includes coverages for all DCR sizes by strand, DCR and non-DCR coverages (ignoring strand), and metrics for passing and considering a sRNA-regions.
 
+  
+## Planned features
 
-
+* **Locus input.** In addition to discovery, this tool will take input loci which can be evaluated independently (or along side) *de novo* annotation.
+* **miRNA discovery methods.** This will focus on folding stranded regions of loci, including outside of locus boundaries, to try to find stable hairpins which meet miRNA rules. These will be reported as separate, possibly "daughter" loci.
+* **Preset settings.** These can be used to mimic different annotation rules - for example shortstack or the default settings for this software.
+* **Dicer agnositic settings.** This requires more thinking, as dicer-dependency is an essential aspect of this tool. However, there will likely be examples where it is hard or impossible to discern a proper dicer-range. It may be important to have informed settings for this tool to handle annotation lacking dicer information.
 
 
 
