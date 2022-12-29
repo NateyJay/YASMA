@@ -11,7 +11,7 @@ from pathlib import Path
 
 from os.path import isfile, isdir
 
-from time import time
+from time import time, sleep
 from collections import Counter, deque
 from itertools import count, chain
 
@@ -137,11 +137,11 @@ def precheck(alignment_file, annotation_readgroups, output_directory, force):
 
 
 	log_file = f"{output_directory}/Log_precheck.txt"
-	sys.stdout = Logger(log_file)
-
 
 	message = f"log_file is already exists ({log_file}). The annotator will not over-write by default (use --force to override). Be warned: this will trigger the overwrite of some files in this folder!"
 	assert not isfile(log_file) or force, message
+
+	sys.stdout = Logger(log_file)
 
 
 	chromosomes, bam_rgs = get_chromosomes(alignment_file, output_directory)
@@ -273,16 +273,27 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 
 
 	Path(output_directory).mkdir(parents=True, exist_ok=True)
-	Path(f'./{output_directory}/wigs').mkdir(parents=True, exist_ok=True)
-	Path(f'./{output_directory}/bigwigs').mkdir(parents=True, exist_ok=True)
+	Path(f'./{output_directory}/coverages').mkdir(parents=True, exist_ok=True)
+
+
 
 
 	log_file = f"{output_directory}/Log_annotation.txt"
+	message = f"log_file is already exists ({log_file}). The annotator will not over-write by default (use --force to override). Be warned: this will trigger the overwrite of some files in this folder!"
+	assert not isfile(log_file) or force, message
+
+	if force and isfile(log_file):
+		print("force flag included, overwrite possible", end='', flush=True)
+		counter = 0
+		while counter < 5:
+			print('.', end='', flush=True)
+			sleep(1)
+			counter += 1
+		
+
 	sys.stdout = Logger(log_file)
 
 
-	message = f"log_file is already exists ({log_file}). The annotator will not over-write by default (use --force to override). Be warned: this will trigger the overwrite of some files in this folder!"
-	assert not isfile(log_file) or force, message
 
 	dicercall = [int(d) for d in dicercall]
 	dcr_range = set([r for r in range(min(dicercall), max(dicercall) + 1)])
@@ -484,7 +495,7 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 
 	class wiggleClass():
 		def __init__(self, file):
-			self.file = f"./{output_directory}/wigs/{file}.wig"
+			self.file = f"./{output_directory}/coverages/{file}.wig"
 			self.outf = open(self.file, 'w')
 			self.reset()
 
@@ -515,7 +526,7 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 			wig = self.file
 
 			bigwig = wig.replace(".wig", ".bigwig")
-			bigwig = wig.replace("/wigs/", "/bigwigs/")
+
 			print(f"  {wig} -> {bigwig}", flush=True)
 
 			call = f"wigToBigWig {wig} ./{output_directory}/chrom.sizes.txt {bigwig}"
@@ -643,6 +654,9 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 
 		def check(self, pos):
 			# print(self.reads)
+
+			# if pos > 1392000:
+			# 	print(pos, self.last_hit_pos)
 
 			if self.in_locus:
 
@@ -884,7 +898,7 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 
 		while sam_chrom == chrom:
 
-			# if pos == 393471:
+			# if pos == 1393300:
 			# 	sys.exit()
 
 			# if pos == 1000000:
@@ -999,12 +1013,14 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 				# if tests and "-" not in tests:
 				# if rds['dcr'] and rds['dcr'] > 0 and pos-half_window > 0:
 				# if pos >
-				# if "n" in tests or 'e' in tests:
-				# 	print(chrom, pos-half_window, 
-				# 		"||", coverage_buffer['dcr'][0], round(dens['dcr'], 4), dens_rpm['dcr'], rds['dcr'], 
-				# 		"||", coverage_buffer['non'][0], round(dens['non'], 4), dens_rpm['non'], rds['non'],
-				# 		'||', tests,
-				# 		sep='\t')
+
+				# if pos > 1392000:
+				# 	if "n" in tests or 'e' in tests:
+				# 		print(chrom, pos-half_window, 
+				# 			"||", coverage_buffer['dcr'][0], round(win_cov['dcr'], 4), 
+				# 			"||", coverage_buffer['non'][0], round(win_cov['non'], 4),
+				# 			'||', tests,
+				# 			sep='\t')
 
 
 
@@ -1094,8 +1110,49 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 	# else:
 	# 	print("Not preparing indexed gff due to missing reqs...")
 
+
+
+
+@click.command()
+@click.option("-a", "--alignment_file", 
+	required=True, 
+	type=click.Path(exists=True),
+	help='Alignment file input (bam or cram).')
+
+@click.option('-r', '--annotation_readgroups', 
+	required=True,
+	multiple=True,
+	help="List of read groups (RGs, libraries) to be considered for the annotation. 'ALL' uses all readgroups for annotation, but often pertainent RGs will need to be specified individually.")
+
+@click.option("-o", "--output_directory", 
+	default=f"Annotation_{round(time())}", 
+	type=click.Path(),
+	help="Directory name for annotation output")
+
+def fold(alignment_file, annotation_readgroups, output_directory):
+
+
+
+	results_file = f"{output_directory}/Results.txt"
+
+	assert isfile(results_file), f"results_file {results_file} not found... (Have you run annotation with this directory?)"
+
+	with open(results_file, 'r') as f:
+
+		for line in f:
+			line = line.strip().split()
+			print(line)
+			# sys.exit()
+
+
+
+
+
+
+
 cli.add_command(precheck)
 cli.add_command(annotate)
+cli.add_command(fold)
 
 if __name__ == '__main__':
 	cli()
