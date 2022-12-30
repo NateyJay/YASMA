@@ -17,12 +17,88 @@ from itertools import count, chain
 
 from statistics import median, mean
 
+from Levenshtein import distance
 
+def complement(s):
+	d = {"U" : "A", 
+	"A":"U", "G":"C", "C":"G", "N":"N"}
+
+	s = "".join([d[letter] for letter in s])
+	return(s)
+
+
+def samtools_view(bam, dcr_range=False, non_range=False, locus=False):
+
+	if not isfile(f"{bam}.bai"):
+		# call = f"samtools index {bam}"
+		call= ['samtools','index',bam]
+		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+		out,err=p.communicate()
+		# print(out)
+		# print(err)
+
+
+	# call = f"samtools view -@ 4 -F 4 {bam}"
+	call = ['samtools', 'view', '-F', '4', bam]
+
+
+	if locus:
+		call.append(locus)
+		
+	# print(call)
+	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+
+	for i,line in enumerate(p.stdout):
+
+		line = line.strip().split()
+
+		# read_id, flag, sam_chrom, sam_pos, _, length, _, _, _, _,_,_,_,_,_,_,_,_,rg= line
+
+		read_id = line[0]
+		flag = line[1]
+		seq = line[9]
+
+		if flag == "16":
+			strand = '-'
+		elif flag == '0':
+			strand = "+"
+		else:
+			strand = False
+
+		# print(line)
+		length = int(line[5].rstrip("M"))
+		# sam_pos = int(sam_pos)
+
+		# length = len(line[9])
+
+		sam_pos = int(line[3])
+		sam_chrom = line[2]
+
+		seq = seq.replace("T", "U")
+
+		rg = line[18].lstrip("RG:Z:")
+
+		if dcr_range and non_range:
+			if length in dcr_range:
+				size = 'dcr'
+			elif length in non_range:
+				size = 'non'
+			else:
+				size = False
+		else:
+			size = False
+
+
+
+		yield(strand, length, size, sam_pos, sam_chrom, rg, seq)
+
+	p.wait()
 
 def get_chromosomes(file,output_directory):
 	chromosomes = []
 	rgs = []
 	# call = f"samtools view -@ 4 -H {file}"
+
 	call = ['samtools','view','-H', file]
 	# print(call)
 
@@ -558,65 +634,8 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 	cluster_counter = inf_counter()
 
 
-	def samtools_view(bam):
 
-		if not isfile(f"{bam}.bai"):
-			# call = f"samtools index {bam}"
-			call= ['samtools','index',bam]
-			p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
-			out,err=p.communicate()
-			print(out)
-			print(err)
-
-
-		# call = f"samtools view -@ 4 -F 4 {bam}"
-		call = ['samtools', 'view', '-F', '4', bam]
-		# print(call)
-		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
-
-		for i,line in enumerate(p.stdout):
-
-			line = line.strip().split()
-
-			# read_id, flag, sam_chrom, sam_pos, _, length, _, _, _, _,_,_,_,_,_,_,_,_,rg= line
-
-			read_id = line[0]
-			flag = line[1]
-			seq = line[9]
-
-			if flag == "16":
-				strand = '-'
-			elif flag == '0':
-				strand = "+"
-			else:
-				strand = False
-
-			# print(line)
-			length = int(line[5].rstrip("M"))
-			# sam_pos = int(sam_pos)
-
-			# length = len(line[9])
-
-			sam_pos = int(line[3])
-			sam_chrom = line[2]
-
-			rg = line[18].lstrip("RG:Z:")
-
-
-			if length in dcr_range:
-				size = 'dcr'
-			elif length in non_range:
-				size = 'non'
-			else:
-				size = False
-
-
-
-			yield(strand, length, size, sam_pos, sam_chrom, rg, seq)
-
-		p.wait()
-
-	sam_iter = samtools_view(alignment_file)
+	sam_iter = samtools_view(alignment_file, dcr_range, non_range)
 	read = next(sam_iter)
 	sam_strand, sam_length, sam_size, sam_pos, sam_chrom, sam_rg, sam_read = read
 
@@ -727,6 +746,8 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 				size_c.update([sam_size])
 				strand_c.update([sam_strand])
 				rg_c.update([sam_rg])
+				if sam_strand == "-":
+					sam_read = complement(sam_read[::-1])
 				read_c.update([sam_read])
 
 
@@ -748,6 +769,10 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 
 			dist_to_last = start - self.last_end
 			self.last_end = stop
+
+
+			if start < 0:
+				start = 0
 
 			coords = f"{chrom}:{start}..{stop}"
 			length = stop - start
@@ -1083,12 +1108,6 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 		zipped_input = sorted_input.replace(".gff3", ".gff3.gz")
 
 
-		# print(gff_input)
-		# print(sorted_input)
-		# print(zipped_input)
-
-
-
 		print("  sorting...")
 		c2 = f"gt gff3 -retainids -sortlines -tidy {gff_input}"
 		with open(sorted_input, 'w') as f:
@@ -1103,13 +1122,399 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 		call(c4.split())
 
 
-	# print()
-	# if not do_not_prepare_gff:
-	# 	print("indexing GFF for jbrowse...")
-	# 	prepare_gff(gff_file)
-	# else:
-	# 	print("Not preparing indexed gff due to missing reqs...")
 
+class hairpinClass():
+	def __init__(self, seq, fold, pairing, mas, mas_c, pos_d, status):
+
+		self.valid   = False
+
+		self.seq     = seq
+		self.fold    = fold
+		self.pairing = pairing
+		self.mas     = mas
+
+		self.mas_c   = mas_c
+		self.pos_d   = pos_d
+
+		self.status  = status
+
+
+		self.ruling_d = {
+		'mismatches_total' : None,
+		'mismatches_asymm' : None,
+		'no_mas_structures' : None,
+		'no_star_structures' : None,
+		'precision' : None,
+		'star_found' : None
+		}
+
+		if self.mas not in seq:
+			self.status.append("MAS not found in hairpin sequence")
+			return
+
+
+		self.mas_positions = [r + self.seq.index(self.mas) for r in range(len(self.mas) + 1)]
+
+		self.mas_structures = self.find_secondary_structures("".join([fold[p] for p in self.mas_positions]))
+
+		if self.mas_structures:
+			self.status.append("secondary structure found in MAS")
+			return
+
+		self.star_found = self.find_star()
+
+		if self.star_found:
+
+			# print(self.star)
+			# print(" " * self.seq.index(self.star) + self.star)
+
+
+
+			self.star_structures = self.find_secondary_structures("".join([fold[p] for p in self.star_positions]))
+
+			if self.star_structures:
+				self.status.append("secondary structure found in MAS")
+
+			else:
+				self.valid = True
+
+				self.assess_miRNA()
+
+
+	def __str__(self):
+
+		hp_len = len(self.seq)
+
+		def read_string(pos, read, depth):
+			s = "." * pos + read + "." *(hp_len - len(read) - pos) + " a=" + str(depth)
+			return(s)
+
+		def mismatch_to_lower(pos, read):
+			out = ''
+
+			for i,r in enumerate(read):
+
+				if self.seq[i+pos] != r:
+					out += r.lower()
+				else:
+					out += r
+			return(out)
+
+
+		out = []
+		out.append("\nHairpin sequence:")
+		out.append(self.seq)
+		out.append(self.fold)
+		out.append(read_string(self.seq.index(self.mas), self.mas, self.mas_c[self.mas]))
+
+		if self.star_found:
+			out.append(read_string(self.seq.index(self.star), self.star, self.mas_c[self.star]))
+
+		out.append('')
+
+		for i in range(hp_len):
+
+			try:
+				reads = self.pos_d[i]
+			except KeyError:
+				reads = []
+
+			for read in reads:
+				print_read = mismatch_to_lower(i, read)
+				out.append(read_string(i, print_read, self.mas_c[read]))
+
+
+		out.append("\nDuplex sequence:")
+
+		out.append(self.duplex_mas)
+		out.append(self.duplex_fold)
+		out.append(self.duplex_star)
+
+
+		out.append("\nRuling:")
+		out.append(self.ruling)
+
+
+		out.append("")
+		for key, val in self.ruling_d.items():
+			out.append(f"{key} : {val}")
+
+
+		out.append("\nStatus:")
+		out += self.status
+
+
+
+		return("\n".join(map(str,out)))
+
+	def find_secondary_structures(self, fold):
+		# print(fold)
+
+		if "(" in fold and ")" in fold:
+			return(True)
+		else:
+			return(False)
+		# sys.exit()
+
+
+	def find_star(self, offset=2):
+
+		# print('mas')
+		# print(" "* offset + "".join([self.seq[p] for p in self.mas_positions]))
+		# print(" "* offset + "".join([self.fold[p] for p in self.mas_positions]))
+
+		for left_off, left_pos in enumerate(self.mas_positions):
+			if self.pairing[left_pos] != ".":
+				break
+
+		for right_off, right_pos in enumerate(self.mas_positions[::-1]):
+			if self.pairing[right_pos] != ".":
+				break
+
+
+		# print(left_off, left_pos, right_off, right_pos)
+		# print(self.pairing[right_pos])
+		# print(self.pairing[left_pos])
+		star_right_pos = self.pairing[left_pos] + left_off + offset
+		star_left_pos  = self.pairing[right_pos] - right_off + offset
+
+
+		self.star_positions = [r for r in range(star_left_pos, star_right_pos+1)]
+
+
+		if self.star_positions == []:
+			self.status.append("no star positions found")
+			return False
+
+		if max(self.star_positions) >= len(self.seq) or min(self.star_positions) < 0:
+			self.status.append("star expands outside of hairpin")
+			return False
+
+		if len(set(self.mas_positions).intersection(self.star_positions)) > 0:
+			self.status.append("mas and proposed star overlap")
+			return False
+
+
+
+
+		# print(self.star_positions)
+		star = "".join([self.seq[p] for p in self.star_positions])
+		star_fold = "".join([self.fold[p] for p in self.star_positions])
+		# print(star_fold[::-1])
+		# print(star[::-1])
+
+		# print(self.mas_positions)
+		# print(self.star_positions)
+
+		# print(star_left_pos, star_right_pos)
+
+
+		m_seq  = deque([self.seq[p] for p in self.mas_positions])
+		m_fold = deque([self.fold[p] for p in self.mas_positions])
+		s_seq  = deque([self.seq[p] for p in self.star_positions[::-1]])
+		s_fold = deque([self.fold[p] for p in self.star_positions[::-1]])
+
+		m_out = ' ' * offset
+		s_out = s_seq.popleft() + s_seq.popleft()
+		f_out = ' ' * offset
+
+		s_fold.popleft()
+		s_fold.popleft()
+
+		while len(m_seq) > 0:
+
+			m_f = m_fold.popleft()
+			m_s = m_seq.popleft()
+
+
+			try:
+				s_f = s_fold.popleft()
+				s_s = s_seq.popleft()
+			except IndexError:
+				s_f = " "
+				s_s = " "
+
+			if s_s == ' ':
+				f_out += " "
+				s_out += s_s
+				m_out += m_s
+
+			elif m_f == "." and s_f == ".":
+				f_out += "."
+				s_out += s_s
+				m_out += m_s
+
+			elif m_f == ".":
+				f_out += "."
+				s_out += "-"
+				m_out += m_s
+
+				s_seq.appendleft(s_s)
+				s_fold.appendleft(s_f)
+
+
+			elif s_f == ".":
+				f_out += "."
+				s_out += s_s
+				m_out += "-"
+
+				m_seq.appendleft(m_s)
+				m_fold.appendleft(m_f)
+
+
+			else:
+				f_out += "|"
+				s_out += s_s
+				m_out += m_s
+
+			# input()
+
+
+
+		# print(m_out)
+		# print(f_out)
+		# print(s_out)
+
+		self.star = star
+
+		self.duplex_mas  = m_out
+		self.duplex_fold = f_out
+		self.duplex_star = s_out
+
+
+		return(True)
+		# dup_mas = self.mas[:offset]
+		# dup_mas_fold = self.
+		# dup_star = " " * offset
+
+		# while True:
+
+	def assess_miRNA(self):
+
+
+		locus_depth = sum(self.mas_c.values())
+
+		def test_duplex_mismatch():
+
+			total_mismatches = 0
+			asymetric_mismatches = 0
+
+			m_length = 0
+			s_length = 0
+
+			for i in range(len(self.duplex_mas)):
+
+				m = self.duplex_mas[i]
+				f = self.duplex_fold[i]
+				s = self.duplex_star[i]
+
+				if f == ".":
+					if m != "-":
+						m_length += 1
+
+					if s != "-":
+						s_length += 1
+
+				else:
+
+					if m_length + s_length > 0:
+
+						total_mismatches += max([m_length, s_length])
+						asymetric_mismatches += abs(m_length - s_length)
+
+
+
+					m_length = 0
+					s_length = 0
+
+
+			out = ''
+
+			self.ruling_d['mismatches_total'] = total_mismatches
+			self.ruling_d['mismatches_asymm'] = asymetric_mismatches
+
+			if total_mismatches <= 5:
+				out += "x"
+			else:
+				out += '-'
+
+			if asymetric_mismatches <= 3:
+				out += 'x'
+			else:
+				out += '-'
+
+			return(out)
+
+
+		def test_secondary_structure():
+			# u = duplex_mas_set.intersection(duplex_star_set)
+			# print(u)
+			out = ''
+
+			out += "-" if self.mas_structures else "x"
+			out += "-" if self.star_structures else "x"
+
+			self.ruling_d['no_mas_structures'] =  not self.mas_structures
+			self.ruling_d['no_star_structures'] =  not self.star_structures
+
+			return(out)
+
+		def test_precision():
+
+			single_variants = 0
+			for key, val in self.mas_c.items():
+
+				# if strand == "-":
+				# 	key = complement(key[::-1])
+				# print(key, val)
+				# print(mas, distance(key, mas))
+				# print()
+				if distance(key, self.mas) <= 1 or distance(key, self.star) <= 1:
+					single_variants += val
+
+			# print(single_variants)
+
+			precision = single_variants / locus_depth 
+			self.ruling_d['precision'] =  precision
+
+			if precision > 0.75:
+				return("x")
+			else:
+				return("-")
+
+		def test_star_found():
+
+
+			self.ruling_d['star_found'] = False
+
+
+			for key, val in self.mas_c.items():
+				if distance(key, self.star) <= 1:
+
+					self.ruling_d['star_found'] = True
+					return('x')
+
+			# if self.mas_c[self.star] > 0:
+			# 	return('x')
+			else:
+				return("-")
+
+
+
+		test_str = ''
+		test_str += test_duplex_mismatch()
+		test_str += " " + test_secondary_structure()
+		test_str += " " + test_precision()
+		test_str += " " + test_star_found()
+
+
+		# print(test_str)
+		# return(test_str)
+		self.ruling = test_str
+
+
+	# sys.exit()
+	# def check_fold(start, stop):
 
 
 
@@ -1119,32 +1524,325 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 	type=click.Path(exists=True),
 	help='Alignment file input (bam or cram).')
 
-@click.option('-r', '--annotation_readgroups', 
-	required=True,
-	multiple=True,
-	help="List of read groups (RGs, libraries) to be considered for the annotation. 'ALL' uses all readgroups for annotation, but often pertainent RGs will need to be specified individually.")
+# @click.option('-r', '--annotation_readgroups', 
+# 	required=False,
+# 	default = False,
+# 	multiple=True,
+# 	help="List of read groups (RGs, libraries) to be considered for the annotation. 'ALL' uses all readgroups for annotation, but often pertainent RGs will need to be specified individually.")
 
 @click.option("-o", "--output_directory", 
 	default=f"Annotation_{round(time())}", 
 	type=click.Path(),
 	help="Directory name for annotation output")
 
-def fold(alignment_file, annotation_readgroups, output_directory):
+@click.option('-i', "--ignore_replication",
+	is_flag=True,
+	help='Evaluate all readgroups together, ignoring if a miRNA is replicated')
+
+@click.option("-m", "--max_length",
+	default=300,
+	help='Maximum hairpin size (default 300). Longer loci will not be considered for miRNA analysis.')
+
+def fold(alignment_file, output_directory, ignore_replication, max_length):
 
 
+	def get_genome_file():
+		call = ['samtools', 'view', '-H', alignment_file]
+
+		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+
+		for line in p.stdout:
+			if line.startswith("@SQ"):
+				# print(line)
+				break
+		p.wait()
+		line = line.strip().split()[4]
+		# print(line)
+		genome = line.lstrip("UR:")
+
+		return(genome)
+
+
+	def samtools_faidx(locus, strand):
+
+		call = ['samtools', 'faidx', genome_file, locus]
+
+		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+
+		out, err = p.communicate()
+
+		if err != "":
+			sys.exit(err)
+
+		out = "".join(out.split("\n")[1:]).strip().upper()
+
+		out = out.replace("T","U")
+		# print(out)
+
+		if strand == '-':
+			out = out[::-1]
+			out = complement(out)
+		return(out)
+
+
+	
+	def RNAfold(seq):
+		assert len(seq) > 0, f"hairpin is length 0\n{seq}"
+
+		p = Popen(['RNAfold', '--noPS'],
+					  stdout=PIPE,
+					stderr=PIPE,
+					stdin=PIPE,
+					encoding='utf-8')
+		out, err = p.communicate(f">1\n{seq}")
+		
+		# print("hp:", hp)
+
+		mfe = float(out.strip().split()[-1].strip(")").strip("("))
+		fold = out.strip().split("\n")[2].split()[0]
+
+
+		pairing = []
+		stack = []
+
+		for i,f in enumerate(fold):
+			if f == ".":
+				pairing.append('.')
+
+			elif f == "(":
+				stack.append(i)
+				pairing.append(i)
+
+			elif f == ")":
+				pairing.append(stack.pop())
+
+
+		corr_pairing = []
+
+		for i,p in enumerate(pairing):
+			if p == '.':
+				cp = p
+			else:
+				cp = [cor_i for cor_i, cor_p in enumerate(pairing) if cor_p == p and cor_i != i][0]
+			corr_pairing.append(cp)
+
+		# pairing = corr_pairing[:]
+
+		return(fold, mfe, corr_pairing)
+
+
+	def get_locus(locus, strand, input_mas):
+		seq = samtools_faidx(locus, strand)
+		fold, mfe, pairing = RNAfold(seq)
+
+		mas_d = {}
+		pos_d = {}
+		input_mas_coords = False
+		# print(seq)
+		# print(fold)
+
+		for read in samtools_view(alignment_file, locus=locus):
+
+			sam_strand, sam_length, _, sam_pos, sam_chrom, sam_rg, sam_read = read
+
+			if ignore_replication:
+				sam_rg = 'all'
+
+			# sam_read = sam_read.replace("T",'U')
+
+			if sam_strand == "-":
+				sam_read = complement(sam_read[::-1])
+
+			if sam_pos >= start and sam_pos + sam_length <= stop:
+				if sam_strand == strand:
+
+					# if sam_read == input_mas:
+
+					# 	sys.exit()
+
+					if not input_mas_coords and sam_read == input_mas:
+						input_mas_coords = f"{sam_chrom}:{sam_pos}-{sam_pos + sam_length+1}"
+
+					if strand == '+':
+						corrected_pos = sam_pos - start
+					else:
+						corrected_pos = stop - sam_pos - sam_length + 1
+
+					try:
+						pos_d[corrected_pos].add(sam_read)
+					except KeyError:
+						pos_d[corrected_pos] = set([sam_read])
+
+					try:
+						mas_d[sam_rg].update([sam_read])
+					except KeyError:
+						mas_d[sam_rg] = Counter()
+						mas_d[sam_rg].update([sam_read])
+
+		return(seq, fold, mfe, pairing, mas_d, pos_d, input_mas_coords)
+
+
+	genome_file = get_genome_file()
 
 	results_file = f"{output_directory}/Results.txt"
-
 	assert isfile(results_file), f"results_file {results_file} not found... (Have you run annotation with this directory?)"
 
-	with open(results_file, 'r') as f:
-
+	input_mas_d = {}
+	tops_file = f"{output_directory}/TopReads.txt"
+	with open(tops_file, 'r') as f:
+		header = f.readline()
 		for line in f:
-			line = line.strip().split()
-			print(line)
-			# sys.exit()
+			line = line.strip().split('\t')
+
+			name = line[0]
+			mas  = line[1].upper().replace("T","U")
+
+			if name not in input_mas_d.keys():
+				input_mas_d[name] = mas
+				# input_mas_d[line[0]] = line[1]
 
 
+
+
+
+
+	with open(results_file, 'r') as f:
+		header = f.readline()
+		for line in f:
+			line = line.strip().split('\t')
+			name, locus = line[:2]
+			strand = line[8]
+			length = int(line[2])
+
+
+			locus = locus.replace("..", "-")
+
+			chrom = locus.split(":")[0]
+			start = int(locus.split(":")[1].split("-")[0])
+			stop  = int(locus.split(":")[1].split("-")[1])
+
+
+
+
+			# print(seq, fold, mfe, sep='\n')
+
+			cluster_selected = True
+			# cluster_selected = name == 'Cl_125'
+
+			status = []
+
+			stranded = strand in ["-", "+"]
+			if stranded:
+				status.append(f"{strand} stranded")
+			else:
+				status.append("not stranded")
+
+			short_enough = length <= max_length
+			if short_enough:
+				status.append(f"length {length} <= {max_length}")
+			else:
+				status.append(f"too long {length}")
+
+			if stranded and short_enough and cluster_selected:
+
+				seq, fold, mfe, pairing, mas_d, pos_d, input_mas_coords = get_locus(locus, strand, input_mas_d[name])
+
+				for rg in mas_d.keys():
+
+					if rg != 'all':
+						print(rg)
+
+					mas_c = mas_d[rg]
+					mas = mas_c.most_common(1)[0][0]
+
+					# if strand == "-":
+					# 	# print(mas[::-1])
+					# 	mas = complement(mas[::-1])
+
+
+					if mas in seq:
+
+						hpc = hairpinClass(seq, fold, pairing, mas, mas_c, pos_d, status)
+						# ruling = assess_miRNA(seq, fold, mfe, pairing, mas, mas_c)
+
+						if hpc.valid:
+
+							print()
+
+							print()
+							print(f"{hpc.ruling}\t\033[1m{name}\033[0m", length, sep='\t')
+							# print(length, 'valid', hpc.status[-1], sep='\t')
+							# print(hpc)
+							# sys.exit()
+						# else:
+							# print(length, 'non', hpc.status[-1], sep='\t')
+
+
+
+
+				sys.exit()
+
+
+
+
+
+
+
+				# print(input_mas_coords)
+
+
+				imas_start = int(input_mas_coords.split(":")[-1].split("-")[0])
+				imas_stop  = int(input_mas_coords.split(":")[-1].split("-")[1])
+				# print()
+
+				gemini_size = 120
+				gemini_offset = 20
+
+				gemini = [
+				f"{chrom}:{imas_start - gemini_size + gemini_offset}-{imas_stop + gemini_offset}",
+				f"{chrom}:{imas_start - gemini_offset}-{imas_stop + gemini_size - gemini_offset}"
+				]
+
+				for gem_i, gem in enumerate(gemini):
+					# print(gem)
+
+					start = int(gem.split(":")[-1].split("-")[0])
+					stop  = int(gem.split(":")[-1].split("-")[1])
+
+					seq, fold, mfe, pairing, mas_d, pos_d, input_mas_coords = get_locus(gem, strand, input_mas_d[name])
+
+					for rg in mas_d.keys():
+
+						if rg != 'all':
+							print(rg)
+
+						mas_c = mas_d[rg]
+						# pprint(mas_c)
+						# sys.exit()
+						mas = mas_c.most_common(1)[0][0]
+
+						# if strand == "-":
+						# 	# print(mas[::-1])
+						# 	mas = complement(mas[::-1])
+
+						if mas in seq:
+
+							hpc = hairpinClass(seq, fold, pairing, mas, mas_c, pos_d, status)
+							# ruling = assess_miRNA(seq, fold, mfe, pairing, mas, mas_c)
+
+							print(hpc)
+							sys.exit()
+
+							if hpc.valid:
+
+								print()
+
+								print()
+								print(f"{hpc.ruling}\t\033[1m{name}\033[0m", length, ['castor', 'pollux'][gem_i], sep='\t')
+								# print(length, 'valid', hpc.status[-1], sep='\t')
+								# print(hpc)
+
+				# sys.exit()
 
 
 
