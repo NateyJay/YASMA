@@ -1123,20 +1123,113 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 
 
 
+
+def samtools_faidx(locus, strand, genome_file):
+
+	call = ['samtools', 'faidx', genome_file, locus]
+
+	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+
+	out, err = p.communicate()
+
+	if err != "":
+		sys.exit(err)
+
+	out = "".join(out.split("\n")[1:]).strip().upper()
+
+	out = out.replace("T","U")
+	# print(out)
+
+	if strand == '-':
+		out = out[::-1]
+		out = complement(out)
+	return(out)
+
+def RNAfold(seq):
+	assert len(seq) > 0, f"hairpin is length 0\n{seq}"
+
+	p = Popen(['RNAfold', '--noPS'],
+				  stdout=PIPE,
+				stderr=PIPE,
+				stdin=PIPE,
+				encoding='utf-8')
+	out, err = p.communicate(f">1\n{seq}")
+	
+	# print("hp:", hp)
+
+	mfe = float(out.strip().split()[-1].strip(")").strip("("))
+	fold = out.strip().split("\n")[2].split()[0]
+
+
+	pairing = []
+	stack = []
+
+	for i,f in enumerate(fold):
+		if f == ".":
+			pairing.append('.')
+
+		elif f == "(":
+			stack.append(i)
+			pairing.append(i)
+
+		elif f == ")":
+			pairing.append(stack.pop())
+
+
+	corr_pairing = []
+
+	for i,p in enumerate(pairing):
+		if p == '.':
+			cp = p
+		else:
+			cp = [cor_i for cor_i, cor_p in enumerate(pairing) if cor_p == p and cor_i != i][0]
+		corr_pairing.append(cp)
+
+	# pairing = corr_pairing[:]
+
+	return(fold, mfe, corr_pairing)
+
+
 class hairpinClass():
-	def __init__(self, seq, fold, pairing, mas, mas_c, pos_d, status):
+	def __init__(self, name, locus, strand, input_mas, genome_file, alignment_file):
+
 
 		self.valid   = False
+		self.status  = []
 
-		self.seq     = seq
-		self.fold    = fold
-		self.pairing = pairing
-		self.mas     = mas
+		self.name = name
+		self.locus = locus
+		self.strand = strand
+		self.input_mas = input_mas
+		self.genome_file = genome_file
+		self.alignment_file = alignment_file
 
-		self.mas_c   = mas_c
-		self.pos_d   = pos_d
+		self.chrom = self.locus.split(":")[0]
+		self.start = int(self.locus.split(":")[-1].split("-")[0])
+		self.stop  = int(self.locus.split(":")[-1].split("-")[1])
 
-		self.status  = status
+
+		self.seq, self.fold, self.mfe, self.pairing, mas_d, self.pos_d, self.input_mas_coords = self.get_locus(locus, strand, input_mas)
+
+
+		self.mas_c = mas_d['all']
+		self.mas = self.mas_c.most_common(1)[0][0]
+
+
+		self.star = None
+		self.duplex_mas, self.duplex_fold, self.duplex_star = '','',''
+
+
+
+		## this needs to be salvaged to work on reproducibility.
+		# for rg in mas_d.keys():
+
+		# 	if rg != 'all':
+		# 		print(rg)
+
+		# 	mas_c = mas_d[rg]
+		# 	mas = mas_c.most_common(1)[0][0]
+
 
 
 		self.ruling_d = {
@@ -1148,14 +1241,16 @@ class hairpinClass():
 		'star_found' : None
 		}
 
-		if self.mas not in seq:
+		self.ruling = '?? ?? ? ?'
+
+		if self.mas not in self.seq:
 			self.status.append("MAS not found in hairpin sequence")
 			return
 
 
 		self.mas_positions = [r + self.seq.index(self.mas) for r in range(len(self.mas) + 1)]
 
-		self.mas_structures = self.find_secondary_structures("".join([fold[p] for p in self.mas_positions]))
+		self.mas_structures = self.find_secondary_structures("".join([self.fold[p] for p in self.mas_positions]))
 
 		if self.mas_structures:
 			self.status.append("secondary structure found in MAS")
@@ -1170,7 +1265,7 @@ class hairpinClass():
 
 
 
-			self.star_structures = self.find_secondary_structures("".join([fold[p] for p in self.star_positions]))
+			self.star_structures = self.find_secondary_structures("".join([self.fold[p] for p in self.star_positions]))
 
 			if self.star_structures:
 				self.status.append("secondary structure found in MAS")
@@ -1246,6 +1341,65 @@ class hairpinClass():
 
 
 		return("\n".join(map(str,out)))
+
+
+	def get_locus(self, locus, strand, input_mas):
+
+		locus, strand, input_mas = self.locus, self.strand, self.input_mas
+
+		chrom, start, stop = self.chrom, self.start, self.stop
+
+		genome_file, alignment_file = self.genome_file, self.alignment_file
+
+		seq = samtools_faidx(locus, strand, genome_file)
+		fold, mfe, pairing = RNAfold(seq)
+
+		mas_d = {}
+		pos_d = {}
+		input_mas_coords = False
+		# print(seq)
+		# print(fold)
+
+		for read in samtools_view(alignment_file, locus=locus):
+
+			sam_strand, sam_length, _, sam_pos, sam_chrom, sam_rg, sam_read = read
+
+			# if ignore_replication:
+				# sam_rg = 'all'
+			sam_rg = 'all'
+
+			# sam_read = sam_read.replace("T",'U')
+
+			if sam_strand == "-":
+				sam_read = complement(sam_read[::-1])
+
+			if sam_pos >= start and sam_pos + sam_length <= stop:
+				if sam_strand == strand:
+
+					# if sam_read == input_mas:
+
+					# 	sys.exit()
+
+					if not input_mas_coords and sam_read == input_mas:
+						input_mas_coords = f"{sam_chrom}:{sam_pos}-{sam_pos + sam_length+1}"
+
+					if strand == '+':
+						corrected_pos = sam_pos - start
+					else:
+						corrected_pos = stop - sam_pos - sam_length + 1
+
+					try:
+						pos_d[corrected_pos].add(sam_read)
+					except KeyError:
+						pos_d[corrected_pos] = set([sam_read])
+
+					try:
+						mas_d[sam_rg].update([sam_read])
+					except KeyError:
+						mas_d[sam_rg] = Counter()
+						mas_d[sam_rg].update([sam_read])
+
+		return(seq, fold, mfe, pairing, mas_d, pos_d, input_mas_coords)
 
 	def find_secondary_structures(self, fold):
 		# print(fold)
@@ -1513,6 +1667,16 @@ class hairpinClass():
 		self.ruling = test_str
 
 
+	def table(self):
+
+		line = [self.name, self.locus, self.strand]
+		line += [self.seq, self.fold, self.mfe, self.mas, self.star] 
+		line += [self.duplex_mas, self.duplex_fold, self.duplex_star]
+
+		line += [self.ruling] + list(self.ruling_d.values())
+
+		return("\t".join(map(str,line)))
+
 	# sys.exit()
 	# def check_fold(start, stop):
 
@@ -1543,7 +1707,7 @@ class hairpinClass():
 	default=300,
 	help='Maximum hairpin size (default 300). Longer loci will not be considered for miRNA analysis.')
 
-def fold(alignment_file, output_directory, ignore_replication, max_length):
+def hairpin(alignment_file, output_directory, ignore_replication, max_length):
 
 
 	def get_genome_file():
@@ -1563,123 +1727,37 @@ def fold(alignment_file, output_directory, ignore_replication, max_length):
 		return(genome)
 
 
-	def samtools_faidx(locus, strand):
 
-		call = ['samtools', 'faidx', genome_file, locus]
+	def trim_hairpin(hpc, offset=2, wiggle = 5):
+		chrom, start, stop, strand = hpc.chrom, hpc.start, hpc.stop, hpc.strand
 
-		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
-
-		out, err = p.communicate()
-
-		if err != "":
-			sys.exit(err)
-
-		out = "".join(out.split("\n")[1:]).strip().upper()
-
-		out = out.replace("T","U")
-		# print(out)
-
-		if strand == '-':
-			out = out[::-1]
-			out = complement(out)
-		return(out)
-
-
-	
-	def RNAfold(seq):
-		assert len(seq) > 0, f"hairpin is length 0\n{seq}"
-
-		p = Popen(['RNAfold', '--noPS'],
-					  stdout=PIPE,
-					stderr=PIPE,
-					stdin=PIPE,
-					encoding='utf-8')
-		out, err = p.communicate(f">1\n{seq}")
+		d2d = hpc.mas_positions + hpc.star_positions
+		# print(d2d)
 		
-		# print("hp:", hp)
+		left  = min(d2d) - offset - wiggle
+		right = max(d2d)          + wiggle
 
-		mfe = float(out.strip().split()[-1].strip(")").strip("("))
-		fold = out.strip().split("\n")[2].split()[0]
+		# print(left, right)
+		if strand == "-":
+			left, right = stop-right-1, stop-left-1
 
+		elif strand == "+":
+			left, right = start+left, start+right
 
-		pairing = []
-		stack = []
-
-		for i,f in enumerate(fold):
-			if f == ".":
-				pairing.append('.')
-
-			elif f == "(":
-				stack.append(i)
-				pairing.append(i)
-
-			elif f == ")":
-				pairing.append(stack.pop())
+		else:
+			sys.exit("ONLY STRANDED EXPECTED")
 
 
-		corr_pairing = []
+		# print()
 
-		for i,p in enumerate(pairing):
-			if p == '.':
-				cp = p
-			else:
-				cp = [cor_i for cor_i, cor_p in enumerate(pairing) if cor_p == p and cor_i != i][0]
-			corr_pairing.append(cp)
+		# print(chrom, start, stop, strand)
 
-		# pairing = corr_pairing[:]
+		trimmed_locus = f"{chrom}:{left}-{right}"
 
-		return(fold, mfe, corr_pairing)
+		# print(trimmed_locus)
+		return(trimmed_locus)
 
 
-	def get_locus(locus, strand, input_mas):
-		seq = samtools_faidx(locus, strand)
-		fold, mfe, pairing = RNAfold(seq)
-
-		mas_d = {}
-		pos_d = {}
-		input_mas_coords = False
-		# print(seq)
-		# print(fold)
-
-		for read in samtools_view(alignment_file, locus=locus):
-
-			sam_strand, sam_length, _, sam_pos, sam_chrom, sam_rg, sam_read = read
-
-			if ignore_replication:
-				sam_rg = 'all'
-
-			# sam_read = sam_read.replace("T",'U')
-
-			if sam_strand == "-":
-				sam_read = complement(sam_read[::-1])
-
-			if sam_pos >= start and sam_pos + sam_length <= stop:
-				if sam_strand == strand:
-
-					# if sam_read == input_mas:
-
-					# 	sys.exit()
-
-					if not input_mas_coords and sam_read == input_mas:
-						input_mas_coords = f"{sam_chrom}:{sam_pos}-{sam_pos + sam_length+1}"
-
-					if strand == '+':
-						corrected_pos = sam_pos - start
-					else:
-						corrected_pos = stop - sam_pos - sam_length + 1
-
-					try:
-						pos_d[corrected_pos].add(sam_read)
-					except KeyError:
-						pos_d[corrected_pos] = set([sam_read])
-
-					try:
-						mas_d[sam_rg].update([sam_read])
-					except KeyError:
-						mas_d[sam_rg] = Counter()
-						mas_d[sam_rg].update([sam_read])
-
-		return(seq, fold, mfe, pairing, mas_d, pos_d, input_mas_coords)
 
 
 	genome_file = get_genome_file()
@@ -1703,6 +1781,11 @@ def fold(alignment_file, output_directory, ignore_replication, max_length):
 
 
 
+	header_line = "name\tlocus\tstrand\tseq\tfold\tmfe\tmas\tstar\tduplex_mas\tduplex_fold\tduplex_star\truling\tmismatches_asymm\tmismatches_total\tno_mas_structures\tno_star_structures\tprecision\tstar_found"
+
+	hairpin_file = f"{output_directory}/Hairpins.txt"
+	with open(hairpin_file, 'w') as outf:
+		print(header_line, file=outf)
 
 
 
@@ -1743,106 +1826,66 @@ def fold(alignment_file, output_directory, ignore_replication, max_length):
 			else:
 				status.append(f"too long {length}")
 
+
+
+
 			if stranded and short_enough and cluster_selected:
 
-				seq, fold, mfe, pairing, mas_d, pos_d, input_mas_coords = get_locus(locus, strand, input_mas_d[name])
+				input_mas = input_mas_d[name]
 
-				for rg in mas_d.keys():
+				hpc = hairpinClass(name,locus, strand, input_mas, genome_file, alignment_file)
+				hpc.table()
 
-					if rg != 'all':
-						print(rg)
+				if hpc.valid:
+					print()
+					print(f"{hpc.ruling}\t\033[1m{name}\033[0m", length, sep='\t')
+				# print(hpc)
 
-					mas_c = mas_d[rg]
-					mas = mas_c.most_common(1)[0][0]
+					with open(hairpin_file, 'a') as outf:
+						print(hpc.table(), file=outf)
 
-					# if strand == "-":
-					# 	# print(mas[::-1])
-					# 	mas = complement(mas[::-1])
+				
+
+					trimmed_locus = trim_hairpin(hpc)
 
 
-					if mas in seq:
+					trimmed_hpc = hairpinClass(name+"-t", trimmed_locus, strand, input_mas, genome_file, alignment_file)
+					if trimmed_hpc.valid:
+						print(f"{trimmed_hpc.ruling}\t\033[1m{name}\033[0m", len(trimmed_hpc.seq), 'trimmed', sep='\t')
 
-						hpc = hairpinClass(seq, fold, pairing, mas, mas_c, pos_d, status)
-						# ruling = assess_miRNA(seq, fold, mfe, pairing, mas, mas_c)
-
-						if hpc.valid:
-
-							print()
-
-							print()
-							print(f"{hpc.ruling}\t\033[1m{name}\033[0m", length, sep='\t')
-							# print(length, 'valid', hpc.status[-1], sep='\t')
-							# print(hpc)
-							# sys.exit()
-						# else:
-							# print(length, 'non', hpc.status[-1], sep='\t')
+						with open(hairpin_file, 'a') as outf:
+							print(trimmed_hpc.table(), file=outf)
+					# print()
 
 
 
-
-				sys.exit()
-
+				# input_mas_coords = hpc.input_mas_coords
 
 
 
+				# imas_start = int(input_mas_coords.split(":")[-1].split("-")[0])
+				# imas_stop  = int(input_mas_coords.split(":")[-1].split("-")[1])
+				# # print()
+
+				# gemini_size = 120
+				# gemini_offset = 20
+
+				# gemini = [
+				# f"{chrom}:{imas_start - gemini_size + gemini_offset}-{imas_stop + gemini_offset}",
+				# f"{chrom}:{imas_start - gemini_offset}-{imas_stop + gemini_size - gemini_offset}"
+				# ]
+
+				# twins = ['castor', 'pollux']
+
+				# for gem_i, gem in enumerate(gemini):
+
+				# 	twin = twins[gem_i]
+
+				# 	gem_hpc = hairpinClass(gem, strand, input_mas, genome_file, alignment_file)
+				# 	if gem_hpc.valid:
+				# 		print(f"{gem_hpc.ruling}\t\033[1m{name}\033[0m", len(gem_hpc.seq), twin, sep='\t')
 
 
-
-				# print(input_mas_coords)
-
-
-				imas_start = int(input_mas_coords.split(":")[-1].split("-")[0])
-				imas_stop  = int(input_mas_coords.split(":")[-1].split("-")[1])
-				# print()
-
-				gemini_size = 120
-				gemini_offset = 20
-
-				gemini = [
-				f"{chrom}:{imas_start - gemini_size + gemini_offset}-{imas_stop + gemini_offset}",
-				f"{chrom}:{imas_start - gemini_offset}-{imas_stop + gemini_size - gemini_offset}"
-				]
-
-				for gem_i, gem in enumerate(gemini):
-					# print(gem)
-
-					start = int(gem.split(":")[-1].split("-")[0])
-					stop  = int(gem.split(":")[-1].split("-")[1])
-
-					seq, fold, mfe, pairing, mas_d, pos_d, input_mas_coords = get_locus(gem, strand, input_mas_d[name])
-
-					for rg in mas_d.keys():
-
-						if rg != 'all':
-							print(rg)
-
-						mas_c = mas_d[rg]
-						# pprint(mas_c)
-						# sys.exit()
-						mas = mas_c.most_common(1)[0][0]
-
-						# if strand == "-":
-						# 	# print(mas[::-1])
-						# 	mas = complement(mas[::-1])
-
-						if mas in seq:
-
-							hpc = hairpinClass(seq, fold, pairing, mas, mas_c, pos_d, status)
-							# ruling = assess_miRNA(seq, fold, mfe, pairing, mas, mas_c)
-
-							print(hpc)
-							sys.exit()
-
-							if hpc.valid:
-
-								print()
-
-								print()
-								print(f"{hpc.ruling}\t\033[1m{name}\033[0m", length, ['castor', 'pollux'][gem_i], sep='\t')
-								# print(length, 'valid', hpc.status[-1], sep='\t')
-								# print(hpc)
-
-				# sys.exit()
 
 
 
@@ -1850,7 +1893,7 @@ def fold(alignment_file, output_directory, ignore_replication, max_length):
 
 cli.add_command(precheck)
 cli.add_command(annotate)
-cli.add_command(fold)
+cli.add_command(hairpin)
 
 if __name__ == '__main__':
 	cli()
