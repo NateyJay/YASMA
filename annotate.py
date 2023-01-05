@@ -19,6 +19,73 @@ from statistics import median, mean
 
 from Levenshtein import distance
 
+from timeit import timeit
+
+
+def get_rg_depth(output_directory, alignment_file):
+	depth_file = f"./{output_directory}/RGdepth.txt"
+
+	if isfile(depth_file): #and not force:
+		with open(depth_file, 'r') as f:
+
+			line = f.readline()
+			c = Counter()
+			
+			for line in f:
+				line = line.strip().split("\t")
+
+
+				c[(line[0], int(line[1]))] += int(line[3])
+
+
+
+		return(c)
+
+
+
+	print('reading annotation RG depth...')
+
+	c = Counter()
+	rg_c = Counter()
+
+	call = ['samtools', 'view', '-F', '4', alignment_file]
+
+
+
+	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+
+	for i,line in enumerate(p.stdout):
+		line = line.strip().split("\t")
+
+		rg = line[18][5:]
+		length = int(line[5][:-1])
+
+		c.update([(rg, length)])
+		rg_c.update([rg])
+
+
+
+
+		# if i > 1000000:
+		# 	p.kill()
+		# 	break
+
+	p.wait()
+
+
+	with open(depth_file, 'w') as outf:
+		print("rg\tlength\tprop\tabundance", file=outf)
+		for rg in rg_c.keys():
+			for r in range(15,31):
+				prop = round(c[(rg,r)] / rg_c[rg], 4)
+				# prop_highest = round(c[r] / highest, 4)
+				print(rg, r, prop, c[(rg,r)], sep='\t', file=outf)
+	return(c)
+
+		# with open(depth_file, 'w') as outf:
+		# 	print(alignment_file, depth, sep='\t', file=outf)
+
+
 def complement(s):
 	d = {"U" : "A", 
 	"A":"U", "G":"C", "C":"G", "N":"N"}
@@ -115,7 +182,7 @@ def get_chromosomes(file,output_directory):
 			rgs.append(o[1].split(":")[-1])
 
 
-	with open(f"./{output_directory}/chrom.sizes.txt", 'w') as outf:
+	with open(f"./{output_directory}/ChromSizes.txt", 'w') as outf:
 		for chrom, size in chromosomes:
 			print(chrom, size, sep='\t', file=outf)
 
@@ -224,61 +291,84 @@ def precheck(alignment_file, annotation_readgroups, output_directory, force):
 	annotation_readgroups = check_rgs(annotation_readgroups, bam_rgs)
 
 
-	def get_rg_depth():
-		depth_file = f"./{output_directory}/readgroup_depth.txt"
-		# if isfile(depth_file): #and not force:
-		# 	with open(depth_file, 'r') as f:
-		# 		line = f.readline()
-		# 		line = line.split("\t")
+	# def get_rg_depth():
+	# 	depth_file = f"./{output_directory}/readgroup_depth.txt"
+	# 	# if isfile(depth_file): #and not force:
+	# 	# 	with open(depth_file, 'r') as f:
+	# 	# 		line = f.readline()
+	# 	# 		line = line.split("\t")
 
-		# 		if line[0] == file:
-		# 			# print(f'\nread depth from {depth_file}...')
-		# 			return(int(line[1]))
+	# 	# 		if line[0] == file:
+	# 	# 			# print(f'\nread depth from {depth_file}...')
+	# 	# 			return(int(line[1]))
 
 
 
-		print('reading annotation RG depth...')
+	# 	print('reading annotation RG depth...')
 
-		c = Counter()
+	# 	c = Counter()
 
-		call = ['samtools', 'view', '-F', '4']
+	# 	call = ['samtools', 'view', '-F', '4']
 
-		for r in annotation_readgroups:
-			call += ['-r', r]
+	# 	for r in annotation_readgroups:
+	# 		call += ['-r', r]
 
-		call += [alignment_file]
-		# print(call)
+	# 	call += [alignment_file]
+	# 	# print(call)
 
-		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+	# 	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
 
-		depth = 0
-		for line in p.stdout:
-			line = line.strip().split("\t")
+	# 	depth = 0
+	# 	for line in p.stdout:
+	# 		line = line.strip().split("\t")
 
-			length = int(line[5][:-1])
+	# 		length = int(line[5][:-1])
 
-			c.update([length])
+	# 		c.update([length])
 
-			depth += 1
+	# 		depth += 1
 
-			# if depth > 1000000:
-			# 	p.kill()
-			# 	break
+	# 		# if depth > 1000000:
+	# 		# 	p.kill()
+	# 		# 	break
 
-		p.wait()
+	# 	p.wait()
 
-		highest = max(c.values())
+	# 	highest = max(c.values())
 
-		print("length\tprop\tprop_highest\tabundance")
-		for r in range(15,31):
-			prop = round(c[r] / depth, 4)
-			prop_highest = round(c[r] / highest, 4)
-			print(r, prop, prop_highest, f"{c[r]:,}", sep='\t')
+	# 	print("length\tprop\tprop_highest\tabundance")
+	# 	for r in range(15,31):
+	# 		prop = round(c[r] / depth, 4)
+	# 		prop_highest = round(c[r] / highest, 4)
+	# 		print(r, prop, prop_highest, f"{c[r]:,}", sep='\t')
 
-		with open(depth_file, 'w') as outf:
-			print(alignment_file, depth, sep='\t', file=outf)
+	# 	with open(depth_file, 'w') as outf:
+	# 		print(alignment_file, depth, sep='\t', file=outf)
 
-	get_rg_depth()
+	depth_c = get_rg_depth(output_directory, alignment_file)
+
+
+	len_c = Counter()
+	for key in depth_c.keys():
+		if key[0] in annotation_readgroups:
+			len_c[key[1]] += depth_c[key]
+
+	print(f"annotation_readgroups: {annotation_readgroups}")
+
+	print()
+	print("length\tp_depth\tp_highest\tabundance")
+
+	dep = sum(len_c.values())
+	highest = len_c.most_common(1)[0][1]
+
+	for r in range(15, 31):
+		print(r, 
+			round(len_c[r] / dep, 4),
+			round(len_c[r] / highest, 4),
+			len_c[r],
+			sep='\t')
+
+	# pprint(depth_c)
 
 
 
@@ -349,7 +439,7 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 
 
 	Path(output_directory).mkdir(parents=True, exist_ok=True)
-	Path(f'./{output_directory}/coverages').mkdir(parents=True, exist_ok=True)
+	Path(f'./{output_directory}/Coverages').mkdir(parents=True, exist_ok=True)
 
 
 
@@ -512,43 +602,50 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 
 
 
-	def get_library_depth(output_directory, file):
-		depth_file = f"./{output_directory}/library_depth.txt"
-		if isfile(depth_file): #and not force:
-			with open(depth_file, 'r') as f:
-				line = f.readline()
-				line = line.split("\t")
+	# def get_library_depth(output_directory, file):
+	# 	depth_file = f"./{output_directory}/library_depth.txt"
+	# 	if isfile(depth_file): #and not force:
+	# 		with open(depth_file, 'r') as f:
+	# 			line = f.readline()
+	# 			line = line.split("\t")
 
-				if line[0] == file:
-					# print(f'\nread depth from {depth_file}...')
-					return(int(line[1]))
-
-
-
-		print('reading annotation RG depth...')
-
-		call = ['samtools', 'view', '-F', '4']
-
-		for rg in annotation_readgroups:
-			call += ['-r', rg]
-
-		call += [file]
-
-		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
-
-		depth = 0
-		for line in p.stdout:
-			depth += 1
-
-		p.wait()
+	# 			if line[0] == file:
+	# 				# print(f'\nread depth from {depth_file}...')
+	# 				return(int(line[1]))
 
 
-		with open(depth_file, 'w') as outf:
-			print(file, depth, sep='\t', file=outf)
 
-		return(depth)
+	# 	print('reading annotation RG depth...')
 
-	library_depth = get_library_depth(output_directory, alignment_file)
+	# 	call = ['samtools', 'view', '-F', '4']
+
+	# 	for rg in annotation_readgroups:
+	# 		call += ['-r', rg]
+
+	# 	call += [file]
+
+	# 	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+
+	# 	depth = 0
+	# 	for line in p.stdout:
+	# 		depth += 1
+
+	# 	p.wait()
+
+
+	# 	with open(depth_file, 'w') as outf:
+	# 		print(file, depth, sep='\t', file=outf)
+
+	# 	return(depth)
+
+	# library_depth = get_library_depth(output_directory, alignment_file)
+
+	depth_c = get_rg_depth(output_directory, alignment_file)
+
+	library_depth = 0
+	for key in depth_c.keys():
+		if key[0] in annotation_readgroups:
+			library_depth += depth_c[key]
 
 
 	read_equivalent = 1 / library_depth * 1000000
@@ -571,7 +668,7 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 
 	class wiggleClass():
 		def __init__(self, file):
-			self.file = f"./{output_directory}/coverages/{file}.wig"
+			self.file = f"./{output_directory}/Coverages/{file}.wig"
 			self.outf = open(self.file, 'w')
 			self.reset()
 
@@ -605,7 +702,7 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 
 			print(f"  {wig} -> {bigwig}", flush=True)
 
-			call = f"wigToBigWig {wig} ./{output_directory}/chrom.sizes.txt {bigwig}"
+			call = f"wigToBigWig {wig} ./{output_directory}/ChromSizes.txt {bigwig}"
 
 			p = Popen(call.split(), stdout=PIPE, stderr=PIPE, encoding='utf-8')
 
@@ -1148,14 +1245,15 @@ def samtools_faidx(locus, strand, genome_file):
 def RNAfold(seq):
 	assert len(seq) > 0, f"hairpin is length 0\n{seq}"
 
-	p = Popen(['RNAfold', '--noPS'],
+	call = ['RNAfold', '--noPS']
+
+	p = Popen(call,
 				  stdout=PIPE,
 				stderr=PIPE,
 				stdin=PIPE,
 				encoding='utf-8')
-	out, err = p.communicate(f">1\n{seq}")
-	
-	# print("hp:", hp)
+	out, err = p.communicate(f">{time()}\n{seq}")
+
 
 	mfe = float(out.strip().split()[-1].strip(")").strip("("))
 	fold = out.strip().split("\n")[2].split()[0]
@@ -1191,11 +1289,15 @@ def RNAfold(seq):
 
 
 class hairpinClass():
-	def __init__(self, name, locus, strand, input_mas, genome_file, alignment_file):
+	def __init__(self, stranded, short_enough, name, locus, strand, input_mas, genome_file, alignment_file, output_directory):
 
 
 		self.valid   = False
 		self.status  = []
+
+		self.stranded = stranded
+		self.short_enough = short_enough
+
 
 		self.name = name
 		self.locus = locus
@@ -1203,10 +1305,51 @@ class hairpinClass():
 		self.input_mas = input_mas
 		self.genome_file = genome_file
 		self.alignment_file = alignment_file
+		self.output_directory = output_directory
 
 		self.chrom = self.locus.split(":")[0]
 		self.start = int(self.locus.split(":")[-1].split("-")[0])
 		self.stop  = int(self.locus.split(":")[-1].split("-")[1])
+
+		self.length = self.stop - self.start
+
+		self.seq = '-'
+		self.fold = '-'
+		self.mfe = '-'
+		self.pairing = '-'
+		self.pos_d = '-'
+		self.input_mas_coords = '-'
+
+
+		self.mas = '-'
+		self.star = '-'
+		self.duplex_mas = '-'
+		self.duplex_fold = '-'
+		self.duplex_star = '-'
+
+
+		self.ruling_d = {
+		'mfe_per_nt' : '-',
+		'mismatches_total' : '-',
+		'mismatches_asymm' : '-',
+		'no_mas_structures' : '-',
+		'no_star_structures' : '-',
+		'precision' : '-',
+		'star_found' : '-'
+		}
+
+		self.ruling = '-'
+
+
+
+		if not stranded:
+			self.status.append("hairpin not stranded")
+			return
+
+		if not short_enough:
+
+			self.status.append("hairpin too long")
+			return
 
 
 		self.seq, self.fold, self.mfe, self.pairing, mas_d, self.pos_d, self.input_mas_coords = self.get_locus(locus, strand, input_mas)
@@ -1216,8 +1359,8 @@ class hairpinClass():
 		self.mas = self.mas_c.most_common(1)[0][0]
 
 
-		self.star = None
-		self.duplex_mas, self.duplex_fold, self.duplex_star = '','',''
+		self.star = '-'
+		self.duplex_mas, self.duplex_fold, self.duplex_star = '-','-','-'
 
 
 
@@ -1231,17 +1374,6 @@ class hairpinClass():
 		# 	mas = mas_c.most_common(1)[0][0]
 
 
-
-		self.ruling_d = {
-		'mismatches_total' : None,
-		'mismatches_asymm' : None,
-		'no_mas_structures' : None,
-		'no_star_structures' : None,
-		'precision' : None,
-		'star_found' : None
-		}
-
-		self.ruling = '?? ?? ? ?'
 
 		if self.mas not in self.seq:
 			self.status.append("MAS not found in hairpin sequence")
@@ -1276,6 +1408,7 @@ class hairpinClass():
 				self.assess_miRNA()
 
 
+
 	def __str__(self):
 
 		hp_len = len(self.seq)
@@ -1297,6 +1430,12 @@ class hairpinClass():
 
 
 		out = []
+		out.append("\nPreliminary tests:")
+		out.append("stranded:", self.stranded)
+		out.append("short_enough:", self.short_enough)
+
+
+
 		out.append("\nHairpin sequence:")
 		out.append(self.seq)
 		out.append(self.fold)
@@ -1341,6 +1480,54 @@ class hairpinClass():
 
 
 		return("\n".join(map(str,out)))
+
+
+	def strucVis(self):
+
+
+		Path(f'./{self.output_directory}Folds').mkdir(parents=True, exist_ok=True)
+
+		bam_file = f"./{self.output_directory}Folds/{self.name}.bam"
+
+
+		with open(bam_file, 'wb') as outf:
+			sam_call = ['samtools', 'view', '-b', '-h', self.alignment_file, self.locus]
+			p = Popen(sam_call, stdout=outf, stderr=PIPE)
+			p.wait()
+
+
+		index_call = ['samtools', 'index', bam_file]
+		p = Popen(index_call, stdout=PIPE, stderr=PIPE)
+		p.wait()
+
+
+		output_file = f"./{self.output_directory}Folds/{self.name}.ps"
+
+		if self.strand == "+":
+			strand = 'plus'
+		elif self.strand == '-':
+			strand = 'minus'
+		else:
+			sys.exit("unrecognized strand")
+
+		call = ['strucVis', 
+		'-b', bam_file, 
+		'-g', self.genome_file, 
+		'-c', self.locus, 
+		'-s', strand,
+		'-p', output_file,
+		'-n', self.name
+		]
+
+		p = Popen(call, stdout=PIPE, stderr=PIPE)
+		out, err = p.communicate()
+
+		# print(out, err)
+
+
+		os.rename(output_file, output_file.replace(".ps", ".eps"))
+		os.remove(bam_file)
+		os.remove(bam_file + ".bai")
 
 
 	def get_locus(self, locus, strand, input_mas):
@@ -1548,6 +1735,18 @@ class hairpinClass():
 
 		locus_depth = sum(self.mas_c.values())
 
+		def test_mfe():
+			# <0.2 kcal/mol/nucleotide
+
+			mfe_per_nt = self.mfe / (self.stop - self.start)
+			self.ruling_d['mfe_per_nt'] = mfe_per_nt
+
+			if mfe_per_nt < -0.2:
+				return("x")
+
+			return("-")
+
+
 		def test_duplex_mismatch():
 
 			total_mismatches = 0
@@ -1656,7 +1855,8 @@ class hairpinClass():
 
 
 		test_str = ''
-		test_str += test_duplex_mismatch()
+		test_str += test_mfe()
+		test_str += " " + test_duplex_mismatch()
 		test_str += " " + test_secondary_structure()
 		test_str += " " + test_precision()
 		test_str += " " + test_star_found()
@@ -1667,11 +1867,16 @@ class hairpinClass():
 		self.ruling = test_str
 
 
+
+
+
 	def table(self):
 
 		line = [self.name, self.locus, self.strand]
+		line += [self.stranded, self.length, self.short_enough]
 		line += [self.seq, self.fold, self.mfe, self.mas, self.star] 
 		line += [self.duplex_mas, self.duplex_fold, self.duplex_star]
+		line += [self.valid]
 
 		line += [self.ruling] + list(self.ruling_d.values())
 
@@ -1781,7 +1986,7 @@ def hairpin(alignment_file, output_directory, ignore_replication, max_length):
 
 
 
-	header_line = "name\tlocus\tstrand\tseq\tfold\tmfe\tmas\tstar\tduplex_mas\tduplex_fold\tduplex_star\truling\tmismatches_asymm\tmismatches_total\tno_mas_structures\tno_star_structures\tprecision\tstar_found"
+	header_line = "name\tlocus\tstrand\tstranded\tlength\tshort_enough\tseq\tfold\tmfe\tmas\tstar\tduplex_mas\tduplex_fold\tduplex_star\tvalid_fold\truling\tmfe_per_nt\tmismatches_asymm\tmismatches_total\tno_mas_structures\tno_star_structures\tprecision\tstar_found"
 
 	hairpin_file = f"{output_directory}/Hairpins.txt"
 	with open(hairpin_file, 'w') as outf:
@@ -1812,78 +2017,78 @@ def hairpin(alignment_file, output_directory, ignore_replication, max_length):
 			cluster_selected = True
 			# cluster_selected = name == 'Cl_125'
 
-			status = []
+			# status = []
 
 			stranded = strand in ["-", "+"]
-			if stranded:
-				status.append(f"{strand} stranded")
-			else:
-				status.append("not stranded")
+			# if stranded:
+			# 	status.append(f"{strand} stranded")
+			# else:
+			# 	status.append("not stranded")
 
 			short_enough = length <= max_length
-			if short_enough:
-				status.append(f"length {length} <= {max_length}")
-			else:
-				status.append(f"too long {length}")
+			# if short_enough:
+			# 	status.append(f"length {length} <= {max_length}")
+			# else:
+			# 	status.append(f"too long {length}")
 
 
 
 
-			if stranded and short_enough and cluster_selected:
 
-				input_mas = input_mas_d[name]
+			input_mas = input_mas_d[name]
 
-				hpc = hairpinClass(name,locus, strand, input_mas, genome_file, alignment_file)
-				hpc.table()
+			hpc = hairpinClass(stranded, short_enough, name,locus, strand, input_mas, genome_file, alignment_file, output_directory)
+			hpc.table()
 
-				if hpc.valid:
-					print()
-					print(f"{hpc.ruling}\t\033[1m{name}\033[0m", length, sep='\t')
-				# print(hpc)
+			if hpc.valid:
+				print()
+				print(f"{hpc.ruling}\t\033[1m{name}\033[0m", length, sep='\t')
+				hpc.strucVis()
+
+			with open(hairpin_file, 'a') as outf:
+				print(hpc.table(), file=outf)
+
+			
+
+			if hpc.valid:
+				trimmed_locus = trim_hairpin(hpc)
+
+
+				trimmed_hpc = hairpinClass(stranded, short_enough, name+"-t", trimmed_locus, strand, input_mas, genome_file, alignment_file, output_directory)
+				if trimmed_hpc.valid:
+					print(f"{trimmed_hpc.ruling}\t\033[1m{name}\033[0m", len(trimmed_hpc.seq), 'trimmed', sep='\t')
 
 					with open(hairpin_file, 'a') as outf:
-						print(hpc.table(), file=outf)
-
-				
-
-					trimmed_locus = trim_hairpin(hpc)
-
-
-					trimmed_hpc = hairpinClass(name+"-t", trimmed_locus, strand, input_mas, genome_file, alignment_file)
-					if trimmed_hpc.valid:
-						print(f"{trimmed_hpc.ruling}\t\033[1m{name}\033[0m", len(trimmed_hpc.seq), 'trimmed', sep='\t')
-
-						with open(hairpin_file, 'a') as outf:
-							print(trimmed_hpc.table(), file=outf)
-					# print()
+						print(trimmed_hpc.table(), file=outf)
+				# print()
 
 
 
-				# input_mas_coords = hpc.input_mas_coords
+			# input_mas_coords = hpc.input_mas_coords
 
 
 
-				# imas_start = int(input_mas_coords.split(":")[-1].split("-")[0])
-				# imas_stop  = int(input_mas_coords.split(":")[-1].split("-")[1])
-				# # print()
+			# imas_start = int(input_mas_coords.split(":")[-1].split("-")[0])
+			# imas_stop  = int(input_mas_coords.split(":")[-1].split("-")[1])
+			# # print()
 
-				# gemini_size = 120
-				# gemini_offset = 20
+			# gemini_size = 120
+			# gemini_offset = 20
 
-				# gemini = [
-				# f"{chrom}:{imas_start - gemini_size + gemini_offset}-{imas_stop + gemini_offset}",
-				# f"{chrom}:{imas_start - gemini_offset}-{imas_stop + gemini_size - gemini_offset}"
-				# ]
+			# gemini = [
+			# f"{chrom}:{imas_start - gemini_size + gemini_offset}-{imas_stop + gemini_offset}",
+			# f"{chrom}:{imas_start - gemini_offset}-{imas_stop + gemini_size - gemini_offset}"
+			# ]
 
-				# twins = ['castor', 'pollux']
+			# twins = ['castor', 'pollux']
 
-				# for gem_i, gem in enumerate(gemini):
+			# for gem_i, gem in enumerate(gemini):
 
-				# 	twin = twins[gem_i]
+			# 	twin = twins[gem_i]
 
-				# 	gem_hpc = hairpinClass(gem, strand, input_mas, genome_file, alignment_file)
-				# 	if gem_hpc.valid:
-				# 		print(f"{gem_hpc.ruling}\t\033[1m{name}\033[0m", len(gem_hpc.seq), twin, sep='\t')
+			# 	gem_hpc = hairpinClass(gem, strand, input_mas, genome_file, alignment_file)
+			# 	if gem_hpc.valid:
+			# 		print(f"{gem_hpc.ruling}\t\033[1m{name}\033[0m", len(gem_hpc.seq), twin, sep='\t')
 
 
 
