@@ -21,6 +21,427 @@ from Levenshtein import distance
 
 from timeit import timeit
 
+from math import log10
+
+
+def abundance_to_rgb(abd):
+
+	if abd == 0:
+		return((1,1,1))
+
+	log = log10(abd)
+
+
+	# RED
+	if log <= 1:
+		r = .4
+	elif log < 2:
+		r = log - 1
+	else:
+		r = 1
+
+	# GREEN
+	if log <= 1:
+		g = .4
+	elif log < 2:
+		g = 1
+	elif log <= 3:
+		g = 3 - log
+	else:
+		g = 0
+
+	# BLUE
+	if log <= 1:
+		b = 1
+	elif log < 2:
+		b = 2 - log
+	elif log <= 3:
+		b = 0
+	elif log < 4:
+		b = log - 3
+	else:
+		b = 1
+
+	rgb = (round(c,2) for c in [r,g,b])
+
+	return(rgb)
+
+
+class foldClass():
+	def __init__(self, name, seq, alignment_file, locus, strand, mas, output_directory):
+
+		self.name    = name
+		self.seq     = seq
+		self.locus   = locus
+		self.strand  = strand
+
+		self.mas = mas
+
+		self.start = int(locus.split(":")[-1].split("-")[0])
+		self.stop  = int(locus.split(":")[-1].split("-")[1])
+
+		self.alignment_file   = alignment_file
+		self.output_directory = output_directory
+
+
+		self.RNAfold()
+
+		self.coor     = []
+		self.sequence = []
+		self.pairs    = []
+
+		self.lines    = []
+
+
+		self.read()
+
+		xs = [c[0] for c in self.coor]
+		ys = [c[1] for c in self.coor]
+
+		# print(round(max(xs) - min(xs),1), "x range")
+		# print(round(max(ys) - min(ys),1), 'y range')
+		# print("bounding box:", self.bounding_box)
+
+		self.get_depth()
+
+		self.write()
+		
+	def get_depth(self):
+
+		if self.strand == "+":
+			flag = "0"
+		elif self.strand == "-":
+			flag = "16"
+		else:
+			sys.exit("what???")
+
+		p1 = Popen(['samtools', 'view', "-h", self.alignment_file, self.locus], 
+			stdout=PIPE, encoding='utf-8')
+
+		p2 = Popen(['samtools', 'depth', '-'], 
+			stdin=PIPE, stdout=PIPE, encoding='utf-8')
+		# out, err = p1.communicate()
+
+		for line in p1.stdout:
+			if line.startswith("@") or line.split("\t")[1] == flag:
+				p2.stdin.write(line)
+
+		out, err = p2.communicate()
+
+
+
+
+		# print(out)
+
+		depth_d = {}
+		for o in out.strip().split("\n"):
+			o = o.strip().split()
+
+			key, val = [int(val) for val in o[1:]]
+
+			depth_d[key] = val
+
+		depths = []
+		for r in range(self.start, self.stop + 1):
+
+			try:
+				depths.append(depth_d[r])
+			except KeyError:
+				depths.append(0)
+
+
+		if self.strand == '-':
+			depths = depths[::-1]
+
+		self.depths = depths
+
+
+
+	def RNAfold(self):
+
+		temp_name = time()
+
+		call = ['RNAfold']
+
+		p = Popen(call,
+					  stdout=PIPE,
+					stderr=PIPE,
+					stdin=PIPE,
+					encoding='utf-8')
+		out, err = p.communicate(f">{temp_name}\n{self.seq}")
+
+
+		self.fold_file = f"{self.output_directory}/Folds/{self.name}.eps"
+		os.rename(f"{temp_name}_ss.ps", self.fold_file)
+
+		# sys.exit()
+
+
+	def read(self):
+
+
+		with open(self.fold_file, 'r') as f:
+			for line in f:
+				line = line.strip()
+
+				self.lines.append(line)
+
+				if line.startswith("/sequence"):
+					line = f.readline().strip()
+					self.sequence = line.rstrip("\\")
+					self.lines.append(line)
+
+				if line.startswith("/coor"):
+					while True:
+						line = f.readline().strip()
+						self.lines.append(line)
+
+						if 'def' in line:
+							break
+
+						line = line.strip().lstrip("[").rstrip("]").split()
+						line = [float(l) for l in line]
+
+						self.coor.append(line)
+
+				if line.startswith("%%BoundingBox"):
+					bound = line.split()[1:]
+					bound = [int(b) for b in bound]
+
+					self.bounding_box = bound
+
+
+
+
+
+	def write(self):
+
+		outf = open(f"{self.output_directory}/Folds/{self.name}_colored.eps", 'w')
+
+		for line in self.lines:
+
+			if line == '%%EndComments':
+
+				# leg_x = 72
+				# leg_y = 720
+				# text_x = 150
+				# text_y = 134
+
+				leg_x  = 72
+				leg_y  = self.bounding_box[3] + 120
+				text_x = 200
+				text_y = self.bounding_box[3] + 120
+
+				print(f'''
+0 0 1 setrgbcolor
+{leg_x} {leg_y} 4 0 360 arc closepath fill stroke
+0 0.5 1 setrgbcolor
+{leg_x} {leg_y - 10 * 1} 4 0 360 arc closepath fill stroke
+0 1 1 setrgbcolor
+{leg_x} {leg_y - 10 * 2} 4 0 360 arc closepath fill stroke
+0.5 1 0.5 setrgbcolor
+{leg_x} {leg_y - 10 * 3} 4 0 360 arc closepath fill stroke
+1 1 0 setrgbcolor
+{leg_x} {leg_y - 10 * 4} 4 0 360 arc closepath fill stroke
+1 0.5 0 setrgbcolor
+{leg_x} {leg_y - 10 * 5} 4 0 360 arc closepath fill stroke
+1 0 0 setrgbcolor
+{leg_x} {leg_y - 10 * 6} 4 0 360 arc closepath fill stroke
+1 0 0.5 setrgbcolor
+{leg_x} {leg_y - 10 * 7} 4 0 360 arc closepath fill stroke
+1 0 1 setrgbcolor
+{leg_x} {leg_y - 10 * 8} 4 0 360 arc closepath fill stroke
+
+0.2 0.2 0.2 setrgbcolor
+{leg_x + 80} {leg_y - 10 * 8} 4 0 360 arc 1.3 setlinewidth stroke
+
+
+0 0 0 setrgbcolor
+/Helvetica findfont
+8 scalefont
+setfont
+{leg_x + 8} {leg_y - 2} moveto
+(10) show
+/Helvetica findfont
+4 scalefont
+setfont
+{leg_x + 18} {leg_y + 2} moveto
+(0) show
+
+/Helvetica findfont
+8 scalefont
+setfont
+{leg_x + 8} {leg_y - 22} moveto
+(10) show
+/Helvetica findfont
+4 scalefont
+setfont
+{leg_x + 18} {leg_y - 18} moveto
+(1) show
+
+/Helvetica findfont
+8 scalefont
+setfont
+{leg_x + 8} {leg_y - 42} moveto
+(10) show
+/Helvetica findfont
+4 scalefont
+setfont
+{leg_x + 18} {leg_y - 38} moveto
+(2) show
+
+/Helvetica findfont
+8 scalefont
+setfont
+{leg_x + 8} {leg_y - 62} moveto
+(10) show
+/Helvetica findfont
+4 scalefont
+setfont
+{leg_x + 18} {leg_y - 58} moveto
+(3) show
+
+/Helvetica findfont
+8 scalefont
+setfont
+{leg_x + 8} {leg_y - 82} moveto
+(>=10) show
+/Helvetica findfont
+4 scalefont
+setfont
+{leg_x + 27} {leg_y - 78} moveto
+(4) show
+
+
+
+/Helvetica findfont
+8 scalefont
+setfont
+{leg_x + 8 + 80} {leg_y - 83} moveto
+(Most Abundant Sequence \(MAS\)) show
+
+/Helvetica findfont
+8 scalefont
+setfont
+{leg_x - 4} {leg_y + 10} moveto
+(Depth of Coverage) show
+
+
+% Information at bottom page.
+
+
+/Helvetica findfont
+8 scalefont setfont
+{text_x + 20} {text_y - 10 * 0} moveto
+(Name:  {self.name}) show
+
+
+/Helvetica findfont
+8 scalefont setfont
+{text_x + 11} {text_y - 10 * 1} moveto
+(Location:  {self.locus}) show
+
+/Helvetica findfont
+8 scalefont setfont
+{text_x + 18} {text_y - 10 * 2} moveto
+(Strand:  {self.strand}) show
+
+/Helvetica findfont
+8 scalefont setfont
+{text_x + 0} {text_y - 10 * 3} moveto
+(MAS length:  {len(self.mas)} nt) show
+
+
+/Helvetica findfont
+8 scalefont setfont
+{text_x + 2} {text_y - 10 * 4} moveto
+(Alignments:  {self.alignment_file}) show
+
+
+
+''', file=outf)
+			elif line == '% switch off outline pairs or bases by removing these lines':
+				
+				print('''/maplemark { % i r g b maplemark  draw filled circle around base i
+  setrgbcolor
+  newpath 1 sub coor exch get aload pop
+  fsize 2 div 
+  0 360 arc closepath fill stroke
+} bind def
+
+/borderdraw { % i borderdraw  draw filled circle around base i
+  0.2 0.2 0.2 setrgbcolor
+  newpath 1 sub coor exch get aload pop
+  fsize 2 div 0 360 arc 
+  1.3 setlinewidth
+  stroke
+} bind def
+
+/show5 { % i mark 5-prime end at base i
+  0 0 0 setrgbcolor
+  newpath 1 sub coor exch get aload pop moveto
+  -5 0 rmoveto
+  -15 10 rlineto
+  -8 0 rmoveto (5') show stroke
+} bind def
+''', file=outf)
+
+				print("drawoutline", file=outf)
+
+
+				for i,d in enumerate(self.depths): 
+
+					if d == 0:
+						r, g, b = (0.9, 0.9, 0.9)
+					else:
+						r, g, b = abundance_to_rgb(d)
+
+					print(f"{i+1} {r} {g} {b} maplemark", file=outf)
+
+
+				print(line, file=outf)
+
+				print("1 show5", file=outf)
+
+
+				for i in range(self.seq.index(self.mas),self.seq.index(self.mas) + len(self.mas)):
+					print(f"{i} borderdraw", file=outf)
+
+			elif line.startswith("%%BoundingBox"):
+
+				line = line.split()
+				# line[3] = int(line[3]) + 200
+				line[4] = int(line[4]) + 200
+
+				# bound = line.split()[1:]
+				# bound = [int(b) for b in bound]
+
+				# bound[-1] += 500
+				# bound[-2] += 500
+
+				line = " ".join(map(str, line))
+
+
+				# line = f""
+				# print(line)
+
+
+
+
+			elif line == "drawoutline":
+				line = "% " + line
+
+			elif line == "drawpairs":
+				line = "% " + line
+
+			print(line, file=outf)
+
+
+
+		outf.close()
+		os.remove(self.fold_file)
+		
+
 
 def get_rg_depth(output_directory, alignment_file):
 	depth_file = f"./{output_directory}/RGdepth.txt"
@@ -1305,7 +1726,7 @@ class hairpinClass():
 		self.input_mas = input_mas
 		self.genome_file = genome_file
 		self.alignment_file = alignment_file
-		self.output_directory = output_directory
+		self.output_directory = output_directory.rstrip("/")
 
 		self.chrom = self.locus.split(":")[0]
 		self.start = int(self.locus.split(":")[-1].split("-")[0])
@@ -1405,6 +1826,9 @@ class hairpinClass():
 			else:
 				self.valid = True
 
+				Path(f'./{self.output_directory}/Folds').mkdir(parents=True, exist_ok=True)
+				fold = foldClass(self.name, self.seq, self.alignment_file, self.locus, self.strand, self.mas, self.output_directory)
+
 				self.assess_miRNA()
 
 
@@ -1482,52 +1906,52 @@ class hairpinClass():
 		return("\n".join(map(str,out)))
 
 
-	def strucVis(self):
+	# def strucVis(self):
 
 
-		Path(f'./{self.output_directory}Folds').mkdir(parents=True, exist_ok=True)
+	# 	Path(f'./{self.output_directory}Folds').mkdir(parents=True, exist_ok=True)
 
-		bam_file = f"./{self.output_directory}Folds/{self.name}.bam"
-
-
-		with open(bam_file, 'wb') as outf:
-			sam_call = ['samtools', 'view', '-b', '-h', self.alignment_file, self.locus]
-			p = Popen(sam_call, stdout=outf, stderr=PIPE)
-			p.wait()
+	# 	bam_file = f"./{self.output_directory}Folds/{self.name}.bam"
 
 
-		index_call = ['samtools', 'index', bam_file]
-		p = Popen(index_call, stdout=PIPE, stderr=PIPE)
-		p.wait()
+	# 	with open(bam_file, 'wb') as outf:
+	# 		sam_call = ['samtools', 'view', '-b', '-h', self.alignment_file, self.locus]
+	# 		p = Popen(sam_call, stdout=outf, stderr=PIPE)
+	# 		p.wait()
 
 
-		output_file = f"./{self.output_directory}Folds/{self.name}.ps"
-
-		if self.strand == "+":
-			strand = 'plus'
-		elif self.strand == '-':
-			strand = 'minus'
-		else:
-			sys.exit("unrecognized strand")
-
-		call = ['strucVis', 
-		'-b', bam_file, 
-		'-g', self.genome_file, 
-		'-c', self.locus, 
-		'-s', strand,
-		'-p', output_file,
-		'-n', self.name
-		]
-
-		p = Popen(call, stdout=PIPE, stderr=PIPE)
-		out, err = p.communicate()
-
-		# print(out, err)
+	# 	index_call = ['samtools', 'index', bam_file]
+	# 	p = Popen(index_call, stdout=PIPE, stderr=PIPE)
+	# 	p.wait()
 
 
-		os.rename(output_file, output_file.replace(".ps", ".eps"))
-		os.remove(bam_file)
-		os.remove(bam_file + ".bai")
+	# 	output_file = f"./{self.output_directory}Folds/{self.name}.ps"
+
+	# 	if self.strand == "+":
+	# 		strand = 'plus'
+	# 	elif self.strand == '-':
+	# 		strand = 'minus'
+	# 	else:
+	# 		sys.exit("unrecognized strand")
+
+	# 	call = ['strucVis', 
+	# 	'-b', bam_file, 
+	# 	'-g', self.genome_file, 
+	# 	'-c', self.locus, 
+	# 	'-s', strand,
+	# 	'-p', output_file,
+	# 	'-n', self.name
+	# 	]
+
+	# 	p = Popen(call, stdout=PIPE, stderr=PIPE)
+	# 	out, err = p.communicate()
+
+	# 	# print(out, err)
+
+
+	# 	os.rename(output_file, output_file.replace(".ps", ".eps"))
+	# 	os.remove(bam_file)
+	# 	os.remove(bam_file + ".bai")
 
 
 	def get_locus(self, locus, strand, input_mas):
@@ -2043,7 +2467,7 @@ def hairpin(alignment_file, output_directory, ignore_replication, max_length):
 			if hpc.valid:
 				print()
 				print(f"{hpc.ruling}\t\033[1m{name}\033[0m", length, sep='\t')
-				hpc.strucVis()
+				# hpc.strucVis()
 
 			with open(hairpin_file, 'a') as outf:
 				print(hpc.table(), file=outf)
