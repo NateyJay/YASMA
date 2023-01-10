@@ -216,7 +216,7 @@ class foldClass():
 
 	def write(self):
 
-		outf = open(f"{self.output_directory}/Folds/{self.name}_colored.eps", 'w')
+		outf = open(f"{self.output_directory}/Folds/{self.name}.eps", 'w')
 
 		for line in self.lines:
 
