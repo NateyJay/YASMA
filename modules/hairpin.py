@@ -7,7 +7,7 @@ from pathlib import Path
 from os.path import isfile, isdir
 from time import time, sleep
 from Levenshtein import distance
-from math import log10
+from math import log10, sqrt
 
 
 from modules.generics import *
@@ -52,7 +52,12 @@ class foldClass():
 
 		self.get_depth()
 
+		# self.find_5p_angle()
+
 		self.write()
+
+		# sys.exit()
+
 		
 	def get_depth(self):
 
@@ -119,7 +124,9 @@ class foldClass():
 		out, err = p.communicate(f">{temp_name}\n{self.seq}")
 
 
-		self.fold_file = f"{self.output_directory}/Folds/{self.name}.eps"
+		self.fold_file = f"{self.output_directory}/Folds/{self.name}_unannotated.eps"
+
+		# print(self.fold_file)
 		os.rename(f"{temp_name}_ss.ps", self.fold_file)
 
 		# sys.exit()
@@ -159,6 +166,41 @@ class foldClass():
 					self.bounding_box = bound
 
 
+	def find_5p_angle(self):
+		x, y = self.coor[0]
+
+		rotation = [
+		[ 15, 0  ],
+		[ 10, 5  ],
+		[  5, 10 ],
+		[  0, 15 ],
+		[ -5, 10 ],
+		[-10, 5  ],
+		[-15, 0  ],
+		[-10, -5 ],
+		[ -5, -10],
+		[  0, -15],
+		[  5, -10],
+		[ 10, -5 ]
+		]
+
+
+
+		for r in rotation:
+			rx = x + r[0]
+			ry = y + r[1]
+
+			for cx, cy in self.coor:
+
+				print(15.0^2)
+				print((rx - cx)^2)
+
+				print((rx - cx)^2 + (ry - cy)^2)
+
+				err = sqrt((rx - cx)^2 + (ry - cy)^2)
+				print(err)
+				sys.exit()
+
 
 
 
@@ -181,7 +223,7 @@ class foldClass():
 				text_y = self.bounding_box[3] + 120
 
 				print(f'''
-0 0 1 setrgbcolor
+0.4 0.4 1 setrgbcolor
 {leg_x} {leg_y} 4 0 360 arc closepath fill stroke
 0 0.5 1 setrgbcolor
 {leg_x} {leg_y - 10 * 1} 4 0 360 arc closepath fill stroke
@@ -344,7 +386,7 @@ setfont
 					else:
 						r, g, b = abundance_to_rgb(d)
 
-					print(f"{i+1} {r} {g} {b} maplemark", file=outf)
+					print(f"{i + 1} {r} {g} {b} maplemark", file=outf)
 
 
 				print(line, file=outf)
@@ -353,7 +395,7 @@ setfont
 
 
 				for i in range(self.seq.index(self.mas),self.seq.index(self.mas) + len(self.mas)):
-					print(f"{i} borderdraw", file=outf)
+					print(f"{i + 1} borderdraw", file=outf)
 
 			elif line.startswith("%%BoundingBox"):
 
@@ -975,6 +1017,7 @@ class hairpinClass():
 	help='Maximum hairpin size (default 300). Longer loci will not be considered for miRNA analysis.')
 
 def hairpin(alignment_file, output_directory, ignore_replication, max_length):
+	"""Evaluates annotated loci for hairpin or miRNA structures"""
 
 
 	def get_genome_file():

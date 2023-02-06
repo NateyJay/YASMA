@@ -69,7 +69,7 @@ from modules.generics import *
 
 def annotate(alignment_file, annotation_readgroups, dicercall, output_directory, force, partial_wigs, window, merge_dist, pad, rpm_cutoff, extension_ratio, dicer_ratio):
 	"""Main annotation suite."""
-	print('run annotation')
+	# print('run annotation')
 
 
 
@@ -115,9 +115,6 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 	# smallDicer
 
 
-	print()
-	print()
-	print("\033[1m-- annotator v0.3x --\033[0m")
 
 	print()
 	print()
@@ -297,7 +294,7 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 	print(f'    ann_rg_depth: {library_depth:,} reads')
 	print(f'          1 read: {round(read_equivalent,5)} rpm')
 	print(f"      rpm_cutoff: {rpm_cutoff} rpm -> {round(depth_cutoff,2)} reads")
-	print(f"      ext_cutoff: {ext_cutoff} rpm > {round(depth_cutoff*extension_ratio,2)} reads")
+	print(f"      ext_cutoff: {ext_cutoff} rpm -> {round(depth_cutoff*extension_ratio,2)} reads")
 	print(f" extension_ratio: {extension_ratio}")
 	print(f"     dicer_ratio: {dicer_ratio}")
 
@@ -571,7 +568,9 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 			# sys.exit()
 
 			with open(gff_file, 'a') as outf:
-				print(f"{chrom}\tsmoothLocus\tnc_RNA\t{start}\t{stop}\t.\t.\t.\tID={name};dicercall={predominant_length};frac_dicercall={predominant_length_depth}", file=outf)
+				if start == 0:
+					start += 1
+				print(f"{chrom}\tsmoothLocus\tnc_RNA\t{start}\t{stop}\t.\t{strand}\t.\tID={name};dicercall={predominant_length};frac_dicercall={predominant_length_depth}", file=outf)
 
 
 			to_print = [name]
@@ -830,7 +829,7 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 		print(f"  {med_length:,} median length")
 		print(f"  {med_gap:,} median gap")
 
-		break
+		# break
 
 
 	print()

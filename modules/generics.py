@@ -21,8 +21,17 @@ from collections import Counter, deque
 
 # from timeit import timeit
 
-# from math import log10
+from math import log10
 
+
+def parse_locus(locus):
+	locus = locus.replace("..", "-").strip()
+
+	chrom = locus.split(":")[0]
+	start = int(locus.split(":")[1].split("-")[0])
+	stop  = int(locus.split(":")[1].split("-")[1])
+
+	return(chrom, start, stop)
 
 def samtools_faidx(locus, strand, genome_file):
 
@@ -90,10 +99,10 @@ def abundance_to_rgb(abd):
 
 
 
-def get_rg_depth(output_directory, alignment_file):
+def get_rg_depth(output_directory, alignment_file, force=False):
 	depth_file = f"./{output_directory}/RGdepth.txt"
 
-	if isfile(depth_file): #and not force:
+	if isfile(depth_file) and not force: #and not force:
 		with open(depth_file, 'r') as f:
 
 			line = f.readline()
@@ -110,7 +119,7 @@ def get_rg_depth(output_directory, alignment_file):
 		return(c)
 
 
-
+	print()
 	print('reading annotation RG depth...')
 
 	c = Counter()
@@ -153,15 +162,24 @@ def get_rg_depth(output_directory, alignment_file):
 		# with open(depth_file, 'w') as outf:
 		# 	print(alignment_file, depth, sep='\t', file=outf)
 
+
+
 def samtools_view(bam, dcr_range=False, non_range=False, locus=False):
 
-	if not isfile(f"{bam}.bai"):
+	if bam.endswith('.bam'):
+		index_file = f"{bam}.bai"
+	elif bam.endswith('.cram'):
+		index_file = f"{bam}.crai"
+
+	if not isfile(index_file):
 		# call = f"samtools index {bam}"
 		call= ['samtools','index',bam]
 		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
 		out,err=p.communicate()
 		# print(out)
 		# print(err)
+
+		print("WHY AM I INDEXING???")
 
 
 	# call = f"samtools view -@ 4 -F 4 {bam}"
@@ -220,7 +238,7 @@ def samtools_view(bam, dcr_range=False, non_range=False, locus=False):
 
 	p.wait()
 
-def get_chromosomes(file,output_directory):
+def get_chromosomes(file, output_directory):
 	chromosomes = []
 	rgs = []
 	# call = f"samtools view -@ 4 -H {file}"
@@ -348,76 +366,6 @@ def complement(s):
 	return(s)
 
 
-def get_rg_depth(output_directory, alignment_file):
-	depth_file = f"./{output_directory}/RGdepth.txt"
-
-	if isfile(depth_file): #and not force:
-		with open(depth_file, 'r') as f:
-
-			line = f.readline()
-			c = Counter()
-			
-			for line in f:
-				line = line.strip().split("\t")
-
-
-				c[(line[0], int(line[1]))] += int(line[3])
-
-
-
-		return(c)
-
-
-
-	print('reading annotation RG depth...')
-
-	c = Counter()
-	rg_c = Counter()
-
-	call = ['samtools', 'view', '-F', '4', alignment_file]
-
-
-
-	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
-
-	for i,line in enumerate(p.stdout):
-		line = line.strip().split("\t")
-
-		rg = line[18][5:]
-		length = int(line[5][:-1])
-
-		c.update([(rg, length)])
-		rg_c.update([rg])
-
-
-
-
-		# if i > 1000000:
-		# 	p.kill()
-		# 	break
-
-	p.wait()
-
-
-	with open(depth_file, 'w') as outf:
-		print("rg\tlength\tprop\tabundance", file=outf)
-		for rg in rg_c.keys():
-			for r in range(15,31):
-				prop = round(c[(rg,r)] / rg_c[rg], 4)
-				# prop_highest = round(c[r] / highest, 4)
-				print(rg, r, prop, c[(rg,r)], sep='\t', file=outf)
-	return(c)
-
-		# with open(depth_file, 'w') as outf:
-		# 	print(alignment_file, depth, sep='\t', file=outf)
-
-
-def complement(s):
-	d = {"U" : "A", 
-	"A":"U", "G":"C", "C":"G", "N":"N"}
-
-	s = "".join([d[letter] for letter in s])
-	return(s)
 
 
 def samtools_view(bam, dcr_range=False, non_range=False, locus=False):
