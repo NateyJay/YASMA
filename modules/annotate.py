@@ -238,44 +238,6 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 
 
 
-	# def get_library_depth(output_directory, file):
-	# 	depth_file = f"./{output_directory}/library_depth.txt"
-	# 	if isfile(depth_file): #and not force:
-	# 		with open(depth_file, 'r') as f:
-	# 			line = f.readline()
-	# 			line = line.split("\t")
-
-	# 			if line[0] == file:
-	# 				# print(f'\nread depth from {depth_file}...')
-	# 				return(int(line[1]))
-
-
-
-	# 	print('reading annotation RG depth...')
-
-	# 	call = ['samtools', 'view', '-F', '4']
-
-	# 	for rg in annotation_readgroups:
-	# 		call += ['-r', rg]
-
-	# 	call += [file]
-
-	# 	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
-
-	# 	depth = 0
-	# 	for line in p.stdout:
-	# 		depth += 1
-
-	# 	p.wait()
-
-
-	# 	with open(depth_file, 'w') as outf:
-	# 		print(file, depth, sep='\t', file=outf)
-
-	# 	return(depth)
-
-	# library_depth = get_library_depth(output_directory, alignment_file)
-
 	depth_c = get_rg_depth(output_directory, alignment_file)
 
 	library_depth = 0
@@ -653,18 +615,12 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 		coverage_buffer = {c : deque([0]*half_window) for c in coverage_names}
 
 		window_coverages = {'dcr' : coverageClass(window), 'non' : coverageClass(window)}
-		locus = locusClass()#merge_dist, chrom, pad, cluster_counter, library_depth, read_equivalent, dcr_range, annotation_readgroups, bam_rgs)
+		locus = locusClass() #merge_dist, chrom, pad, cluster_counter, library_depth, read_equivalent, dcr_range, annotation_readgroups, bam_rgs)
 
 
 
 		while sam_chrom == chrom:
 
-			# if pos == 1393300:
-			# 	break
-			# 	sys.exit()
-
-			# if pos == 1000000:
-			# 	sys.exit("timeup!")
 
 
 			corrected_pos = pos - half_window
@@ -697,7 +653,6 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 					break
 
 
-
 			elif pos < sam_pos:
 
 				read_count = {}
@@ -718,8 +673,6 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 
 					if size[-1] == "-":
 						cov = cov * -1
-
-
 
 
 					wig_d[size].add(round(cov * read_equivalent,4), corrected_pos, chrom)

@@ -69,48 +69,46 @@ def context(gene_annotation_file, output_directory, force):
 	def make_subsets():
 		mRNA_file = gene_annotation_file.replace(".gff3", ".mRNA.gff3")
 		exon_file = gene_annotation_file.replace(".gff3", ".exon.gff3")
+		cds_file  = gene_annotation_file.replace(".gff3", ".cds.gff3")
 
-		if not isfile(mRNA_file) or not isfile(exon_file):
+		if not isfile(mRNA_file) or not isfile(exon_file) or not isfile(cds_file):
 			sort()
 
-		if not isfile(mRNA_file):
-			with open(mRNA_file, 'w') as outf:
-				with open(gene_annotation_file, 'r') as f:
-					for line in f:
-						line = line.strip()
 
-						if line.startswith("#"):
-							print(line, file=outf)
+		def write_file(file, key):
+			lines_written = 0
+			if not isfile(file):
+				with open(file, 'w') as outf:
+					with open(gene_annotation_file, 'r') as f:
+						for line in f:
+							line = line.strip()
 
-						elif line.split('\t')[2] == 'mRNA':
-							print(line, file=outf)
+							if line.startswith("#"):
+								print(line, file=outf)
 
+							elif line.split('\t')[2] == key:
+								print(line, file=outf)
+
+								lines_written += 1
+								# print(lines_written)
+
+				if lines_written < 100:
+					print(f"WARNING: less than 100 lines written for {file} in the {key} sub-annotation. Is this a fully annotated NCBI-derived GFF3?")
+
+		write_file(mRNA_file, 'mRNA')
+		write_file(exon_file, 'exon')
+		write_file(cds_file, 'CDS')
 		
-		if not isfile(exon_file):
-			with open(exon_file, 'w') as outf:
-				with open(gene_annotation_file, 'r') as f:
-					for line in f:
-						line = line.strip()
+		return(mRNA_file, exon_file, cds_file)
 
-						if line.startswith("#"):
-							print(line, file=outf)
-
-						elif line.split('\t')[2] == 'exon':
-							print(line, file=outf)
-
-		return(mRNA_file, exon_file)
-
-	mRNA_file, exon_file = make_subsets()
+	mRNA_file, exon_file, cds_file = make_subsets()
 
 
-
-	# sys.exit()
-
-	def closest():
+	def closest(file, ID):
 
 		closest_d = {}
 
-		call= ['bedtools', 'closest', '-a', ann_file, '-b', mRNA_file, '-d']
+		call= ['bedtools', 'closest', '-a', ann_file, '-b', file, '-d']
 
 		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
 		out, err = p.communicate()
@@ -130,9 +128,9 @@ def context(gene_annotation_file, output_directory, force):
 
 			d = {}
 
-			d['mRNA_id'] = ma['ID']
+			d[f'{ID}_id'] = ma['ID']
 			d['transcript'] = ma['orig_transcript_id']
-			d['distance'] = int(o[-1])
+			d[f'{ID}_distance'] = int(o[-1])
 
 
 			if s_strand == '.' or m_strand == '.':
@@ -151,27 +149,17 @@ def context(gene_annotation_file, output_directory, force):
 
 		return(closest_d)
 
-
-
-
-
-	closest_d = closest()
-
-	# for key, val in closest_d.items():
-	# 	print(key, "\t".join(map(str, val)))
-
-
-
-	def intersect():
+	def intersect(file, ID):
 
 		inter_d = {}
 
-		call = ['bedtools', 'intersect', '-a', ann_file, '-b', exon_file, '-wao']
+		call = ['bedtools', 'intersect', '-a', ann_file, '-b', file, '-wao']
 
 
 		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
 		out, err = p.communicate()
-
+		# print(out)
+		# sys.exit()
 
 		for o in out.strip().split("\n"):
 			o = o.strip().split("\t")
@@ -187,8 +175,8 @@ def context(gene_annotation_file, output_directory, force):
 				d = {}
 
 
-				d['exon_id'] = ma['ID']
-				d['overlap'] = int(o[-1])
+				d[f'{ID}_id'] = ma['ID']
+				d[f'{ID}_overlap'] = int(o[-1])
 
 				inter_d[sa['ID']] = d
 
@@ -197,10 +185,14 @@ def context(gene_annotation_file, output_directory, force):
 			# sys.exit()
 		return(inter_d)
 
-	inter_d = intersect()
+
+	mRNA_d = closest(mRNA_file, ID='mRNA')
+	exon_d = intersect(exon_file, ID='exon')
+	cds_d = intersect(cds_file, ID='cds')
+
 
 	with open(f"{output_directory}/GenomicContext.txt", 'w') as outf:
-		print("\t".join(['cluster','transcript', 'mRNA_id', 'distance', 'exon_id', 'overlap', 's_strand','m_strand','match','category']), file=outf)
+		print("\t".join(['cluster','transcript', 'mRNA_id', 'mRNA_distance', 'exon_id', 'exon_overlap', 'cds_id', 'cds_overlap', 's_strand','m_strand','match','category']), file=outf)
 
 		with open(f"{output_directory}/Results.txt", 'r') as f:
 			header = f.readline()
@@ -209,30 +201,30 @@ def context(gene_annotation_file, output_directory, force):
 				line = line.strip().split("\t")
 				cluster = line[0]
 
-
-
+				try:
+					m_d = mRNA_d[cluster]
+				except KeyError:
+					m_d = {}
 
 				try:
-					c_d = closest_d[cluster]
+					i_d = exon_d[cluster]
+				except KeyError:
+					i_d = {}
+
+				try:
+					c_d = cds_d[cluster]
 				except KeyError:
 					c_d = {}
 
 
-				try:
-					i_d = inter_d[cluster]
-				except KeyError:
-					i_d = {}
 
-
-
-				c_d.update(i_d)
-				d = c_d
-
-				# pprint(d)
+				m_d.update(i_d)
+				m_d.update(c_d)
+				d = m_d
 
 
 				out_line = [cluster]
-				for k in ['transcript', 'mRNA_id', 'distance', 'exon_id', 'overlap', 's_strand','m_strand','match']:
+				for k in ['transcript', 'mRNA_id', 'mRNA_distance', 'exon_id', 'exon_overlap', 'cds_id', 'cds_overlap', 's_strand','m_strand','match']:
 
 					try:
 						out_line.append(d[k])
@@ -241,43 +233,71 @@ def context(gene_annotation_file, output_directory, force):
 						out_line.append("")
 
 
-				if d['distance'] > 1000:
-					category = 'intergenic'
 
-				elif 0 < d['distance'] <= 1000:
-					category = 'near-genic'
+				## finding gene relationship
 
-				elif d['overlap'] == '' and d['match'] == '=':
-					category = 'intronic-sense'
+				if d['mRNA_distance'] > 1000:
+					gene_relationship = 'intergenic'
 
-				elif d['overlap'] == '' and d['match'] == '!':
-					category = 'intronic-antisense'
+				elif 0 < d['mRNA_distance'] <= 1000:
+					gene_relationship = 'near-genic'
 
-				elif d['overlap'] == '' and d['match'] == '?':
-					category = 'intronic-unstranded'
-
-				elif d['overlap'] > 0 and d['match'] == '=':
-					category = 'exonic-sense'
-
-				elif d['overlap'] > 0 and d['match'] == '!':
-					category = 'exonic-antisense'
-
-				elif d['overlap'] > 0 and d['match'] == '?':
-					category = 'exonic-unstranded'
-
-				# elif d['match'] == '=':
-				# 	category = 'intronic-sense'
-
-				# elif d['match'] == '!':
-				# 	category = 'intronic-antisense'
-
-				# elif d['match'] == '?':
-				# 	category = 'intronic-unstranded'
+				elif d['mRNA_distance'] == 0:
+					gene_relationship = 'genic'
 
 				else:
-					print("WHAT ARE YOU?")
 					pprint(d)
-					sys.exit()
+					sys.exit('gene relationship error')
+
+
+
+				## finding strand relationship
+
+				if gene_relationship != 'genic':
+					stranding = "NA"
+
+				elif d['match'] == '=':
+					stranding = 'sense'
+
+				elif d['match'] == '!':
+					stranding = 'antisense'
+
+				elif d['match'] == '?':
+					stranding = 'unstranded'
+
+				else:
+					pprint(d)
+					sys.exit('stranding error')
+
+
+				## finding intragene context
+
+				if gene_relationship != 'genic':
+					intragene_context = "NA"
+
+				elif d['exon_overlap'] == '':
+					intragene_context = 'intronic'
+
+				elif d['exon_overlap'] > 0 and d['cds_overlap'] == '':
+					intragene_context = 'exon-UTR'
+
+				elif d['exon_overlap'] > 0 and d['cds_overlap'] > 0:
+					intragene_context = 'exon-CDS'
+
+				else:
+					pprint(d)
+					sys.exit('intragene_context error')
+
+
+
+				if gene_relationship != 'genic':
+					category = gene_relationship
+
+				else:
+					category = f"{stranding}_{intragene_context}"
+
+
+
 
 				out_line.append(category)
 
@@ -287,7 +307,7 @@ def context(gene_annotation_file, output_directory, force):
 				out_line = '\t'.join(map(str, out_line))
 				# sys.exit()
 
-				print(out_line, sep='\t')
+				# print(out_line, sep='\t')
 				print(out_line, sep='\t', file=outf)
 
 
