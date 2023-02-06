@@ -4,7 +4,6 @@ from modules.hairpin import *
 from modules.annotate import *
 from modules.precheck import *
 from modules.context import *
-from modules.deepcount import *
 from modules.count import *
 
 version = "v0.6x"
@@ -18,7 +17,6 @@ cli.add_command(precheck)
 cli.add_command(annotate)
 cli.add_command(hairpin)
 cli.add_command(context)
-cli.add_command(deepcount)
 cli.add_command(count)
 
 if __name__ == '__main__':
