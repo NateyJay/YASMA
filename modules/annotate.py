@@ -8,6 +8,7 @@ from time import time, sleep
 from collections import Counter, deque
 from itertools import count, chain
 from statistics import median, mean
+from pprint import pprint
 
 
 from modules.generics import *
@@ -426,21 +427,19 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 			strand_c = Counter()
 			rg_c     = Counter()
 			read_c   = Counter()
+			depth_c  = Counter()
 
 			read_starts = []
 			read_stops  = []
 
-			depth_buffer = []
 
 			for r in reads:
 				sam_pos, sam_length, sam_size, sam_strand, sam_rg, sam_read = r
 
 
+
 				for r in range(sam_length):
-					try:
-						depth_buffer[r] += 1
-					except IndexError:
-						depth_buffer.append(1)
+					depth_c[r] += 1
 
 
 				read_starts.append(sam_pos)
@@ -457,16 +456,38 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 
 
 
+			peak_positions = [depth_c.most_common()[0][0]]
+			deepest = depth_c.most_common()[0][1]
+			for i,d in depth_c.most_common():
+				if d < deepest:
+					peak_positions.append(last_i)
+					break
+
+				last_i = i
+
+
+
+
+			# print(max(depth_c))
+			# pprint(depth_c)
+			# print(peak_positions)
+			# sys.exit()
+			# pprint(depth_buffer)
+
+			# depth_buffer = [d for d in samtools_depth(alignment_file, annotation_readgroups, coords)]
+			# peak_positions = [i for r in if d == max(depth_buffer)]
+			# print(peak_positions)
+			locus_peak = f'{chrom}:{start + peak_positions[0] + pad}-{start + peak_positions[-1] + pad}'
+			# locus_peak = 'not calculated'
+			# print(locus_peak)
+
+			# sys.exit()
+
+
 
 			# print(start, stop)
 			start = min(read_starts) - pad
 			stop  = max(read_stops) + pad
-
-
-
-			peak_positions = [i for i,d in enumerate(depth_buffer) if d == max(depth_buffer)]
-			locus_peak = f'{chrom}:{start + peak_positions[0] + pad}-{start + peak_positions[-1] + pad}'
-
 
 
 			name = f"Cl_{next(cluster_counter)}"
