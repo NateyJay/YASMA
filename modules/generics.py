@@ -162,6 +162,45 @@ def get_rg_depth(output_directory, alignment_file, force=False):
 		# with open(depth_file, 'w') as outf:
 		# 	print(alignment_file, depth, sep='\t', file=outf)
 
+def samtools_depth(bam, annotation_readgroups, locus=False):
+
+	if bam.endswith('.bam'):
+		index_file = f"{bam}.bai"
+	elif bam.endswith('.cram'):
+		index_file = f"{bam}.crai"
+
+	if not isfile(index_file):
+		# call = f"samtools index {bam}"
+		call= ['samtools','index',bam]
+		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+		out,err = p.communicate()
+
+	# call = f"samtools view -@ 4 -F 4 {bam}"
+	call = ['samtools', 'view', '-h','-F', '4']
+
+	for rg in annotation_readgroups:
+		call += ['-r', rg]
+
+	call += [bam]
+
+
+	if locus:
+		call.append(locus)
+
+	p1 = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+	p2 = Popen(['samtools','depth','-a','-'], stdin=p1.stdout, stdout=PIPE)
+
+	for line in p2.stdout:
+		line = line.strip().split()
+
+		depth = int(line[-1])
+
+		yield(depth)
+
+	p2.wait()
+
+
+
 
 
 def samtools_view(bam, dcr_range=False, non_range=False, locus=False):
@@ -179,7 +218,7 @@ def samtools_view(bam, dcr_range=False, non_range=False, locus=False):
 		# print(out)
 		# print(err)
 
-		print("WHY AM I INDEXING???")
+		# print("WHY AM I INDEXING???")
 
 
 	# call = f"samtools view -@ 4 -F 4 {bam}"
