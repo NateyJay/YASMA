@@ -208,7 +208,7 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 
 	results_file = f"{output_directory}/Results.txt"
 	with open(results_file, 'w') as outf:
-		print("#name\tlocus\tlength\tgap\tdepth\trpm\tdepth:length\tfrac_top\tstrand\tfrac_dicer\tdcr_reads\tnon_reads\tdicercall\tfrac_dicercall\t" + "\t".join(map(str, dcr_range)), file=outf)
+		print("#name\tlocus\tlocus_peak\tlength\tgap\tdepth\trpm\tdepth:length\tfrac_top\tstrand\tfrac_dicer\tdcr_reads\tnon_reads\tdicercall\tfrac_dicercall\t" + "\t".join(map(str, dcr_range)), file=outf)
 
 
 	reads_file = f"{output_directory}/TopReads.txt"
@@ -430,9 +430,18 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 			read_starts = []
 			read_stops  = []
 
+			depth_buffer = []
 
 			for r in reads:
 				sam_pos, sam_length, sam_size, sam_strand, sam_rg, sam_read = r
+
+
+				for r in range(sam_length):
+					try:
+						depth_buffer[r] += 1
+					except IndexError:
+						depth_buffer.append(1)
+
 
 				read_starts.append(sam_pos)
 				read_stops.append(sam_pos + sam_length)
@@ -446,9 +455,18 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 				read_c.update([sam_read])
 
 
+
+
+
 			# print(start, stop)
 			start = min(read_starts) - pad
 			stop  = max(read_stops) + pad
+
+
+
+			peak_positions = [i for i,d in enumerate(depth_buffer) if d == max(depth_buffer)]
+			locus_peak = f'{chrom}:{start + peak_positions[0] + pad}-{start + peak_positions[-1] + pad}'
+
 
 
 			name = f"Cl_{next(cluster_counter)}"
@@ -458,8 +476,6 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 				print(f"WARNING: {name} detected no reads. Likely an error. Skipping.")
 				return(0,0)
 
-			# pprint(len_c)
-			# pprint(read_c)
 
 
 			dist_to_last = start - self.last_end
@@ -469,7 +485,7 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 			if start < 0:
 				start = 0
 
-			coords = f"{chrom}:{start}..{stop}"
+			coords = f"{chrom}:{start}-{stop}"
 			length = stop - start
 			n_reads = len(reads)
 			frac_top = round(strand_c["+"] / n_reads,3)
@@ -511,23 +527,21 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 			depth_by_length = round(n_reads / length, 3)
 
 
-			to_print = [name, coords, length, dist_to_last, n_reads, rpm, depth_by_length, frac_top, strand]
+
+
+			to_print = [name, coords, locus_peak, length, dist_to_last, n_reads, rpm, depth_by_length, frac_top, strand]
 			to_print += [frac_dicercall, size_c['dcr'],  size_c['non']]
 			to_print += [predominant_length, predominant_length_depth]
 			to_print += [len_c[d] for d in dcr_range]
 			to_print = "\t".join(map(str, to_print))
 
-			# print(to_print)
+
+
 
 			with open(results_file, 'a') as outf:
 				print(to_print, sep='\t', file=outf)
 
-			# print(name, coords, length, dist_to_last, n_reads, rpm, depth_by_length, frac_top, strand, 
-			# 		frac_dicercall, size_c['dcr'],  size_c['non'], 
-			# 		predominant_length, round(predominant_length_depth/n_reads,3), "\t".join([str(len_c[d]) for d in dcr_range]), sep='\t')
 
-
-			# sys.exit()
 
 			with open(gff_file, 'a') as outf:
 				if start == 0:
@@ -540,6 +554,8 @@ def annotate(alignment_file, annotation_readgroups, dicercall, output_directory,
 			to_print.append(sum([rg_c[rg] for rg in annotation_readgroups]))
 			to_print.append(sum([rg_c[rg] for rg in bam_rgs]))
 			to_print += [rg_c[rg] for rg in bam_rgs]
+
+
 			to_print = "\t".join(map(str, to_print))
 
 			with open(count_file, 'a') as outf:
