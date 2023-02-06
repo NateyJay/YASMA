@@ -6,7 +6,7 @@ from modules.precheck import *
 from modules.context import *
 from modules.count import *
 
-version = "v0.6x"
+version = "v0.7x"
 
 @click.group()
 def cli():
