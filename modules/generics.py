@@ -203,7 +203,7 @@ def samtools_depth(bam, annotation_readgroups, locus=False):
 
 
 
-def samtools_view(bam, dcr_range=False, non_range=False, locus=False):
+def samtools_view(bam, dcr_range=False, non_range=False, locus=False, rgs=[]):
 
 	if bam.endswith('.bam'):
 		index_file = f"{bam}.bai"
@@ -222,7 +222,12 @@ def samtools_view(bam, dcr_range=False, non_range=False, locus=False):
 
 
 	# call = f"samtools view -@ 4 -F 4 {bam}"
-	call = ['samtools', 'view', '-F', '4', bam]
+	call = ['samtools', 'view', '-F', '4']
+	
+	for rg in rgs:
+		call += ['-r', rg]
+
+	call += [bam]
 
 
 	if locus:
@@ -273,7 +278,7 @@ def samtools_view(bam, dcr_range=False, non_range=False, locus=False):
 
 
 
-		yield(strand, length, size, sam_pos, sam_chrom, rg, seq)
+		yield(strand, length, size, sam_pos, sam_chrom, rg, seq, read_id)
 
 	p.wait()
 
@@ -407,72 +412,72 @@ def complement(s):
 
 
 
-def samtools_view(bam, dcr_range=False, non_range=False, locus=False):
+# def samtools_view(bam, dcr_range=False, non_range=False, locus=False):
 
-	if not isfile(f"{bam}.bai"):
-		# call = f"samtools index {bam}"
-		call= ['samtools','index',bam]
-		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
-		out,err=p.communicate()
-		# print(out)
-		# print(err)
-
-
-	# call = f"samtools view -@ 4 -F 4 {bam}"
-	call = ['samtools', 'view', '-F', '4', bam]
+# 	if not isfile(f"{bam}.bai"):
+# 		# call = f"samtools index {bam}"
+# 		call= ['samtools','index',bam]
+# 		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+# 		out,err=p.communicate()
+# 		# print(out)
+# 		# print(err)
 
 
-	if locus:
-		call.append(locus)
+# 	# call = f"samtools view -@ 4 -F 4 {bam}"
+# 	call = ['samtools', 'view', '-F', '4', bam]
+
+
+# 	if locus:
+# 		call.append(locus)
 		
-	# print(call)
-	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+# 	# print(call)
+# 	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
 
-	for i,line in enumerate(p.stdout):
+# 	for i,line in enumerate(p.stdout):
 
-		line = line.strip().split()
+# 		line = line.strip().split()
 
-		# read_id, flag, sam_chrom, sam_pos, _, length, _, _, _, _,_,_,_,_,_,_,_,_,rg= line
+# 		# read_id, flag, sam_chrom, sam_pos, _, length, _, _, _, _,_,_,_,_,_,_,_,_,rg= line
 
-		read_id = line[0]
-		flag = line[1]
-		seq = line[9]
+# 		read_id = line[0]
+# 		flag = line[1]
+# 		seq = line[9]
 
-		if flag == "16":
-			strand = '-'
-		elif flag == '0':
-			strand = "+"
-		else:
-			strand = False
+# 		if flag == "16":
+# 			strand = '-'
+# 		elif flag == '0':
+# 			strand = "+"
+# 		else:
+# 			strand = False
 
-		# print(line)
-		length = int(line[5].rstrip("M"))
-		# sam_pos = int(sam_pos)
+# 		# print(line)
+# 		length = int(line[5].rstrip("M"))
+# 		# sam_pos = int(sam_pos)
 
-		# length = len(line[9])
+# 		# length = len(line[9])
 
-		sam_pos = int(line[3])
-		sam_chrom = line[2]
+# 		sam_pos = int(line[3])
+# 		sam_chrom = line[2]
 
-		seq = seq.replace("T", "U")
+# 		seq = seq.replace("T", "U")
 
-		rg = line[18].lstrip("RG:Z:")
+# 		rg = line[18].lstrip("RG:Z:")
 
-		if dcr_range and non_range:
-			if length in dcr_range:
-				size = 'dcr'
-			elif length in non_range:
-				size = 'non'
-			else:
-				size = False
-		else:
-			size = False
+# 		if dcr_range and non_range:
+# 			if length in dcr_range:
+# 				size = 'dcr'
+# 			elif length in non_range:
+# 				size = 'non'
+# 			else:
+# 				size = False
+# 		else:
+# 			size = False
 
 
 
-		yield(strand, length, size, sam_pos, sam_chrom, rg, seq)
+# 		yield(strand, length, size, sam_pos, sam_chrom, rg, seq)
 
-	p.wait()
+# 	p.wait()
 
 def get_chromosomes(file,output_directory):
 	chromosomes = []

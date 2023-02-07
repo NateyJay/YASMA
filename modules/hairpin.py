@@ -808,7 +808,7 @@ class hairpinClass():
 
 
 			else:
-				f_out += "|"
+				f_out += ":"
 				s_out += s_s
 				m_out += m_s
 
@@ -1099,13 +1099,38 @@ def hairpin(alignment_file, output_directory, ignore_replication, max_length):
 
 
 
+	print("""
+mfe_per_nt
+┋
+┋ mismatches_total
+┋ ┋
+┋ ┋mismatches_asymm
+┋ ┋┋
+┋ ┋┋ no_mas_structures
+┋ ┋┋ ┋
+┋ ┋┋ ┋no_star_structures
+┋ ┋┋ ┋┋
+┋ ┋┋ ┋┋ precision
+┋ ┋┋ ┋┋ ┋
+┋ ┋┋ ┋┋ ┋ star_found
+┋ ┋┋ ┋┋ ┋ ┋
+v vv vv v v""")
+
+
 	with open(results_file, 'r') as f:
-		header = f.readline()
+		header = f.readline().lstrip("#").strip().split("\t")
+
+		# print(header)
+		# for i,h in enumerate(header):
+		# 	print(i,h)
+
 		for line in f:
 			line = line.strip().split('\t')
-			name, locus = line[:2]
-			strand = line[8]
-			length = int(line[2])
+
+			name   = line[header.index('name')]
+			locus  = line[header.index('locus')]
+			strand = line[header.index('strand')]
+			length = int(line[header.index('length')])
 
 
 			locus = locus.replace("..", "-")
