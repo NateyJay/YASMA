@@ -30,6 +30,8 @@ from modules.generics import *
 def context(gene_annotation_file, output_directory, force):
 	"""Compares annotations to identify cluster genomic context"""
 
+	output_directory = output_directory.rstrip("/")
+
 	ann_file = f"{output_directory}/Annotation.gff3"
 
 	if not isfile(ann_file):
@@ -104,6 +106,7 @@ def context(gene_annotation_file, output_directory, force):
 	mRNA_file, exon_file, cds_file = make_subsets()
 
 
+
 	def closest(file, ID):
 
 		closest_d = {}
@@ -153,7 +156,7 @@ def context(gene_annotation_file, output_directory, force):
 
 		inter_d = {}
 
-		call = ['bedtools', 'intersect', '-a', ann_file, '-b', file, '-wao']
+		call = ['bedtools', 'intersect', '-a', ann_file, '-b', file, '-wao', '-f', '0.1']
 
 
 		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
@@ -186,12 +189,21 @@ def context(gene_annotation_file, output_directory, force):
 		return(inter_d)
 
 
+	print("Finding intersections for...")
+	print("   mRNAs")
 	mRNA_d = closest(mRNA_file, ID='mRNA')
+	print("   exons")
 	exon_d = intersect(exon_file, ID='exon')
+	print("   CDSs")
 	cds_d = intersect(cds_file, ID='cds')
 
 
-	with open(f"{output_directory}/GenomicContext.txt", 'w') as outf:
+	output_file = f"{output_directory}/GenomicContext.txt"
+
+	print()
+	print(f'Printing to...\n  {output_file}')
+
+	with open(output_file, 'w') as outf:
 		print("\t".join(['cluster','transcript', 'mRNA_id', 'mRNA_distance', 'exon_id', 'exon_overlap', 'cds_id', 'cds_overlap', 's_strand','m_strand','match','category']), file=outf)
 
 		with open(f"{output_directory}/Results.txt", 'r') as f:
