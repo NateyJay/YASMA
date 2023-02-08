@@ -4,7 +4,7 @@ import sys
 import click
 from pathlib import Path
 from os.path import isfile, isdir
-from collections import Counter, deque
+from collections import Counter#, deque
 from pprint import pprint
 
 # import numpy as np
@@ -13,6 +13,101 @@ import math
 
 from modules.generics import *
 
+
+
+
+class assessClass():
+	'''produces a line assessment of a locus, similar to ShortStack3'''
+
+	def __init__(self):
+
+		self.header = ['Locus','Name','Length','Reads','RPM']
+		self.header += ['UniqueReads','FracTop','Strand','MajorRNA','MajorRNAReads','Complexity']
+		self.header += ['ma_size','ma_size_depth', 'ma_size_pair', 'ma_size_pair_depth', 'dicercall']
+
+
+	def format(self, name, chrom, start, stop, reads, aligned_depth):
+
+
+
+		### Basic information
+
+		reads = [r for r in reads if not r[3] + r[1] < start or not r[3] > stop ]
+		depth = len(reads)
+		rpm = depth / aligned_depth * 1000000
+
+		out = [f"{chrom}:{start}-{stop}", name, stop-start, depth, rpm]
+
+
+
+		### ShortStack standard metrics
+
+		seq_c       = Counter()
+		strand_c    = Counter()
+		size_c      = Counter()
+		size_pair_c = Counter()
+
+		for read in reads:
+			sam_strand, sam_length, sam_size, sam_pos, sam_chrom, sam_rg, sam_read, sam_name = read
+
+			seq_c[sam_read] += 1
+			strand_c[sam_strand] += 1
+			size_c[sam_length] += 1
+
+			if sam_length > 15:
+				size_pair_c[f"{sam_length-1}_{sam_length}"] += 1
+
+			if sam_length > 30:
+				size_pair_c[f"{sam_length}_{sam_length+1}"] += 1
+
+
+
+		unique_reads = len(seq_c.keys())
+		frac_top = strand_c["+"] / sum(strand_c.values())
+
+		if frac_top > 0.8:
+			strand = "+"
+		elif frac_top < 0.2:
+			strand = "-"
+		else:
+			strand = "."
+
+		major_rna = seq_c.most_common()[0][0]
+		major_rna_depth = seq_c.most_common()[0][1]
+
+		complexity = unique_reads / depth
+
+		out += [unique_reads, frac_top, strand, major_rna, major_rna_depth, complexity]
+
+
+
+
+		### More derived metrics
+
+		predominant_size       = size_c.most_common()[0][0]
+		predominant_size_depth = size_c.most_common()[0][1]
+
+		try:
+			predominant_size_pair       = size_pair_c.most_common()[0][0]
+			predominant_size_pair_depth = size_pair_c.most_common()[0][1]
+		except IndexError:
+			predominant_size_pair       = "NA"
+			predominant_size_pair_depth = 0
+
+		if predominant_size_depth > depth / 2:
+			dicercall = predominant_size
+
+		elif predominant_size_pair_depth > depth / 2:
+			dicercall = predominant_size_pair
+
+		else:
+			dicercall = "N"
+
+		out += [predominant_size, predominant_size_depth, predominant_size_pair, predominant_size_pair_depth, dicercall]
+
+		# print(out)
+		# print('here!!!')
+		return(out)
 
 @click.command()
 
@@ -78,6 +173,9 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 					gene_d[chrom] = [(start, stop)]
 
 
+
+	## preparing output files
+
 	output_file = f"{output_directory}/Poisson.gff3"
 
 	with open(output_file, 'w') as outf:
@@ -87,10 +185,23 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 			print(f"##sequence-region   {chrom} 1 {chrom_length}", file=outf)
 
 
-	loci = []
+	out_results = f"{output_directory}/Poisson.txt"
+	with open(out_results, 'w') as outf:
+		print("\t".join(assessClass().header), file=outf)
+
+
+
+
+	## iterating through chromosomes and reads
+
+	all_loci = []
+	total_read_count = 0
+	cl_i = 0
 
 
 	for chrom_count, chrom in enumerate(chromosomes):
+
+		loci = []
 		chrom, chrom_length = chrom
 
 		print()
@@ -122,6 +233,7 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 		sam_iter = samtools_view(alignment_file, rgs=annotation_readgroups, locus=chrom)
 		for i, read in enumerate(sam_iter):
+			total_read_count += 1
 
 
 			if (i+1) % 10000 == 0:
@@ -180,11 +292,11 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 			poisson_d[k] = p
 
 
+		# pprint(poisson_d)
 
 
-		loci = deque()
-		cl_i = 0
 
+		loci = []
 
 		in_locus = False
 		nucleated = False
@@ -205,6 +317,8 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 				if not in_locus:
 					start = r - pad
+					if start <= 0:
+						start = 1
 					region_c = Counter()
 
 
@@ -227,7 +341,8 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 					if r > stop + merge_dist:
 						cl_i += 1
 
-
+						if stop > chrom_length:
+							stop = chrom_length
 
 
 						# region_length = stop - start
@@ -258,86 +373,32 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 
 
-		# def calc_distance(r1, r2):
-		# 	strand_distance = abs(r1[4] - r2[4])
-		# 	length_distance = [abs(i-j) for i,j in zip(r1[5],r2[5])]
-		# 	abd_distance = r1[6] / r2[6]
 
-		# 	if abd_distance > 1:
-		# 		abd_distance = 1 / abd_distance
+		print(f"       {len(loci):,} loci found")
+		print("       assessing...")
 
 
-		# 	return(strand_distance, length_distance, abd_distance)
+		for locus in loci:
 
-		# def save_locus(locus, locus_name):
-
-
-		# 	start = locus[0][2]  - pad
-		# 	stop  = locus[-1][3] + pad
-		# 	chrom = locus[0][1]
-
-		# 	with open(output_file, 'a') as outf:
-		# 		print(chrom, 'poissonLocus','nc_RNA', start, stop, f'.\t.\t.\tID={locus_name}', sep='\t', file=outf)
-
-		# 	# pprint(locus)
-		# 	# sys.exit()
-		# 	pass
+			name, chrom, start, stop = locus
+			coords = f"{chrom}:{start}-{stop}"
 
 
-		# loci = []
+			reads = [r for r in samtools_view(alignment_file, locus=coords, rgs=annotation_readgroups)]
 
-		# locus = [regions.popleft()]
+			# assess = 
+			
+			with open(out_results, 'a') as outf:
+				out = assessClass().format(name, chrom, start, stop, reads, total_read_count)
+				out = "\t".join(map(str, out))
+				print(out, file=outf)
 
-		# for region in regions:
-
-		# 	if region[2] - locus[-1][3] < 400:
-
-		# 		length_distance, strand_distance, abd_distance = calc_distance(locus[-1], region)
-
-		# 		# print(length_distance, strand_distance, abd_distance)
-
-		# 		length_pass = length_distance < 0.4
-		# 		strand_pass = sum(strand_distance)/3 < 0.4
-		# 		abd_pass    = abd_distance > 0.2
-
-		# 		# pprint(locus)
-		# 		# print(length_pass, strand_pass, abd_pass)
-
-		# 		if length_pass and strand_pass and abd_pass:
-		# 			locus.append(region)
-
-		# 		else:
-		# 			# pprint(locus)
-		# 			# print(region)
-		# 			cl_i += 1
-		# 			save_locus(locus, f"Cl_{cl_i}")
-		# 			locus = [region]
-		# 			sys.exit()
-
-		# 	else:
-		# 		cl_i += 1
-		# 		save_locus(locus, f"Cl_{cl_i}")
-		# 		locus = [region]
+		all_loci += loci
 
 
-
-
-			# sys.exit()
-
-
-
+	print()
+	print(f"{len(all_loci):,} loci found in total")
 		# sys.exit()
-
-
-
-
-
-
-
-
-
-
-
 
 
 
