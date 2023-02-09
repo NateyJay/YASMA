@@ -12,10 +12,11 @@ from pprint import pprint
 
 
 from modules.generics import *
+from modules.cli import cli
 
 
 
-@click.command()
+@cli.command(group='Annotation', help_priority=2)
 @click.option("-a", "--alignment_file", 
 	required=True, 
 	type=click.Path(exists=True),
@@ -68,8 +69,8 @@ from modules.generics import *
 	default=3.0,
 	help='Ratio of dicer to non-dicer reads to be considered for a valid region')
 
-def annotate(alignment_file, annotation_readgroups, dicercall, output_directory, force, partial_wigs, window, merge_dist, pad, rpm_cutoff, extension_ratio, dicer_ratio):
-	"""Main annotation suite."""
+def dicer(alignment_file, annotation_readgroups, dicercall, output_directory, force, partial_wigs, window, merge_dist, pad, rpm_cutoff, extension_ratio, dicer_ratio):
+	"""Annotator based on expected dicer-derived sRNA profiles."""
 	# print('run annotation')
 
 
