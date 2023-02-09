@@ -8,9 +8,10 @@ from collections import Counter, deque
 
 
 from modules.generics import *
+from modules.cli import cli
 
 
-@click.command()
+@cli.command(group='Utilities', help_priority=6)
 
 @click.option("-a", "--alignment_file", 
 	required=True, 

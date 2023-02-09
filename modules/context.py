@@ -8,9 +8,9 @@ from os.path import isfile, isdir
 from pprint import pprint
 
 from modules.generics import *
+from modules.cli import cli
 
-
-@click.command()
+@cli.command(group='Utilities', help_priority=3)
 
 @click.option("-g", "--gene_annotation_file", 
 	required=True, 
@@ -28,7 +28,7 @@ from modules.generics import *
 
 
 def context(gene_annotation_file, output_directory, force):
-	"""Compares annotations to identify cluster genomic context"""
+	"""Compares annotations to identify cluster genomic context."""
 
 	output_directory = output_directory.rstrip("/")
 

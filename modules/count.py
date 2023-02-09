@@ -11,7 +11,7 @@ from multiprocessing import Lock, Process, Queue, current_process, Pool
 from tqdm import tqdm
 
 from modules.generics import *
-
+from modules.cli import cli
 
 
 def call_count(job):
@@ -63,7 +63,7 @@ def init(l, r, a, o, ):
 	alignment_file = a
 	output_file = o
 
-@click.command()
+@cli.command(group='Utilities', help_priority=4)
 
 @click.option("-a", "--alignment_file", 
 	required=True, 
@@ -93,7 +93,7 @@ def init(l, r, a, o, ):
 
 
 def count(alignment_file, output_directory, locus_files, gff_files, threads):
-	"""Gets counts for all readgroups, loci, strand, and sizes"""
+	"""Gets counts for all readgroups, loci, strand, and sizes."""
 
 	output_directory = output_directory.rstrip("/")
 

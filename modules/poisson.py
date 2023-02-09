@@ -12,6 +12,7 @@ import numpy as np
 import math
 
 from modules.generics import *
+from modules.cli import cli
 
 
 
@@ -173,7 +174,7 @@ class assessClass():
 
 		return(result_line, gff_line)
 
-@click.command()
+@cli.command(group='Annotation', help_priority=1)
 
 @click.option("-a", "--alignment_file", 
 	required=True, 
@@ -200,6 +201,7 @@ class assessClass():
 	help='Force remake of supporting files')
 
 def poisson(alignment_file, annotation_readgroups, gene_annotation, output_directory, force):
+	'''Annotator based on poisson-derived probability scores.'''
 
 	output_directory = output_directory.rstrip("/")
 

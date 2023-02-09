@@ -11,6 +11,7 @@ from math import log10, sqrt
 
 
 from modules.generics import *
+from modules.cli import cli
 
 
 
@@ -991,7 +992,7 @@ class hairpinClass():
 
 
 
-@click.command()
+@cli.command(group="Utilities", help_priority=5)
 @click.option("-a", "--alignment_file", 
 	required=True, 
 	type=click.Path(exists=True),
@@ -1017,7 +1018,7 @@ class hairpinClass():
 	help='Maximum hairpin size (default 300). Longer loci will not be considered for miRNA analysis.')
 
 def hairpin(alignment_file, output_directory, ignore_replication, max_length):
-	"""Evaluates annotated loci for hairpin or miRNA structures"""
+	"""Evaluates annotated loci for hairpin or miRNA structures."""
 
 
 	def get_genome_file():
