@@ -7,12 +7,11 @@ from os.path import isfile, isdir
 from collections import Counter#, deque
 from pprint import pprint
 
-# import numpy as np
+import numpy as np
 # from statistics import quantiles
 import math
 
 from modules.generics import *
-
 
 
 
@@ -23,10 +22,36 @@ class assessClass():
 
 		self.header = ['Locus','Name','Length','Reads','RPM']
 		self.header += ['UniqueReads','FracTop','Strand','MajorRNA','MajorRNAReads','Complexity']
-		self.header += ['ma_size','ma_size_depth', 'ma_size_pair', 'ma_size_pair_depth', 'dicercall']
+		self.header += ['size_1n','size_1n_depth', 'size_2n','size_2n_depth', 'size_4n','size_4n_depth', 'dicercall']
+
+
+
 
 
 	def format(self, name, chrom, start, stop, reads, aligned_depth):
+
+		def get_size_keys(size, n, min=15, max=30):
+
+			if n == 1:
+				return(size)
+
+			out = []
+
+			for r in range(n):
+				key = []
+
+				for k in range(n):
+					key.append(str(size-n+r+1+k))
+
+				out.append("_".join(key))
+			return(out)
+
+		size_key_d = dict()
+		for n in [1,2,3]:
+			size_key_d[n] = {}
+			for size in range(15,31):
+				keys = get_size_keys(size, n)
+				size_key_d[n][size] = keys
 
 
 
@@ -36,7 +61,7 @@ class assessClass():
 		depth = len(reads)
 		rpm = depth / aligned_depth * 1000000
 
-		out = [f"{chrom}:{start}-{stop}", name, stop-start, depth, rpm]
+
 
 
 
@@ -44,21 +69,31 @@ class assessClass():
 
 		seq_c       = Counter()
 		strand_c    = Counter()
-		size_c      = Counter()
-		size_pair_c = Counter()
+		size_d      = {1 : Counter(), 2 : Counter(), 3 : Counter()}
 
 		for read in reads:
 			sam_strand, sam_length, sam_size, sam_pos, sam_chrom, sam_rg, sam_read, sam_name = read
 
-			seq_c[sam_read] += 1
-			strand_c[sam_strand] += 1
-			size_c[sam_length] += 1
 
-			if sam_length > 15:
-				size_pair_c[f"{sam_length-1}_{sam_length}"] += 1
 
-			if sam_length > 30:
-				size_pair_c[f"{sam_length}_{sam_length+1}"] += 1
+			if 15 <= sam_length <= 30:
+
+				# print(sam_length)
+				# print(self.get_size_keys(sam_length, 1))
+				# print(self.get_size_keys(sam_length, 2))
+				# print(self.get_size_keys(sam_length, 3))
+				# print(self.get_size_keys(sam_length, 4))
+				# sys.exit()
+
+
+
+				seq_c[sam_read] += 1
+				strand_c[sam_strand] += 1
+
+				size_d[1][sam_length] += 1
+				size_d[2].update(size_key_d[2][sam_length])
+				size_d[3].update(size_key_d[3][sam_length])
+
 
 
 
@@ -77,37 +112,66 @@ class assessClass():
 
 		complexity = unique_reads / depth
 
-		out += [unique_reads, frac_top, strand, major_rna, major_rna_depth, complexity]
-
-
 
 
 		### More derived metrics
 
-		predominant_size       = size_c.most_common()[0][0]
-		predominant_size_depth = size_c.most_common()[0][1]
+		def get_most_common(c):
+			mc = c.most_common(1)
 
-		try:
-			predominant_size_pair       = size_pair_c.most_common()[0][0]
-			predominant_size_pair_depth = size_pair_c.most_common()[0][1]
-		except IndexError:
-			predominant_size_pair       = "NA"
-			predominant_size_pair_depth = 0
+			if mc == []:
+				return("NA", 0)
 
-		if predominant_size_depth > depth / 2:
-			dicercall = predominant_size
+			else:
+				return(mc[0][0], mc[0][1])
 
-		elif predominant_size_pair_depth > depth / 2:
-			dicercall = predominant_size_pair
+
+
+		size_1_key, size_1_depth = get_most_common(size_d[1])
+		size_2_key, size_2_depth = get_most_common(size_d[2])
+		size_3_key, size_3_depth = get_most_common(size_d[3])
+
+
+		if size_1_depth > depth * 0.5:
+			dicercall = size_1_key
+
+		elif size_2_depth > depth * 0.5 and depth > 30:
+			dicercall = size_2_key
+
+		elif size_3_depth > depth * 0.5 and depth > 60:
+			dicercall = size_3_key
 
 		else:
 			dicercall = "N"
 
-		out += [predominant_size, predominant_size_depth, predominant_size_pair, predominant_size_pair_depth, dicercall]
 
-		# print(out)
-		# print('here!!!')
-		return(out)
+		frac_top   = round(frac_top,3)
+		complexity = round(complexity,3)
+		rpm        = round(rpm,3)
+
+		result_line = [f"{chrom}:{start}-{stop}", name, stop-start, depth, rpm]
+		result_line += [unique_reads, frac_top, strand, major_rna, major_rna_depth, complexity]
+		result_line += [
+			size_1_key, size_1_depth,
+			size_2_key, size_2_depth,
+			size_3_key, size_3_depth,
+			dicercall
+		]
+
+
+		if dicercall == 'N':
+			feature_type = "OtherRNA"
+		else:
+			# size_range = len(dicercall.split("_"))
+			feature_type = f"RNA_{dicercall}"
+
+		gff_line = [
+			chrom, 'poissonLocus',feature_type, start, stop, '.\t.\t.',
+			f'ID={name};dicercall={dicercall};depth={depth};rpm={rpm};fracTop={frac_top};majorRNA={major_rna}'
+		]
+
+
+		return(result_line, gff_line)
 
 @click.command()
 
@@ -150,6 +214,20 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 	annotation_readgroups = check_rgs(annotation_readgroups, bam_rgs)
 
 
+	chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
+
+	keys = list(chrom_depth_c.keys())
+	for key in keys:
+		if key[0] in annotation_readgroups:
+			chrom_depth_c[key[1]] = chrom_depth_c[key]
+
+		del chrom_depth_c[key]
+
+
+	# pprint(chrom_depth_c)
+	# sys.exit()
+
+
 	def calc_poisson(k, l):
 		p = l**k * math.e**(-l) / math.factorial(k)
 		return(p)
@@ -176,17 +254,17 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 	## preparing output files
 
-	output_file = f"{output_directory}/Poisson.gff3"
+	gff_file = f"{output_directory}/Poisson.gff3"
 
-	with open(output_file, 'w') as outf:
+	with open(gff_file, 'w') as outf:
 		print("##gff-version 3", file=outf)
 
 		for chrom, chrom_length in chromosomes:
 			print(f"##sequence-region   {chrom} 1 {chrom_length}", file=outf)
 
 
-	out_results = f"{output_directory}/Poisson.txt"
-	with open(out_results, 'w') as outf:
+	results_file = f"{output_directory}/Poisson.txt"
+	with open(results_file, 'w') as outf:
 		print("\t".join(assessClass().header), file=outf)
 
 
@@ -209,6 +287,7 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 		print(f"{chrom_count+1} / {len(chromosomes)}")
 		print(f"chrom: {chrom}")
 		print(f"       {chrom_length:,} bp")
+		print(f"       {chrom_depth_c[chrom]:,} reads")
 
 
 		depth_c  = Counter()
@@ -229,20 +308,24 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 		## Iterating through reads for a chromosome and counting window depths
 
-		# read_count = 0
+		perc = percentageClass(1, chrom_depth_c[chrom])
 
 		sam_iter = samtools_view(alignment_file, rgs=annotation_readgroups, locus=chrom)
 		for i, read in enumerate(sam_iter):
 			total_read_count += 1
 
+			perc_out = perc.get_percent(i)
+			if perc_out:
+				print(f"   reading alignment... {perc_out}%", end='\r', flush=True)
 
-			if (i+1) % 10000 == 0:
-				print(".", end='', flush=True)
-				if (i+1) % 100000 == 0:
-					print(" ", end='', flush=True)
 
-					if (i+1) % 1000000 == 0:
-						print(flush=True)
+			# if (i+1) % 10000 == 0:
+			# 	print(".", end='', flush=True)
+			# 	if (i+1) % 100000 == 0:
+			# 		print(" ", end='', flush=True)
+
+			# 		if (i+1) % 1000000 == 0:
+			# 			print(flush=True)
 			# read_count += 1
 			sam_strand, sam_length, sam_size, sam_pos, sam_chrom, sam_rg, sam_read, sam_name = read
 
@@ -271,13 +354,13 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 		lambda_chrom = window / intergenic_length * intergenic_read_count
 
-		lambda_chrom_rpm = lambda_chrom / i * 1000000
+		# lambda_chrom_rpm = lambda_chrom / i * 1000000
 
 		# lambda_chrom = window / chrom_length * read_count
 
 		print("      ", round(lambda_chrom,4), 'lambda (chromosome, intergenic)')
 
-		print("      ", round(lambda_chrom_rpm,4), 'lambda_rpm')
+		# print("      ", round(lambda_chrom_rpm,4), 'lambda_rpm')
 
 
 		poisson_d = {}
@@ -294,8 +377,7 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 		# pprint(poisson_d)
 
-
-
+		print("   parsing to loci...")
 		loci = []
 
 		in_locus = False
@@ -315,23 +397,22 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 				if p <= 0.00001:
 					nucleated = True
 
+
 				if not in_locus:
-					start = r - pad
+					start = r
 					if start <= 0:
 						start = 1
 					region_c = Counter()
 
 
+
 				in_locus = True
-				stop = r + pad
+				stop = r 
 
 				try:
 					region_c.update(detail_d[r])
 				except KeyError:
 					pass
-
-
-
 
 
 
@@ -345,40 +426,63 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 							stop = chrom_length
 
 
-						# region_length = stop - start
 
-						# frac_top = region_c['+'] / (region_c['-'] + region_c['+'])
+						depth_profile = [depth_c[i] for i in range(start, stop+1)]
+						trim_threshold = max(depth_profile) * 0.05
 
-						# total = sum([region_c[l] for l in range(15,31)])
 
-						# size_profile = [
-						# 	sum([region_c[l] for l in range(15,20)])/total,
-						# 	sum([region_c[l] for l in range(20,26)])/total,
-						# 	sum([region_c[l] for l in range(26,31)])/total
-						# ]
+						# pprint(depth_profile)
+						# print(trim_threshold, 'trim_threshold')
+
+						for from_left, depth_k in enumerate(depth_profile):
+							if depth_k > trim_threshold:
+								break
+
+						for from_right, depth_k in enumerate(depth_profile[::-1]):
+							if depth_k > trim_threshold:
+								break
+
+						# print(len(depth_profile), 'len(depth_profile)')
+
+						# print(stop - start, "stop-start")
+
+						# print(start, stop, 'initial')
+
+						start += from_left
+						stop  -= from_right
+						# print(start, stop, 'trimmed (95%)')
+
+						start -= pad
+						stop  += pad
+
 
 
 						locus_name = f"Cl_{cl_i}"
 
-						with open(output_file, 'a') as outf:
-							print(chrom, 'poissonLocus','nc_RNA', start, stop, f'.\t.\t.\tID={locus_name}', sep='\t', file=outf)
-
-
 						loci.append((locus_name, chrom, start, stop))#, frac_top, size_profile, total/region_length))
 						in_locus = False
 						nucleated = False
+
+						# if locus_name == "Cl_418":
+						# 	sys.exit()
 				else:
 					in_locus = False
 					nucleated = False
 
 
 
-
 		print(f"       {len(loci):,} loci found")
-		print("       assessing...")
 
 
-		for locus in loci:
+		perc = percentageClass(increment=5, total=len(loci))
+
+
+		for i,locus in enumerate(loci):
+
+
+			print_percentage = perc.get_percent(i)
+			if print_percentage:
+				print(f"   assessing loci... {print_percentage}%", end="\r", flush=True)
 
 			name, chrom, start, stop = locus
 			coords = f"{chrom}:{start}-{stop}"
@@ -386,15 +490,58 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 			reads = [r for r in samtools_view(alignment_file, locus=coords, rgs=annotation_readgroups)]
 
+
+			def revise_locus(reads):
+				x = [r[3] + r[1]/2 for r in reads]
+
+				x.sort()
+
+				ci = [round(len(x) * 0.05), round(len(x) * 0.95)]
+				# print(ci)
+
+				ci = [x[c] for c in ci]
+				# print(ci)
+				return(ci)
+
+				# print(x)
+				# def bootstrap(data, n=1000, func=np.mean,p=0.95):
+				# 	sample_size = len(data)
+				# 	simulations = [func(np.random.choice(data, size=sample_size, replace=True)) for i in range(n)]
+				# 	simulations.sort()
+				# 	u_pval = (1+p)/2.
+				# 	l_pval = (1-u_pval)
+				# 	l_indx = int(np.floor(n*l_pval))
+				# 	u_indx = int(np.floor(n*u_pval))
+				# 	return(simulations[l_indx],simulations[u_indx])
+				
+				# x = np.array(x)
+
+				# print(bootstrap(x,1000,np.median,0.95))
+
+
+
+
+
+			# ci = revise_locus(reads)
+
+			# if name in ["Cl_418"]:
+
+			# 	print(ci)
+			# 	sys.exit()
+
+
 			# assess = 
 			
-			with open(out_results, 'a') as outf:
-				out = assessClass().format(name, chrom, start, stop, reads, total_read_count)
-				out = "\t".join(map(str, out))
-				print(out, file=outf)
+			results_line, gff_line = assessClass().format(name, chrom, start, stop, reads, sum(chrom_depth_c.values()))
+
+			with open(results_file, 'a') as outf:
+				print("\t".join(map(str, results_line)), file=outf)
+
+			with open(gff_file, 'a') as outf:
+				print("\t".join(map(str, gff_line)), file=outf)
 
 		all_loci += loci
-
+		# sys.exit()
 
 	print()
 	print(f"{len(all_loci):,} loci found in total")
@@ -404,8 +551,49 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 
 
+## Bootstrap CI from: https://bioinformatics.stackexchange.com/questions/10580/confidence-interval-with-wilcoxon-test-in-python-for-log-normal-distribution
+# import numpy as np
 
+# def bootstrap(data, n=1000, func=np.mean,p=0.95):
 
+#     sample_size = len(data)
+#     simulations = [func(np.random.choice(data, size=sample_size, replace=True)) for i in range(n)]
+#     simulations.sort()
+#     u_pval = (1+p)/2.
+#     l_pval = (1-u_pval)
+#     l_indx = int(np.floor(n*l_pval))
+#     u_indx = int(np.floor(n*u_pval))
+#     return(simulations[l_indx],simulations[u_indx])
+
+# x = np.array([0.02288081, 0.44170839, 0.10549733, 0.17515196, 0.09449279,
+#        0.07110412, 0.00893079, 0.23485109, 0.14533192, 0.05449631,
+#        0.10281173, 0.02113355, 0.05157087, 0.01705113, 0.02651948,
+#        0.09352947, 0.05828018, 0.20528157, 0.02873843, 0.0141598 ,
+#        0.11262881, 0.06337332, 0.13689815, 0.10557703, 0.04452507,
+#        0.05046484, 0.40241456, 0.05939199, 0.24423569, 0.05042892,
+#        0.164257  , 0.03408215, 0.04737262, 0.01037463, 0.01246448,
+#        0.02170375, 0.0241773 , 0.05136936, 0.02393366, 0.18913979,
+#        0.15781334, 0.06448557, 0.04355384, 0.02821125, 0.08015629,
+#        0.10985432, 0.06074574, 0.15775976, 0.05678278, 0.03749782,
+#        0.05518756, 0.00770479, 0.21248167, 0.08005044, 0.16307954,
+#        0.05783565, 0.05907416, 0.07044622, 0.13227131, 0.01627556,
+#        0.10859962, 0.08149819, 0.05600647, 0.16098728, 0.15183062,
+#        0.05202344, 0.01769589, 0.00789287, 0.07777749, 0.1324942 ,
+#        0.12734709, 0.17146938, 0.03890857, 0.1296019 , 0.085146  ,
+#        0.05602965, 0.02708089, 0.11807038, 0.07848828, 0.03291032,
+#        0.36302533, 0.07800343, 0.06551307, 0.04676282, 0.04765273,
+#        0.08060882, 0.06339636, 0.03349833, 0.01224308, 0.1481316 ,
+#        0.31738452, 0.15690855, 0.0693822 , 0.020425  , 0.02909208,
+#        0.03499225, 0.03019904, 0.13722717, 0.14403507, 0.01257245,
+#        0.02223452, 0.07068784, 0.0544813 , 0.08738558, 0.02884046,
+#        0.10549474, 0.06695546, 0.01341142, 0.09440411, 0.11840834,
+#        0.08558889, 0.2688645 , 0.28313546, 0.15127967, 0.01463191,
+#        0.1728421 ])
+
+# # for mean,95% confidence interval, do
+# bootstrap(x,1000,np.mean,0.95)
+# # for median, 95% confidence interval, do 
+# bootstrap(x,1000,np.median,0.95)
 
 
 
