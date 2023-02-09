@@ -493,7 +493,7 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 			reads = [r for r in samtools_view(alignment_file, locus=coords, rgs=annotation_readgroups)]
 
 
-			def revise_locus(reads):
+			def revise_locus(reads:list):
 				x = [r[3] + r[1]/2 for r in reads]
 
 				x.sort()
@@ -519,7 +519,6 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 				# x = np.array(x)
 
 				# print(bootstrap(x,1000,np.median,0.95))
-
 
 
 
