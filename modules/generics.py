@@ -13,6 +13,7 @@ from os.path import isfile, isdir
 
 from time import time, sleep
 from collections import Counter, deque
+from math import floor
 # from itertools import count, chain
 
 # from statistics import median, mean
@@ -96,6 +97,108 @@ def abundance_to_rgb(abd):
 	rgb = (round(c,2) for c in [r,g,b])
 
 	return(rgb)
+
+
+class percentageClass():
+	'''used to make percent timers on known iterations'''
+
+	def __init__(self, increment, total):
+		self.increment = increment
+		self.total = total
+
+		self.points = [floor(p * increment / 100 * total) for p in range(int(100/increment))]
+		self.points.append(total-1)
+
+		# print(self.points)
+		# print(total)
+		# sys.exit()
+
+	def get_percent(self, i):
+		try:
+			perc = self.points.index(i) * self.increment
+		except ValueError:
+			perc = False
+
+		return(perc)
+
+
+def get_global_depth(output_directory, alignment_file, force=False, aggregate_by=['rg','chrom','length']):
+	depth_file = f"./{output_directory}/GlobalDepth.txt"
+
+	header = ['rg','chrom','length','freq']
+
+	if not isfile(depth_file) or force:
+		call = ['samtools', 'view', '-F', '4', alignment_file]
+
+		c = Counter()
+
+		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+
+		print(f"{depth_file} not found.")
+		print("Reading alignment to find global depth dimensions...")
+		print('  "." = 1M reads')
+
+		rgs     = set()
+		chroms  = set()
+		lengths = set()
+
+		for i,line in enumerate(p.stdout):
+			if (i+1) % 1000000 == 0:
+				print(".", end='', flush=True)
+				if (i+1) % 10000000 == 0:
+					print(" ", end='', flush=True)
+					if (i+1) % 100000000 == 0:
+						print("\n", end='', flush=True)
+
+			line = line.strip().split("\t")
+
+			rg     = line[18][5:]
+			length = int(line[5][:-1])
+			chrom  = line[2]
+
+			key = (rg,length,chrom)
+
+			rgs.add(rg)
+			lengths.add(length)
+			chroms.add(chrom)
+
+			c[key] += 1
+
+		print()
+		# print(c.keys())
+		with open(depth_file, 'w') as outf:
+			print("\t".join(header), file=outf)
+			for rg in rgs:
+				for chrom in chroms:
+					for length in lengths:
+						print(rg, chrom, length, c[(rg,length, chrom)], sep='\t', file=outf)
+
+	out_c = Counter()
+
+	indicies = [i for i,h in enumerate(header) if h in aggregate_by]
+
+	multiples = len(indicies) > 1
+		
+
+	with open(depth_file, 'r') as f:
+		head_line = f.readline()
+		for line in f:
+			line = line.strip().split('\t')
+
+			if multiples:
+				key = tuple([line[i] for i in indicies])
+			else:
+				key = line[indicies[0]]
+
+			freq = int(line[-1])
+			if freq:
+				out_c[key] += freq
+
+	return(out_c)
+
+
+
+
 
 
 
