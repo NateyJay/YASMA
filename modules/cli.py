@@ -2,7 +2,14 @@
 
 import click
 
+
+
 class customClickClass(click.Group):
+	'''A custom class designed to add 4 features, based on SE posts from the developer of click. 
+	1) adds grouping categorization to the help message: https://stackoverflow.com/questions/58745652/
+	2) adds custom ordering to the help message: https://stackoverflow.com/questions/47972638/
+	3) makes -h an acceptible flag for help
+	4) makes -h the default flag for commands: https://stackoverflow.com/questions/50442401/'''
 
 	def __init__(self, *args, **kwargs):
 
