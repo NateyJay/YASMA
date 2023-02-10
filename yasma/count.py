@@ -63,7 +63,7 @@ def init(l, r, a, o, ):
 	alignment_file = a
 	output_file = o
 
-@cli.command(group='Utilities', help_priority=4)
+@cli.command(group='Calculation', help_priority=4)
 
 @click.option("-a", "--alignment_file", 
 	required=True, 

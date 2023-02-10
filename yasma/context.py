@@ -10,7 +10,7 @@ from pprint import pprint
 from .generics import *
 from .cli import cli
 
-@cli.command(group='Utilities', help_priority=3)
+@cli.command(group='Calculation', help_priority=3)
 
 @click.option("-g", "--gene_annotation_file", 
 	required=True, 
