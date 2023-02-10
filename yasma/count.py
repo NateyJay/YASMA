@@ -91,16 +91,16 @@ def init(l, r, a, o, ):
 	is_flag=True,
 	help="Don't save zero depth entries to Counts.deep.txt. Saves file space, but can make it harder to analyze.")
 
-@click.option("-m", "--method", 
-	default="Poisson", 
-	help="Annotator algorithm used (Poisson or Dicer)")
+# @click.option("-m", "--method", 
+# 	default="Poisson", 
+# 	help="Annotator algorithm used (Poisson or Dicer)")
 
 # @click.option("-t", "--threads",
 # 	default=8,
 # 	help="number of simultaneous threads for samtools_view.")
 
 
-def count(alignment_file, output_directory, locus_files, gff_files, ignore_zeroes, method):
+def count(alignment_file, output_directory, locus_files, gff_files, ignore_zeroes):
 	"""Gets counts for all readgroups, loci, strand, and sizes."""
 
 	output_directory = output_directory.rstrip("/")
@@ -109,7 +109,7 @@ def count(alignment_file, output_directory, locus_files, gff_files, ignore_zeroe
 	deep_counts_file = f"{output_directory}/Counts.deep.txt"
 
 	if len(locus_files) == 0:
-		locus_files = [f"{output_directory}/{method}.results.txt"]
+		locus_files = [f"{output_directory}/Results.txt"]
 
 
 
@@ -175,7 +175,7 @@ def count(alignment_file, output_directory, locus_files, gff_files, ignore_zeroe
 
 
 
-	depth_c = get_rg_depth(output_directory, alignment_file)
+	# depth_c = get_rg_depth(output_directory, alignment_file)
 
 	# print(sum(depth_c.values()))
 	# pprint(depth_c)

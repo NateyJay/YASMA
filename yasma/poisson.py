@@ -23,13 +23,13 @@ class assessClass():
 
 		self.header = ['Locus','Name','Length','Reads','RPM']
 		self.header += ['UniqueReads','FracTop','Strand','MajorRNA','MajorRNAReads','Complexity']
-		self.header += ['size_1n','size_1n_depth', 'size_2n','size_2n_depth', 'size_4n','size_4n_depth', 'dicercall']
+		self.header += ['Gap', 'size_1n','size_1n_depth', 'size_2n','size_2n_depth', 'size_4n','size_4n_depth', 'dicercall']
 
 
 
 
 
-	def format(self, name, chrom, start, stop, reads, aligned_depth):
+	def format(self, name, chrom, start, stop, reads, aligned_depth, last_stop):
 
 		def get_size_keys(size, n, min=15, max=30):
 
@@ -117,6 +117,9 @@ class assessClass():
 
 		### More derived metrics
 
+
+		gap = start - last_stop
+
 		def get_most_common(c):
 			mc = c.most_common(1)
 
@@ -153,6 +156,7 @@ class assessClass():
 		result_line = [f"{chrom}:{start}-{stop}", name, stop-start, depth, rpm]
 		result_line += [unique_reads, frac_top, strand, major_rna, major_rna_depth, complexity]
 		result_line += [
+			gap, 
 			size_1_key, size_1_depth,
 			size_2_key, size_2_depth,
 			size_3_key, size_3_depth,
@@ -261,7 +265,7 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 	## preparing output files
 
-	gff_file = f"{output_directory}/Poisson.annotation.gff3"
+	gff_file = f"{output_directory}/Annotation.gff3"
 
 	with open(gff_file, 'w') as outf:
 		print("##gff-version 3", file=outf)
@@ -270,12 +274,12 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 			print(f"##sequence-region   {chrom} 1 {chrom_length}", file=outf)
 
 
-	results_file = f"{output_directory}/Poisson.results.txt"
+	results_file = f"{output_directory}/Results.txt"
 	with open(results_file, 'w') as outf:
 		print("\t".join(assessClass().header), file=outf)
 
 
-	reads_file = f"{output_directory}/Poisson.reads.txt"
+	reads_file = f"{output_directory}/Reads.txt"
 	with open(reads_file, 'w') as outf:
 		print(TOP_READS_HEADER, file=outf)
 
@@ -489,6 +493,7 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 		perc = percentageClass(increment=5, total=len(loci))
 
 
+		last_stop = 0
 		for i,locus in enumerate(loci):
 
 
@@ -514,7 +519,9 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 
 			
-			results_line, gff_line = assessClass().format(name, chrom, start, stop, reads, sum(chrom_depth_c.values()))
+			results_line, gff_line = assessClass().format(name, chrom, start, stop, reads, sum(chrom_depth_c.values()), last_stop)
+
+			last_stop = stop
 
 			with open(results_file, 'a') as outf:
 				print("\t".join(map(str, results_line)), file=outf)

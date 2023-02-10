@@ -193,7 +193,7 @@ def dicer(alignment_file, annotation_readgroups, dicercall, output_directory, fo
 
 
 	## initiating output files
-	gff_file   = f"{output_directory}/Dicer.annotation.gff3"
+	gff_file   = f"{output_directory}/Annotation.gff3"
 
 	with open(gff_file, 'w') as outf:
 		print("##gff-version 3", file=outf)
@@ -208,12 +208,13 @@ def dicer(alignment_file, annotation_readgroups, dicercall, output_directory, fo
 
 
 
-	results_file = f"{output_directory}/Dicer.results.txt"
+	results_file = f"{output_directory}/Results.txt"
 	with open(results_file, 'w') as outf:
-		print("locus\tname\tlocus_peak\tlength\tgap\tdepth\trpm\tdepth:length\tfrac_top\tstrand\tfrac_dicer\tdcr_reads\tnon_reads\tdicercall\tfrac_dicercall\t" + "\t".join(map(str, dcr_range)), file=outf)
+		
+		print("Locus\tName\tLength\tReads\tRPM\tgap\tlocus_peak\tdepth:length\tfrac_top\tstrand\tfrac_dicer\tdcr_reads\tnon_reads\tdicercall\tfrac_dicercall\t" + "\t".join(map(str, dcr_range)), file=outf)
 
 
-	reads_file = f"{output_directory}/Dicer.reads.txt"
+	reads_file = f"{output_directory}/Reads.txt"
 	with open(reads_file, 'w') as outf:
 		print(TOP_READS_HEADER, file=outf)
 
@@ -545,9 +546,18 @@ def dicer(alignment_file, annotation_readgroups, dicercall, output_directory, fo
 			depth_by_length = round(n_reads / length, 3)
 
 
+			## result line from poisson
+			# result_line = [f"{chrom}:{start}-{stop}", name, stop-start, depth, rpm]
+			# result_line += [unique_reads, frac_top, strand, major_rna, major_rna_depth, complexity]
+			# result_line += [
+			# 	size_1_key, size_1_depth,
+			# 	size_2_key, size_2_depth,
+			# 	size_3_key, size_3_depth,
+			# 	dicercall
+			# ]
 
 
-			to_print = [coords, name, locus_peak, length, dist_to_last, n_reads, rpm, depth_by_length, frac_top, strand]
+			to_print = [coords, name, length, n_reads, rpm, locus_peak, dist_to_last, depth_by_length, frac_top, strand]
 			to_print += [frac_dicercall, size_c['dcr'],  size_c['non']]
 			to_print += [predominant_length, predominant_length_depth]
 			to_print += [len_c[d] for d in dcr_range]

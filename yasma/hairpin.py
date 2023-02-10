@@ -1029,11 +1029,11 @@ class hairpinClass():
 	default=300,
 	help='Maximum hairpin size (default 300). Longer loci will not be considered for miRNA analysis.')
 
-@click.option("--method", 
-	default="Poisson", 
-	help="Annotator algorithm used (Poisson or Dicer)")
+# @click.option("--method", 
+# 	default="Poisson", 
+# 	help="Annotator algorithm used (Poisson or Dicer)")
 
-def hairpin(alignment_file, output_directory, ignore_replication, max_length, method):
+def hairpin(alignment_file, output_directory, ignore_replication, max_length):
 	"""Evaluates annotated loci for hairpin or miRNA structures."""
 
 
@@ -1089,11 +1089,11 @@ def hairpin(alignment_file, output_directory, ignore_replication, max_length, me
 
 	genome_file = get_genome_file()
 
-	results_file = f"{output_directory}/{method}.results.txt"
+	results_file = f"{output_directory}/Results.txt"
 	assert isfile(results_file), f"results_file {results_file} not found... (Have you run annotation with this directory?)"
 
 	input_mas_d = {}
-	tops_file = f"{output_directory}/{method}.reads.txt"
+	tops_file = f"{output_directory}/Reads.txt"
 	with open(tops_file, 'r') as f:
 		header = f.readline()
 		for line in f:
