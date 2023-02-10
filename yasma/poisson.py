@@ -205,6 +205,8 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 	output_directory = output_directory.rstrip("/")
 
+	Path(output_directory).mkdir(parents=True, exist_ok=True)
+
 	window = 40
 	cl_i = 0
 	merge_dist = 200
@@ -228,6 +230,9 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 	# pprint(chrom_depth_c)
 	# sys.exit()
+
+
+	read_equivalent = 1 / sum(chrom_depth_c.values()) * 1000000
 
 
 	def calc_poisson(k, l):
@@ -256,7 +261,7 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 	## preparing output files
 
-	gff_file = f"{output_directory}/Poisson.gff3"
+	gff_file = f"{output_directory}/Poisson.annotation.gff3"
 
 	with open(gff_file, 'w') as outf:
 		print("##gff-version 3", file=outf)
@@ -265,9 +270,14 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 			print(f"##sequence-region   {chrom} 1 {chrom_length}", file=outf)
 
 
-	results_file = f"{output_directory}/Poisson.txt"
+	results_file = f"{output_directory}/Poisson.results.txt"
 	with open(results_file, 'w') as outf:
 		print("\t".join(assessClass().header), file=outf)
+
+
+	reads_file = f"{output_directory}/Poisson.reads.txt"
+	with open(reads_file, 'w') as outf:
+		print(TOP_READS_HEADER, file=outf)
 
 
 
@@ -492,46 +502,17 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 			reads = [r for r in samtools_view(alignment_file, locus=coords, rgs=annotation_readgroups)]
 
+			read_c = Counter()
+			for read in reads:
+				sam_strand, _, _, _, _, _, sam_read, _ = read
 
-			def revise_locus(reads:list):
-				x = [r[3] + r[1]/2 for r in reads]
+				if sam_strand == '-':
+					sam_read = complement(sam_read[::-1])
 
-				x.sort()
-
-				ci = [round(len(x) * 0.05), round(len(x) * 0.95)]
-				# print(ci)
-
-				ci = [x[c] for c in ci]
-				# print(ci)
-				return(ci)
-
-				# print(x)
-				# def bootstrap(data, n=1000, func=np.mean,p=0.95):
-				# 	sample_size = len(data)
-				# 	simulations = [func(np.random.choice(data, size=sample_size, replace=True)) for i in range(n)]
-				# 	simulations.sort()
-				# 	u_pval = (1+p)/2.
-				# 	l_pval = (1-u_pval)
-				# 	l_indx = int(np.floor(n*l_pval))
-				# 	u_indx = int(np.floor(n*u_pval))
-				# 	return(simulations[l_indx],simulations[u_indx])
-				
-				# x = np.array(x)
-
-				# print(bootstrap(x,1000,np.median,0.95))
+				read_c[sam_read] += 1
 
 
 
-
-			# ci = revise_locus(reads)
-
-			# if name in ["Cl_418"]:
-
-			# 	print(ci)
-			# 	sys.exit()
-
-
-			# assess = 
 			
 			results_line, gff_line = assessClass().format(name, chrom, start, stop, reads, sum(chrom_depth_c.values()))
 
@@ -540,6 +521,8 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 			with open(gff_file, 'a') as outf:
 				print("\t".join(map(str, gff_line)), file=outf)
+
+			top_reads_save(read_c, reads_file, read_equivalent, name)
 
 		all_loci += loci
 		# sys.exit()

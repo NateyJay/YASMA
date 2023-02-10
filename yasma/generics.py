@@ -25,6 +25,27 @@ from math import floor
 from math import log10
 
 
+
+TOP_READS_HEADER = "cluster\tseq\trank\tdepth\trpm\tlocus_prop"
+
+def top_reads_save(read_c, file, read_equivalent, name):
+	cum_count = 0
+	top_reads = read_c.most_common(100)
+	for rank, read in enumerate(top_reads):
+
+		seq, dep = read
+		rpm = round(dep * read_equivalent, 4)
+
+		cum_count += dep
+
+		loc_prop = round(cum_count / sum(read_c.values()), 4)
+
+		with open(file, 'a') as outf:
+			print(name, seq, rank, dep, rpm, loc_prop, file=outf, sep='\t')
+
+			if loc_prop >= 0.3:
+				break
+
 def parse_locus(locus):
 	locus = locus.replace("..", "-").strip()
 

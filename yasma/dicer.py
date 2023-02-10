@@ -193,7 +193,7 @@ def dicer(alignment_file, annotation_readgroups, dicercall, output_directory, fo
 
 
 	## initiating output files
-	gff_file   = f"{output_directory}/Annotation.gff3"
+	gff_file   = f"{output_directory}/Dicer.annotation.gff3"
 
 	with open(gff_file, 'w') as outf:
 		print("##gff-version 3", file=outf)
@@ -202,20 +202,20 @@ def dicer(alignment_file, annotation_readgroups, dicercall, output_directory, fo
 			print(f"##sequence-region   {c} 1 {l}", file=outf)
 
 
-	count_file = f'{output_directory}/Counts.txt'
-	with open(count_file, 'w') as outf:
-		print("cluster", 'ann_depth', 'tot_depth', "\t".join(bam_rgs), sep='\t', file=outf)
+	# count_file = f'{output_directory}/Counts.txt'
+	# with open(count_file, 'w') as outf:
+	# 	print("cluster", 'ann_depth', 'tot_depth', "\t".join(bam_rgs), sep='\t', file=outf)
 
 
 
-	results_file = f"{output_directory}/Results.txt"
+	results_file = f"{output_directory}/Dicer.results.txt"
 	with open(results_file, 'w') as outf:
 		print("#name\tlocus\tlocus_peak\tlength\tgap\tdepth\trpm\tdepth:length\tfrac_top\tstrand\tfrac_dicer\tdcr_reads\tnon_reads\tdicercall\tfrac_dicercall\t" + "\t".join(map(str, dcr_range)), file=outf)
 
 
-	reads_file = f"{output_directory}/TopReads.txt"
+	reads_file = f"{output_directory}/Dicer.reads.txt"
 	with open(reads_file, 'w') as outf:
-		print("cluster\tseq\trank\tdepth\trpm\tlocus_prop", file=outf)
+		print(TOP_READS_HEADER, file=outf)
 
 
 
@@ -526,22 +526,7 @@ def dicer(alignment_file, annotation_readgroups, dicercall, output_directory, fo
 			rpm = round(n_reads / library_depth * 1000000, 2)
 
 
-			cum_count = 0
-			top_reads = read_c.most_common(100)
-			with open(reads_file, 'a') as outf:
-				for rank, read in enumerate(top_reads):
-
-					seq, dep = read
-					rpm = round(dep * read_equivalent, 4)
-
-					cum_count += dep
-
-					loc_prop = round(cum_count / n_reads, 4)
-
-					print(name, seq, rank, dep, rpm, loc_prop, file=outf, sep='\t')
-
-					if loc_prop >= 0.3:
-						break
+			top_reads_save(read_c, reads_file, read_equivalent, name)
 
 
 
