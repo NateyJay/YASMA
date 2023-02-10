@@ -10,8 +10,8 @@ from multiprocessing import Lock, Process, Queue, current_process, Pool
 # from tqdm.contrib.concurrent import process_map
 from tqdm import tqdm
 
-from modules.generics import *
-from modules.cli import cli
+from .generics import *
+from .cli import cli
 
 
 def call_count(job):

@@ -11,8 +11,8 @@ import numpy as np
 # from statistics import quantiles
 import math
 
-from modules.generics import *
-from modules.cli import cli
+from .generics import *
+from .cli import cli
 
 
 

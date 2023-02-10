@@ -10,8 +10,8 @@ from Levenshtein import distance
 from math import log10, sqrt
 
 
-from modules.generics import *
-from modules.cli import cli
+from .generics import *
+from .cli import cli
 
 
 
