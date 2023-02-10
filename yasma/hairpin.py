@@ -654,7 +654,8 @@ class hairpinClass():
 
 		for read in samtools_view(alignment_file, locus=locus):
 
-			sam_strand, sam_length, _, sam_pos, sam_chrom, sam_rg, sam_read = read
+			sam_strand, sam_length, _, sam_pos, sam_chrom, sam_rg, sam_read, sam_read_id = read
+			# strand, length, size, sam_pos, sam_chrom, rg, seq, read_id
 
 			# if ignore_replication:
 				# sam_rg = 'all'
@@ -721,8 +722,19 @@ class hairpinClass():
 		# print(left_off, left_pos, right_off, right_pos)
 		# print(self.pairing[right_pos])
 		# print(self.pairing[left_pos])
-		star_right_pos = self.pairing[left_pos] + left_off + offset
-		star_left_pos  = self.pairing[right_pos] - right_off + offset
+		# print(self.pairing)
+		# print(self.pairing[left_pos])
+		# print(left_off)
+		# print(offset)
+		# # sys.exit()
+		# print()
+
+		try:
+			star_right_pos = self.pairing[left_pos] + left_off + offset
+			star_left_pos  = self.pairing[right_pos] - right_off + offset
+		except TypeError:
+			self.status.append("star positioning error")
+			return False
 
 
 		self.star_positions = [r for r in range(star_left_pos, star_right_pos+1)]
@@ -1017,11 +1029,11 @@ class hairpinClass():
 	default=300,
 	help='Maximum hairpin size (default 300). Longer loci will not be considered for miRNA analysis.')
 
-@click.option("-a", "--annotator", 
+@click.option("--method", 
 	default="Poisson", 
 	help="Annotator algorithm used (Poisson or Dicer)")
 
-def hairpin(alignment_file, output_directory, ignore_replication, max_length, annotator):
+def hairpin(alignment_file, output_directory, ignore_replication, max_length, method):
 	"""Evaluates annotated loci for hairpin or miRNA structures."""
 
 
@@ -1077,11 +1089,11 @@ def hairpin(alignment_file, output_directory, ignore_replication, max_length, an
 
 	genome_file = get_genome_file()
 
-	results_file = f"{output_directory}/{annotator}.results.txt"
+	results_file = f"{output_directory}/{method}.results.txt"
 	assert isfile(results_file), f"results_file {results_file} not found... (Have you run annotation with this directory?)"
 
 	input_mas_d = {}
-	tops_file = f"{output_directory}/{annotator}.reads.txt"
+	tops_file = f"{output_directory}/{method}.reads.txt"
 	with open(tops_file, 'r') as f:
 		header = f.readline()
 		for line in f:
