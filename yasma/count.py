@@ -87,21 +87,29 @@ def init(l, r, a, o, ):
 	multiple=True,
 	help='gff of genes to be evaluated. Looks for "mRNA" features as would be described in an NCBI annotation. Multiples allowed. Defaults to None.')
 
-@click.option("-t", "--threads",
-	default=8,
-	help="number of simultaneous threads for samtools_view.")
+@click.option("--ignore_zeroes",
+	is_flag=True,
+	help="Don't save zero depth entries to Counts.deep.txt. Saves file space, but can make it harder to analyze.")
+
+@click.option("-a", "--annotator", 
+	default="Poisson", 
+	help="Annotator algorithm used (Poisson or Dicer)")
+
+# @click.option("-t", "--threads",
+# 	default=8,
+# 	help="number of simultaneous threads for samtools_view.")
 
 
-def count(alignment_file, output_directory, locus_files, gff_files, threads):
+def count(alignment_file, output_directory, locus_files, gff_files, ignore_zeroes, annotator):
 	"""Gets counts for all readgroups, loci, strand, and sizes."""
 
 	output_directory = output_directory.rstrip("/")
 
-	counts_file = f"{output_directory}/Count.txt"
-	deep_counts_file = f"{output_directory}/DeepCount.txt"
+	counts_file = f"{output_directory}/Counts.txt"
+	deep_counts_file = f"{output_directory}/Counts.deep.txt"
 
 	if len(locus_files) == 0:
-		locus_files = [f"{output_directory}/Results.txt"]
+		locus_files = [f"{output_directory}/{annotator}.results.txt"]
 
 
 
@@ -113,12 +121,12 @@ def count(alignment_file, output_directory, locus_files, gff_files, threads):
 	loci = []
 	for file in locus_files:
 		with open(file, 'r') as f:
+			header = f.readline()
 			for line in f:
-				if not line.startswith("#"):
-					c[file] += 1
-					line = line.strip().split("\t")[:2]
-					line[1] = line[1].replace("..", "-")
-					loci.append((line[0], line[1]))
+				c[file] += 1
+				line = line.strip().split("\t")[:2]
+				line[1] = line[1].replace("..", "-")
+				loci.append((line[1], line[0]))
 
 	for file in gff_files:
 		with open(file, 'r') as f:
@@ -139,30 +147,30 @@ def count(alignment_file, output_directory, locus_files, gff_files, threads):
 	print('processing annotations...')
 
 
-	chroms, rgs = get_chromosomes(alignment_file, output_directory)
+	chroms, rgs = get_chromosomes(alignment_file)
 
-	print('  -> making empty genome structure')
-	lookup = {}
-	for c,l in chroms:
-		lookup[c] = [None] * l
-		# lookup[c] = {}
+	# print('  -> making empty genome structure')
+	# lookup = {}
+	# for c,l in chroms:
+	# 	lookup[c] = [None] * l
+	# 	# lookup[c] = {}
 
 
-	print('  -> populating')
-	pbar = tqdm(total = len(loci), ncols=90)
-	for name, locus in loci:
-		pbar.update()
-		# print(locus)
+	# print('  -> populating')
+	# pbar = tqdm(total = len(loci), ncols=90)
+	# for name, locus in loci:
+	# 	pbar.update()
+	# 	# print(locus)
 
-		chrom, start, stop = parse_locus(locus)
-		# print(chrom, start, stop)
+	# 	chrom, start, stop = parse_locus(locus)
+	# 	# print(chrom, start, stop)
 
-		for r in range(start, stop + 1):
-			try:
-				lookup[chrom][r].add(name)
-			except:
-				lookup[chrom][r] = set([name])
-	pbar.close()
+	# 	for r in range(start, stop + 1):
+	# 		try:
+	# 			lookup[chrom][r].add(name)
+	# 		except:
+	# 			lookup[chrom][r] = set([name])
+	# pbar.close()
 
 
 
@@ -174,71 +182,6 @@ def count(alignment_file, output_directory, locus_files, gff_files, threads):
 	# sys.exit()
 
 
-
-	c = Counter()
-	deep_c = Counter()
-
-	print()
-	print("processing alignments...")
-	print(f"  {sum(depth_c.values()):,} total")
-
-	pbar = tqdm(total = sum(depth_c.values()), ncols=90)
-
-	sam_iter = samtools_view(alignment_file)
-
-	for i,read in enumerate(sam_iter):
-
-		# if i % 1000000 == 0:
-		# 	print(read)
-		# 	break
-
-		sam_strand, sam_length, _, sam_pos, sam_chrom, sam_rg, sam_seq = read
-
-		if 15 <= sam_length <= 30:
-			pbar.update()
-
-
-			try:
-				start_loc = lookup[sam_chrom][sam_pos]
-			except IndexError:
-				start_loc = set([None])
-
-			try:
-				stop_loc  = lookup[sam_chrom][sam_pos + sam_length + 1]
-			except IndexError:
-				stop_loc = set([None])
-
-			# print(start_loc, stop_loc)
-
-			if start_loc and stop_loc:
-				names = list(start_loc & stop_loc)
-				names = [n for n in names if n]
-
-				# if len(names) == 0:
-				# 	names = ['NoLocus']
-
-			else:
-				# names = ['NoLocus']
-				names = []
-
-			for name in names:
-				c.update([(name, sam_rg)])
-				deep_c.update([(name, sam_rg, sam_length, sam_strand)])
-
-
-		# if sum(c.values()) > 1000000:
-		# 	pprint(c)
-		# 	sys.exit()
-
-	pbar.close()
-
-	# pprint(deep_c)
-	# sys.exit()
-
-
-	print()
-	print('writing...')
-
 	with open(counts_file, 'w') as outf:
 		print('name','locus', "\t".join(rgs), sep='\t', file=outf)
 
@@ -247,35 +190,152 @@ def count(alignment_file, output_directory, locus_files, gff_files, threads):
 
 
 
-	loci.append(("NoLocus", "NA"))
+
+	perc = percentageClass(1,len(loci))
+
+	for i, locus in enumerate(loci):
+		name, locus = locus
+
+		c = Counter()
+		deep_c = Counter()
+
+		p_count = perc.get_percent(i)
+		if p_count:
+			print(f"   quantifying... {p_count}%", end='\r')
+
+		chrom, start, stop = parse_locus(locus)
+
+		for read in samtools_view(alignment_file, locus=locus):
+			sam_strand, sam_length, sam_size, sam_pos, sam_chrom, sam_rg, sam_seq, sam_read_id = read
 
 
+			c[sam_rg] += 1
+			deep_c[(sam_rg, sam_length, sam_strand)] += 1
 
-	pbar = tqdm(total = len(loci), ncols=90)
-	for name, locus in loci:
-		pbar.update()
 
 		line = [name, locus]
 
-		line += [c[(name, rg)] for rg in rgs]
+		line += [c[rg] for rg in rgs]
 
 		with open(counts_file, 'a') as outf:
+
 			print("\t".join(map(str, line)), file=outf)
 
+		with open(deep_counts_file, 'a') as outf:
+			for rg in rgs:
+				for length in range(15,31):
+					for strand in {"+", "-"}:
+						count = deep_c[(rg, length, strand)]
 
-		for rg in rgs:
+						if count == 0 and ignore_zeroes:
+							pass
+						else:
+							print(name, rg, length, strand, count, sep='\t', file=outf)
 
-			for length in range(15,31):
-				for strand in {"+", "-"}:
-					count = deep_c[(name, rg, length, strand)]
+
+	print()
+
+	# print()
+	# print("processing alignments...")
+	# print(f"  {sum(depth_c.values()):,} total")
+
+	# pbar = tqdm(total = sum(depth_c.values()), ncols=90)
+
+	# sam_iter = samtools_view(alignment_file)
+
+	# for i,read in enumerate(sam_iter):
+
+	# 	# if i % 1000000 == 0:
+	# 	# 	print(read)
+	# 	# 	break
+
+	# 	sam_strand, sam_length, _, sam_pos, sam_chrom, sam_rg, sam_seq = read
+
+	# 	if 15 <= sam_length <= 30:
+	# 		pbar.update()
 
 
-					with open(deep_counts_file, 'a') as outf:
-						print(name, rg, length, strand, count, sep='\t', file=outf)
-					# if count > 0:
-					# 	sys.exit()
+	# 		try:
+	# 			start_loc = lookup[sam_chrom][sam_pos]
+	# 		except IndexError:
+	# 			start_loc = set([None])
 
-	pbar.close()
+	# 		try:
+	# 			stop_loc  = lookup[sam_chrom][sam_pos + sam_length + 1]
+	# 		except IndexError:
+	# 			stop_loc = set([None])
+
+	# 		# print(start_loc, stop_loc)
+
+	# 		if start_loc and stop_loc:
+	# 			names = list(start_loc & stop_loc)
+	# 			names = [n for n in names if n]
+
+	# 			# if len(names) == 0:
+	# 			# 	names = ['NoLocus']
+
+	# 		else:
+	# 			# names = ['NoLocus']
+	# 			names = []
+
+	# 		for name in names:
+	# 			c.update([(name, sam_rg)])
+	# 			deep_c.update([(name, sam_rg, sam_length, sam_strand)])
+
+
+
+
+
+		# if sum(c.values()) > 1000000:
+		# 	pprint(c)
+		# 	sys.exit()
+
+	# pbar.close()
+
+	# pprint(deep_c)
+	# sys.exit()
+
+
+	# print()
+	# print('writing...')
+
+	# with open(counts_file, 'w') as outf:
+	# 	print('name','locus', "\t".join(rgs), sep='\t', file=outf)
+
+	# with open(deep_counts_file, 'w') as outf:
+	# 	print('name','rg','length','strand','count', sep='\t', file=outf)
+
+
+
+	# loci.append(("NoLocus", "NA"))
+
+
+
+	# pbar = tqdm(total = len(loci), ncols=90)
+	# for name, locus in loci:
+	# 	pbar.update()
+
+	# 	line = [name, locus]
+
+	# 	line += [c[(name, rg)] for rg in rgs]
+
+	# 	with open(counts_file, 'a') as outf:
+	# 		print("\t".join(map(str, line)), file=outf)
+
+
+	# 	for rg in rgs:
+
+	# 		for length in range(15,31):
+	# 			for strand in {"+", "-"}:
+	# 				count = deep_c[(name, rg, length, strand)]
+
+
+	# 				with open(deep_counts_file, 'a') as outf:
+	# 					print(name, rg, length, strand, count, sep='\t', file=outf)
+	# 				# if count > 0:
+	# 				# 	sys.exit()
+
+	# pbar.close()
 		# sys.exit()
 
 

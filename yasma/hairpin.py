@@ -1004,8 +1004,8 @@ class hairpinClass():
 # 	multiple=True,
 # 	help="List of read groups (RGs, libraries) to be considered for the annotation. 'ALL' uses all readgroups for annotation, but often pertainent RGs will need to be specified individually.")
 
-@click.option("-o", "--output_directory", 
-	default=f"Annotation_{round(time())}", 
+@click.option("-o", "--output_directory",
+	required=True, 
 	type=click.Path(),
 	help="Directory name for annotation output")
 
@@ -1017,7 +1017,11 @@ class hairpinClass():
 	default=300,
 	help='Maximum hairpin size (default 300). Longer loci will not be considered for miRNA analysis.')
 
-def hairpin(alignment_file, output_directory, ignore_replication, max_length):
+@click.option("-a", "--annotator", 
+	default="Poisson", 
+	help="Annotator algorithm used (Poisson or Dicer)")
+
+def hairpin(alignment_file, output_directory, ignore_replication, max_length, annotator):
 	"""Evaluates annotated loci for hairpin or miRNA structures."""
 
 
@@ -1073,11 +1077,11 @@ def hairpin(alignment_file, output_directory, ignore_replication, max_length):
 
 	genome_file = get_genome_file()
 
-	results_file = f"{output_directory}/Results.txt"
+	results_file = f"{output_directory}/{annotator}.results.txt"
 	assert isfile(results_file), f"results_file {results_file} not found... (Have you run annotation with this directory?)"
 
 	input_mas_d = {}
-	tops_file = f"{output_directory}/TopReads.txt"
+	tops_file = f"{output_directory}/{annotator}.reads.txt"
 	with open(tops_file, 'r') as f:
 		header = f.readline()
 		for line in f:
@@ -1120,6 +1124,7 @@ v vv vv v v""")
 
 	with open(results_file, 'r') as f:
 		header = f.readline().lstrip("#").strip().split("\t")
+		header = [h.lower() for h in header]
 
 		# print(header)
 		# for i,h in enumerate(header):
