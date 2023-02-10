@@ -334,7 +334,8 @@ def dicer(alignment_file, annotation_readgroups, dicercall, output_directory, fo
 
 	sam_iter = samtools_view(alignment_file, dcr_range, non_range)
 	read = next(sam_iter)
-	sam_strand, sam_length, sam_size, sam_pos, sam_chrom, sam_rg, sam_read = read
+	sam_strand, sam_length, sam_size, sam_pos, sam_chrom, sam_rg, sam_seq, sam_read = read
+	# strand,    length,     size,     sam_pos,  sam_chrom, rg,    seq, read_id)
 
 
 	total_locus_count = 0
@@ -436,7 +437,7 @@ def dicer(alignment_file, annotation_readgroups, dicercall, output_directory, fo
 
 			for r in reads:
 				sam_pos, sam_length, sam_size, sam_strand, sam_rg, sam_read = r
-
+				
 
 
 				for r in range(sam_length):
