@@ -210,7 +210,7 @@ def dicer(alignment_file, annotation_readgroups, dicercall, output_directory, fo
 
 	results_file = f"{output_directory}/Dicer.results.txt"
 	with open(results_file, 'w') as outf:
-		print("#name\tlocus\tlocus_peak\tlength\tgap\tdepth\trpm\tdepth:length\tfrac_top\tstrand\tfrac_dicer\tdcr_reads\tnon_reads\tdicercall\tfrac_dicercall\t" + "\t".join(map(str, dcr_range)), file=outf)
+		print("locus\tname\tlocus_peak\tlength\tgap\tdepth\trpm\tdepth:length\tfrac_top\tstrand\tfrac_dicer\tdcr_reads\tnon_reads\tdicercall\tfrac_dicercall\t" + "\t".join(map(str, dcr_range)), file=outf)
 
 
 	reads_file = f"{output_directory}/Dicer.reads.txt"
@@ -547,7 +547,7 @@ def dicer(alignment_file, annotation_readgroups, dicercall, output_directory, fo
 
 
 
-			to_print = [name, coords, locus_peak, length, dist_to_last, n_reads, rpm, depth_by_length, frac_top, strand]
+			to_print = [coords, name, locus_peak, length, dist_to_last, n_reads, rpm, depth_by_length, frac_top, strand]
 			to_print += [frac_dicercall, size_c['dcr'],  size_c['non']]
 			to_print += [predominant_length, predominant_length_depth]
 			to_print += [len_c[d] for d in dcr_range]

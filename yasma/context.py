@@ -18,24 +18,31 @@ from .cli import cli
 	help='Gene annotation file in gff3 format. Tested with NCBI annotation formats.')
 
 @click.option("-o", "--output_directory", 
-	default=f"Annotation_{round(time())}", 
+	required=True, 
 	type=click.Path(),
 	help="Directory name for annotation output")
+
+@click.option("-a", "--annotator", 
+	default="Poisson", 
+	help="Annotator algorithm used (Poisson or Dicer)")
 
 @click.option("-f", "--force",
 	is_flag=True,
 	help='Force remake of supporting files')
 
 
-def context(gene_annotation_file, output_directory, force):
+def context(gene_annotation_file, output_directory, force, annotator):
 	"""Compares annotations to identify cluster genomic context."""
 
 	output_directory = output_directory.rstrip("/")
 
-	ann_file = f"{output_directory}/Annotation.gff3"
+	if not isdir(output_directory):
+		sys.exit(f"output directory does not exist: {output_directory}")
+
+	ann_file = f"{output_directory}/{annotator}.annotation.gff3"
 
 	if not isfile(ann_file):
-		sys.exit(f"Annotation file {ann_file} does not exist. Must run 'annotate' module first and specify the same output folder.")
+		sys.exit(f"Annotation file {ann_file} does not exist. Must run {annotator.lower()} module first and specify the same output folder.")
 
 
 
