@@ -11,8 +11,8 @@ from statistics import median, mean
 from pprint import pprint
 
 
-from modules.generics import *
-from modules.cli import cli
+from .generics import *
+from .cli import cli
 
 
 

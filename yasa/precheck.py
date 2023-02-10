@@ -7,8 +7,8 @@ from os.path import isfile, isdir
 from collections import Counter, deque
 
 
-from modules.generics import *
-from modules.cli import cli
+from .generics import *
+from .cli import cli
 
 
 @cli.command(group='Utilities', help_priority=6)
