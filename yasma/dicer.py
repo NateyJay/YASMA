@@ -564,7 +564,7 @@ def dicer(alignment_file, annotation_readgroups, dicercall, output_directory, fo
 			with open(gff_file, 'a') as outf:
 				if start == 0:
 					start += 1
-				print(f"{chrom}\tsmoothLocus\tnc_RNA\t{start}\t{stop}\t.\t{strand}\t.\tID={name};dicercall={predominant_length};frac_dicercall={predominant_length_depth}", file=outf)
+				print(f"{chrom}\tyasma_dicer\tnc_RNA\t{start}\t{stop}\t.\t{strand}\t.\tID={name};dicercall={predominant_length};frac_dicercall={predominant_length_depth}", file=outf)
 
 
 			to_print = [name]

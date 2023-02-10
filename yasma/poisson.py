@@ -167,7 +167,7 @@ class assessClass():
 			feature_type = f"RNA_{dicercall}"
 
 		gff_line = [
-			chrom, 'poissonLocus',feature_type, start, stop, '.\t.\t.',
+			chrom, 'yasma_poisson',feature_type, start, stop, '.', strand, '.',
 			f'ID={name};dicercall={dicercall};depth={depth};rpm={rpm};fracTop={frac_top};majorRNA={major_rna}'
 		]
 
