@@ -39,12 +39,15 @@ def context(gene_annotation_file, output_directory, force, method):
 	if not isdir(output_directory):
 		sys.exit(f"output directory does not exist: {output_directory}")
 
-	ann_file = f"{output_directory}/{annotator}.annotation.gff3"
+	ann_file = f"{output_directory}/{method}.annotation.gff3"
 
 	if not isfile(ann_file):
-		sys.exit(f"Annotation file {ann_file} does not exist. Must run {annotator.lower()} module first and specify the same output folder.")
+		sys.exit(f"Annotation file {ann_file} does not exist. Must run {method.lower()} module first and specify the same output folder.")
 
+	results_file = f"{output_directory}/{method}.results.txt"
 
+	if not isfile(results_file):
+		sys.exit(f"results file ({results_file}) not found")
 
 	# 1) make subfiles
 	# 2) find closest mRNA
@@ -157,6 +160,9 @@ def context(gene_annotation_file, output_directory, force, method):
 
 			closest_d[sa['ID']] = d
 
+			# pprint(d)
+			# sys.exit()
+
 		return(closest_d)
 
 	def intersect(file, ID):
@@ -213,12 +219,13 @@ def context(gene_annotation_file, output_directory, force, method):
 	with open(output_file, 'w') as outf:
 		print("\t".join(['cluster','transcript', 'mRNA_id', 'mRNA_distance', 'exon_id', 'exon_overlap', 'cds_id', 'cds_overlap', 's_strand','m_strand','match','category']), file=outf)
 
-		with open(f"{output_directory}/Results.txt", 'r') as f:
+		with open(results_file, 'r') as f:
 			header = f.readline()
 
 			for line in f:
 				line = line.strip().split("\t")
-				cluster = line[0]
+				cluster = line[1]
+				# print(cluster)
 
 				try:
 					m_d = mRNA_d[cluster]

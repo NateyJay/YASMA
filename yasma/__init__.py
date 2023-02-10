@@ -5,4 +5,5 @@ from .hairpin import *
 from .poisson import *
 from .dicer import *
 from .readgroups import *
+from .coverage import *
 
