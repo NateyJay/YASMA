@@ -22,16 +22,16 @@ from .cli import cli
 	type=click.Path(),
 	help="Directory name for annotation output")
 
-@click.option("-m", "--method", 
-	default="Poisson", 
-	help="Annotator algorithm used (Poisson or Dicer)")
+# @click.option("-m", "--method", 
+# 	default="Poisson", 
+# 	help="Annotator algorithm used (Poisson or Dicer)")
 
 @click.option("-f", "--force",
 	is_flag=True,
 	help='Force remake of supporting files')
 
 
-def context(gene_annotation_file, output_directory, force, method):
+def context(gene_annotation_file, output_directory, force):
 	"""Compares annotations to identify cluster genomic context."""
 
 	output_directory = output_directory.rstrip("/")
@@ -39,12 +39,12 @@ def context(gene_annotation_file, output_directory, force, method):
 	if not isdir(output_directory):
 		sys.exit(f"output directory does not exist: {output_directory}")
 
-	ann_file = f"{output_directory}/{method}.annotation.gff3"
+	ann_file = f"{output_directory}/Annotation.gff3"
 
 	if not isfile(ann_file):
-		sys.exit(f"Annotation file {ann_file} does not exist. Must run {method.lower()} module first and specify the same output folder.")
+		sys.exit(f"Annotation file {ann_file} does not exist. Are you sure the output folder contains an annotation?")
 
-	results_file = f"{output_directory}/{method}.results.txt"
+	results_file = f"{output_directory}/Results.txt"
 
 	if not isfile(results_file):
 		sys.exit(f"results file ({results_file}) not found")

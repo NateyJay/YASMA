@@ -146,7 +146,7 @@ class percentageClass():
 def get_global_depth(output_directory, alignment_file, force=False, aggregate_by=['rg','chrom','length']):
 	depth_file = f"./{output_directory}/GlobalDepth.txt"
 
-	header = ['rg','chrom','length','freq']
+	header = ['rg','chrom','length','abundance']
 
 	if not isfile(depth_file) or force:
 		call = ['samtools', 'view', '-F', '4', alignment_file]
