@@ -4,4 +4,5 @@ from .count import *
 from .hairpin import *
 from .poisson import *
 from .dicer import *
+from .readgroups import *
 
