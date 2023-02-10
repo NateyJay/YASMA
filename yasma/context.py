@@ -22,7 +22,7 @@ from .cli import cli
 	type=click.Path(),
 	help="Directory name for annotation output")
 
-@click.option("-a", "--annotator", 
+@click.option("-m", "--method", 
 	default="Poisson", 
 	help="Annotator algorithm used (Poisson or Dicer)")
 
@@ -31,7 +31,7 @@ from .cli import cli
 	help='Force remake of supporting files')
 
 
-def context(gene_annotation_file, output_directory, force, annotator):
+def context(gene_annotation_file, output_directory, force, method):
 	"""Compares annotations to identify cluster genomic context."""
 
 	output_directory = output_directory.rstrip("/")
