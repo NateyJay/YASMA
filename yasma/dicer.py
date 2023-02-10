@@ -240,12 +240,22 @@ def dicer(alignment_file, annotation_readgroups, dicercall, output_directory, fo
 
 
 
-	depth_c = get_rg_depth(output_directory, alignment_file)
+	# depth_c = get_rg_depth(output_directory, alignment_file)
 
-	library_depth = 0
-	for key in depth_c.keys():
-		if key[0] in annotation_readgroups:
-			library_depth += depth_c[key]
+
+	# library_depth = 0
+	# for key in depth_c.keys():
+	# 	if key[0] in annotation_readgroups:
+	# 		library_depth += depth_c[key]
+
+	# print(library_depth)
+
+
+	depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg'])
+
+	library_depth = sum([depth_c[rg] for rg in annotation_readgroups])
+	# print(library_depth)
+	# sys.exit()
 
 
 	read_equivalent = 1 / library_depth * 1000000
@@ -436,8 +446,8 @@ def dicer(alignment_file, annotation_readgroups, dicercall, output_directory, fo
 
 
 			for r in reads:
-				sam_pos, sam_length, sam_size, sam_strand, sam_rg, sam_read = r
-				
+				sam_pos, sam_length, sam_size, sam_strand, sam_rg, sam_seq = r
+
 
 
 				for r in range(sam_length):
@@ -452,8 +462,8 @@ def dicer(alignment_file, annotation_readgroups, dicercall, output_directory, fo
 				strand_c.update([sam_strand])
 				rg_c.update([sam_rg])
 				if sam_strand == "-":
-					sam_read = complement(sam_read[::-1])
-				read_c.update([sam_read])
+					sam_seq = complement(sam_seq[::-1])
+				read_c.update([sam_seq])
 
 
 
@@ -682,11 +692,13 @@ def dicer(alignment_file, annotation_readgroups, dicercall, output_directory, fo
 
 
 
-					locus.add((sam_pos, sam_length, sam_size, sam_strand, sam_rg, sam_read))
+					locus.add((sam_pos, sam_length, sam_size, sam_strand, sam_rg, sam_seq))
 
 				try:
 					read = next(sam_iter)
-					sam_strand, sam_length, sam_size, sam_pos, sam_chrom, sam_rg, sam_read = read
+					sam_strand, sam_length, sam_size, sam_pos, sam_chrom, sam_rg, sam_seq, sam_read = read
+
+
 					# print(pos, sam_id, sam_size, sep='\t')
 				except StopIteration:
 					break

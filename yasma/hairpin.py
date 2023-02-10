@@ -992,7 +992,7 @@ class hairpinClass():
 
 
 
-@cli.command(group="Utilities", help_priority=5)
+@cli.command(group="Calculation", help_priority=5)
 @click.option("-a", "--alignment_file", 
 	required=True, 
 	type=click.Path(exists=True),

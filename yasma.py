@@ -4,8 +4,6 @@
 """Convenience wrapper for running annotator directly from source tree."""
 
 
-from yasa.cli import cli
+from yasma.cli import cli
 
 cli()
-# if __name__ == '__main__':
-# 	main()

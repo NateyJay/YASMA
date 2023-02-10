@@ -87,7 +87,7 @@ class customClickClass(click.Group):
 
 @click.group(cls=customClickClass)
 def cli():
-	"""YASA (Yet Another sRNA Annotator)"""
+	"""YASMA (Yet Another small RNA Annotator)"""
 
 
 
