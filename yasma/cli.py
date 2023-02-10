@@ -76,7 +76,7 @@ class customClickClass(click.Group):
 						formatter.write_dl(rows)
 
 	def parse_args(self, ctx, args):
-		if len(args) == 1:
+		if len(args) <= 1:
 			args.append(self.help_flag)
 
 		return super(customClickClass, self).parse_args(ctx, args)
