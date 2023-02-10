@@ -385,7 +385,7 @@ def samtools_view(bam, dcr_range=False, non_range=False, locus=False, rgs=[]):
 
 	p.wait()
 
-def get_chromosomes(file, output_directory):
+def get_chromosomes(file, output_directory=False):
 	chromosomes = []
 	rgs = []
 	# call = f"samtools view -@ 4 -H {file}"
@@ -406,9 +406,10 @@ def get_chromosomes(file, output_directory):
 			rgs.append(o[1].split(":")[-1])
 
 
-	with open(f"./{output_directory}/ChromSizes.txt", 'w') as outf:
-		for chrom, size in chromosomes:
-			print(chrom, size, sep='\t', file=outf)
+	if output_directory:
+		with open(f"./{output_directory}/ChromSizes.txt", 'w') as outf:
+			for chrom, size in chromosomes:
+				print(chrom, size, sep='\t', file=outf)
 
 	return(chromosomes, rgs)
 
@@ -582,32 +583,32 @@ def complement(s):
 
 # 	p.wait()
 
-def get_chromosomes(file,output_directory):
-	chromosomes = []
-	rgs = []
-	# call = f"samtools view -@ 4 -H {file}"
+# def get_chromosomes(file,output_directory):
+# 	chromosomes = []
+# 	rgs = []
+# 	# call = f"samtools view -@ 4 -H {file}"
 
-	call = ['samtools','view','-H', file]
-	# print(call)
+# 	call = ['samtools','view','-H', file]
+# 	# print(call)
 
-	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
-	out, err = p.communicate()
+# 	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+# 	out, err = p.communicate()
 
-	for o in out.strip().split("\n"):
-		o = o.strip().split('\t')
-		if o[0] == "@SQ":
-			name = o[1].split(":")[-1]
-			length = int(o[2].split(":")[-1])
-			chromosomes.append((name,length))
-		if o[0] == "@RG":
-			rgs.append(o[1].split(":")[-1])
+# 	for o in out.strip().split("\n"):
+# 		o = o.strip().split('\t')
+# 		if o[0] == "@SQ":
+# 			name = o[1].split(":")[-1]
+# 			length = int(o[2].split(":")[-1])
+# 			chromosomes.append((name,length))
+# 		if o[0] == "@RG":
+# 			rgs.append(o[1].split(":")[-1])
 
 
-	with open(f"./{output_directory}/ChromSizes.txt", 'w') as outf:
-		for chrom, size in chromosomes:
-			print(chrom, size, sep='\t', file=outf)
+# 	with open(f"./{output_directory}/ChromSizes.txt", 'w') as outf:
+# 		for chrom, size in chromosomes:
+# 			print(chrom, size, sep='\t', file=outf)
 
-	return(chromosomes, rgs)
+# 	return(chromosomes, rgs)
 
 
 
