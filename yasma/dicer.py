@@ -502,7 +502,7 @@ def dicer(alignment_file, annotation_readgroups, dicercall, output_directory, fo
 			stop  = max(read_stops) + pad
 
 
-			name = f"Cl_{next(cluster_counter)}"
+			name = f"dl_{next(cluster_counter)}"
 
 
 			if len(reads) == 0:

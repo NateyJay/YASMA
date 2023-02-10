@@ -469,7 +469,7 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 
 
-						locus_name = f"Cl_{cl_i}"
+						locus_name = f"pl_{cl_i}"
 
 						loci.append((locus_name, chrom, start, stop))#, frac_top, size_profile, total/region_length))
 						in_locus = False
