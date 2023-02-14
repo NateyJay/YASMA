@@ -23,7 +23,7 @@ class assessClass():
 
 		self.header = ['Locus','Name','Length','Reads','RPM']
 		self.header += ['UniqueReads','FracTop','Strand','MajorRNA','MajorRNAReads','Complexity']
-		self.header += ['Gap', 'size_1n','size_1n_depth', 'size_2n','size_2n_depth', 'size_4n','size_4n_depth', 'dicercall']
+		self.header += ['Gap', 'size_1n','size_1n_depth', 'size_2n','size_2n_depth', 'size_3n','size_3n_depth', 'dicercall']
 
 
 
@@ -198,23 +198,44 @@ class assessClass():
 @click.option("-o", "--output_directory", 
 	default=f"Annotation_{round(time())}", 
 	type=click.Path(),
-	help="Directory name for annotation output")
+	help="Directory name for annotation output.")
 
 @click.option("-f", "--force",
 	is_flag=True,
-	help='Force remake of supporting files')
+	help='Force remake of supporting files.')
 
-def poisson(alignment_file, annotation_readgroups, gene_annotation, output_directory, force):
+@click.option("--window",
+	default=40,
+	help="Window size (centered on position) for counting reads, used as k in the poisson model.")
+
+@click.option("--merge_dist",
+	default=150,
+	help="Maximum gap size between valid regions to merge to a single locus.")
+
+@click.option('--pad',
+	default=10,
+	help='Number of bases arbitrarily added to either end of a defined locus.')
+
+@click.option('--peak_trim',
+	default=0.05,
+	help='Minimum depth, as a proportion of the maximum coverage depth in a locus, used for trimming low-depth edges from a locus.')
+
+
+def poisson(alignment_file, annotation_readgroups, gene_annotation, output_directory, force, window, merge_dist, pad):
 	'''Annotator based on poisson-derived probability scores.'''
 
 	output_directory = output_directory.rstrip("/")
 
 	Path(output_directory).mkdir(parents=True, exist_ok=True)
 
-	window = 40
+	# window = 40
 	cl_i = 0
-	merge_dist = 200
-	pad = 20
+	# merge_dist = 200
+	# pad = 20
+	# peak_trim = 0.05
+
+
+	assert 0 < peak_trim < 1, "peak_trim must be between 0 and 1."
 
 	half_window = int(window/2)
 
@@ -444,7 +465,7 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 
 						depth_profile = [depth_c[i] for i in range(start, stop+1)]
-						trim_threshold = max(depth_profile) * 0.05
+						trim_threshold = max(depth_profile) * peak_trim
 
 
 						# pprint(depth_profile)
@@ -537,54 +558,6 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 	print()
 	print(f"{len(all_loci):,} loci found in total")
 		# sys.exit()
-
-
-
-
-
-## Bootstrap CI from: https://bioinformatics.stackexchange.com/questions/10580/confidence-interval-with-wilcoxon-test-in-python-for-log-normal-distribution
-# import numpy as np
-
-# def bootstrap(data, n=1000, func=np.mean,p=0.95):
-
-#     sample_size = len(data)
-#     simulations = [func(np.random.choice(data, size=sample_size, replace=True)) for i in range(n)]
-#     simulations.sort()
-#     u_pval = (1+p)/2.
-#     l_pval = (1-u_pval)
-#     l_indx = int(np.floor(n*l_pval))
-#     u_indx = int(np.floor(n*u_pval))
-#     return(simulations[l_indx],simulations[u_indx])
-
-# x = np.array([0.02288081, 0.44170839, 0.10549733, 0.17515196, 0.09449279,
-#        0.07110412, 0.00893079, 0.23485109, 0.14533192, 0.05449631,
-#        0.10281173, 0.02113355, 0.05157087, 0.01705113, 0.02651948,
-#        0.09352947, 0.05828018, 0.20528157, 0.02873843, 0.0141598 ,
-#        0.11262881, 0.06337332, 0.13689815, 0.10557703, 0.04452507,
-#        0.05046484, 0.40241456, 0.05939199, 0.24423569, 0.05042892,
-#        0.164257  , 0.03408215, 0.04737262, 0.01037463, 0.01246448,
-#        0.02170375, 0.0241773 , 0.05136936, 0.02393366, 0.18913979,
-#        0.15781334, 0.06448557, 0.04355384, 0.02821125, 0.08015629,
-#        0.10985432, 0.06074574, 0.15775976, 0.05678278, 0.03749782,
-#        0.05518756, 0.00770479, 0.21248167, 0.08005044, 0.16307954,
-#        0.05783565, 0.05907416, 0.07044622, 0.13227131, 0.01627556,
-#        0.10859962, 0.08149819, 0.05600647, 0.16098728, 0.15183062,
-#        0.05202344, 0.01769589, 0.00789287, 0.07777749, 0.1324942 ,
-#        0.12734709, 0.17146938, 0.03890857, 0.1296019 , 0.085146  ,
-#        0.05602965, 0.02708089, 0.11807038, 0.07848828, 0.03291032,
-#        0.36302533, 0.07800343, 0.06551307, 0.04676282, 0.04765273,
-#        0.08060882, 0.06339636, 0.03349833, 0.01224308, 0.1481316 ,
-#        0.31738452, 0.15690855, 0.0693822 , 0.020425  , 0.02909208,
-#        0.03499225, 0.03019904, 0.13722717, 0.14403507, 0.01257245,
-#        0.02223452, 0.07068784, 0.0544813 , 0.08738558, 0.02884046,
-#        0.10549474, 0.06695546, 0.01341142, 0.09440411, 0.11840834,
-#        0.08558889, 0.2688645 , 0.28313546, 0.15127967, 0.01463191,
-#        0.1728421 ])
-
-# # for mean,95% confidence interval, do
-# bootstrap(x,1000,np.mean,0.95)
-# # for median, 95% confidence interval, do 
-# bootstrap(x,1000,np.median,0.95)
 
 
 
