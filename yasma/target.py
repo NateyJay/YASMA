@@ -7,9 +7,92 @@ from pathlib import Path
 from os.path import isfile, isdir
 from pprint import pprint
 from tqdm import tqdm
+from multiprocessing import Lock, Process, Queue, current_process, Pool
 
 from .generics import *
 from .cli import cli
+
+
+
+def call_job(job):
+
+	s_name, s_seq = job
+
+	lock.acquire()
+	print(f"init\t{s_name}\t{s_seq}")
+	lock.release()
+
+
+	query_file = f"{s_name}.fa"
+
+	with open(query_file, 'w') as outf:
+		print(">", s_name, sep='', file=outf)
+		print(s_seq, file=outf)
+
+
+	z = len(s_seq) 
+
+
+	call = ['RNAplex', '-t', cdna_file, '-q', query_file, '-f', rnaplex_f, '-z', str(z)]
+
+	lock.acquire()
+	print(f"call\t{s_name}", " ".join(call), sep='\t')
+	lock.release()
+
+	# sys.exit()
+	p = Popen(call, stdout=PIPE, encoding='utf-8')
+
+	out = []
+	while True:
+		
+		mRNA_line = p.stdout.readline().lstrip(">").rstrip()
+		if mRNA_line == "":
+			break
+
+		if mRNA_line != "(null)":
+			m_name = mRNA_line
+		p.stdout.readline()
+
+		plex_line = p.stdout.readline().split()
+
+		line = [m_name, s_name] + plex_line
+
+		out.append(line)
+
+
+
+	lock.acquire()
+	print(f"out\t{s_name}\t{len(out)} hits found")
+
+	with open(output_file, 'a') as outf:
+		for line in out:
+			print("\t".join(line), file=outf)
+	lock.release()
+
+	os.remove(query_file)
+
+
+	lock.acquire()
+	print(f"done\t{s_name}")
+	lock.release()
+
+
+
+def init(l, c, o, f):
+	global lock
+	global cdna_file
+	global output_file
+	global rnaplex_f
+
+	lock = l
+	cdna_file = c
+	output_file = o
+	rnaplex_f = f
+
+
+
+
+
 
 @cli.command(group='Calculation', help_priority=6)
 
@@ -40,13 +123,16 @@ from .cli import cli
 	type=click.Choice(['0','1','2']),
 	help='Speed variable for RNA plex, allowing options 0,2, and 1; ordered from slowest to fastest.')
 
+@click.option("-t", "--threads",
+	default=2,
+	help='Number of thread processes for RNAplex. Each thread corresponds to an sRNA.')
 
 
-def target(cdna_file, output_directory, force, max_rank, rnaplex_f):
+
+def target(cdna_file, output_directory, force, max_rank, rnaplex_f, threads):
 	"""Uses kmers and RNAplex to identify candidate targets in cDNA sequences."""
 
 
-	# half_kmer = round(kmer_size/2)
 
 	output_directory = output_directory.rstrip("/")
 
@@ -63,7 +149,10 @@ def target(cdna_file, output_directory, force, max_rank, rnaplex_f):
 	# if not isfile(results_file):
 	# 	sys.exit(f"results file ({results_file}) not found")
 
+	output_file = f"{output_directory}/Targeting.txt"
 
+	with open(output_file, 'w') as outf:
+		outf.write("")
 
 
 	def get_kmers(seq, k):
@@ -114,6 +203,7 @@ def target(cdna_file, output_directory, force, max_rank, rnaplex_f):
 
 
 	mRNAs = []
+	mRNA_lengths = {}
 
 	with open(cdna_file, 'r') as f:
 		header = f.readline()
@@ -133,6 +223,7 @@ def target(cdna_file, output_directory, force, max_rank, rnaplex_f):
 				seq = seq.upper().replace("T","U")
 
 				mRNAs.append((header, seq))
+				mRNA_lengths[header] = len(seq)
 
 				seq = ''
 				header = line[1:]
@@ -142,97 +233,33 @@ def target(cdna_file, output_directory, force, max_rank, rnaplex_f):
 				seq += line
 
 
-
-	print('calculating jobs...')
-
-	jobs = []
-
-	for m in range(len(mRNAs)):
-		for s in range(len(sRNAs)):
-
-			jobs.append((m,s))
-
-	total = len(jobs)
-
-	print(" ", f"{total:,} jobs", flush=True)
-
-	out_file = "test_out.txt"
-	with open(out_file, 'w') as outf:
-		outf.write("")
-
-	print('processing jobs...')
-
-	pbar = tqdm(total=total)
-	for m, s in jobs:
-		pbar.update()
-
-		# print(m)
-
-		m_name, m_seq = mRNAs[m]
-		s_name, s_seq = sRNAs[s]
+	# lock = Lock()
+	# pool = Pool(initializer=init, 
+	# 	initargs=(lock, cdna_file, output_file, rnaplex_f,), 
+	# 	processes=threads)
 
 
-		# query_file = f"{s_name}.fa"
+	# pool.map(call_job, sRNAs)
 
-		# with open(query_file, 'w') as outf:
-		# 	print(">", s_name, sep='', file=outf)
-		# 	print(s_seq, file=outf)
-
-
-		z = len(s_seq) + 10
-
-
-		call = ['RNAplex', '-f', rnaplex_f, '-z', str(z)]
-		# print(" ".join(call))
-		p = Popen(call, stdout=PIPE, stdin=PIPE, encoding='utf-8')
-
-
-		out, err = p.communicate(f">{m_name}\n{m_seq}\n>{s_name}\n{s_seq}")
-		out = out.strip().split("\n")[-1].split()
-		out = "\t".join(out)
-
-		with open(out_file, 'a') as outf:
-			print(s_name, m_name, out, sep='\t', file=outf)
-		# print(out)
-		# sys.exit()
-
-		# while True:
-			
-		# 	target = p.stdout.readline().lstrip(">").rstrip()
-		# 	if target != "(null)":
-		# 		m_name = target
-		# 	p.stdout.readline()
-		# 	line = p.stdout.readline().split()
-
-		# 	line = [m_name, s_name] + line
-
-		# 	print(line)
-
-
-		# sys.exit()
-
-		# for line in p.stdout:
-		# 	line = line.strip()
+	# pool.close()
+	# pool.join()
 
 
 
 
-		# p.wait()
-
-		# sys.exit()
-
-		# os.remove(query_file)
-
-		# sys.exit()
 
 
 
-	pbar.close()
-
-	sys.exit()
-
+	kmer_size = 6
+	# kmer_window = 30
+	kmer_window_expansion = 5
+	kmer_threshold = 6
 
 	kmer_d = {}
+
+	window_d = {}
+
+	# print(len(mRNAs))
 
 	pbar = tqdm(total=len(mRNAs))
 	for m_i, mRNA in enumerate(mRNAs):
@@ -264,11 +291,15 @@ def target(cdna_file, output_directory, force, max_rank, rnaplex_f):
 
 
 	pbar.close()
-	# pprint(kmer_d)
+	# # pprint(kmer_d)
 
-	# sys.exit()
+	# # sys.exit()
+
+	theoretical_max = len(sRNAs) * m_i
+	print(f'{theoretical_max:,} maximum number of queries by transcript')
 
 
+	window_count = 0
 	count = 0
 	pbar = tqdm(total=len(sRNAs))
 	for s_name, s_seq in sRNAs:
@@ -281,8 +312,6 @@ def target(cdna_file, output_directory, force, max_rank, rnaplex_f):
 		pos_d = dict()
 
 		for s_kmer in s_kmers:
-
-			# print(s_kmer)
 
 			try:
 				keys = kmer_d[s_kmer].keys()
@@ -298,17 +327,7 @@ def target(cdna_file, output_directory, force, max_rank, rnaplex_f):
 
 				pos_d[m_name].update(kmer_d[s_kmer][m_name])
 
-				# print(kmer_d[kmer][m_name])
-				# print(pos_d)
-				# sys.exit()
-
-			# pprint(pos_d)
-			# sys.exit()
-
-		# 	print(" ", len(pos_d))
-
-		# print(len(pos_d))
-		# sys.exit()
+		kmer_window = len(s_seq)+kmer_window_expansion
 
 
 		for m_name, c in pos_d.items():
@@ -320,43 +339,70 @@ def target(cdna_file, output_directory, force, max_rank, rnaplex_f):
 			flag = ""
 			for p in c.keys():
 
-				# pprint(c)
-				# sys.exit()
-
 				window_hits = [j for j in c.keys() if p <= j <= p+kmer_window]
-
-				# print(window_hits)
-				# sys.exit()
 
 
 				if len(window_hits) > 6:
 
 					count += 1
-					print(count, m_name)
+					# print(count, m_name)
 					flag = "<---- " + str(len(window_hits))
 
 
-					print(s_name)
-					print("  ",m_name, c.keys(), flag)
+					# print(s_name)
+					# print("  ",m_name, c.keys(), flag)
+
+					# print(window_hits)
+					window_max = max(window_hits)
+					window_min = min(window_hits)
+					window_range = window_max - window_min
+					offset = round((kmer_window - window_range)/2)
+					window_max += offset
+					window_min -= offset
+
+
+					window = (m_name, mRNA_lengths[m_name] - window_max, mRNA_lengths[m_name] - window_min)
+					# print(window)
+
+					try:
+						window_d[s_name].append(window)
+					except KeyError:
+						window_d[s_name] = [window]
+
+					window_count += 1
+
+					# sys.exit()
+
+
 
 		# sys.exit()
 
 	pbar.close()
 
-			# sys.exit()
+
+	pprint(window_d)
+	print(f'{len(window_d):,} sRNAs with windows')
+	print(f'{window_count:,} windows in total')
+
+	fold_reduction = theoretical_max / window_count
+	print(f'{fold_reduction} fold reduction')
+
+	sys.exit()
+
+	# 		# sys.exit()
 
 
 
-		# print(len(c))
-		# pprint(c.most_common(10))
+	# 	# print(len(c))
+	# 	# pprint(c.most_common(10))
 
-		# print(len([v for v in c.values() if v > 3]))
+	# 	# print(len([v for v in c.values() if v > 3]))
 
-		# sys.exit()
+	# 	# sys.exit()
 
 
 
-	sys.exit('done')
+	# sys.exit('done')
 
 
 
