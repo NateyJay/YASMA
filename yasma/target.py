@@ -30,26 +30,23 @@ from .cli import cli
 	help='Force remake of supporting files.')
 
 
-@click.option("--max_rank",
+@click.option("-m", "--max_rank",
 	default=0,
-	help='Maximum rank position of reads in library to be tested for targets (base-0).')
+	help='Maximum rank in abundance of a read within a locus (base 0).')
 
 
-@click.option("--kmer_size",
-	default=6,
-	help='k-mer size for zeroing-in on targets.')
+@click.option("--rnaplex_f",
+	default='2',
+	type=click.Choice(['0','1','2']),
+	help='Speed variable for RNA plex, allowing options 0,2, and 1; ordered from slowest to fastest.')
 
 
-@click.option("--kmer_window",
-	default=30,
-	help='Window size used for candidate targets.')
 
-
-def target(cdna_file, output_directory, force, max_rank, kmer_size, kmer_window):
+def target(cdna_file, output_directory, force, max_rank, rnaplex_f):
 	"""Uses kmers and RNAplex to identify candidate targets in cDNA sequences."""
 
 
-	half_kmer = round(kmer_size/2)
+	# half_kmer = round(kmer_size/2)
 
 	output_directory = output_directory.rstrip("/")
 
@@ -144,6 +141,95 @@ def target(cdna_file, output_directory, force, max_rank, kmer_size, kmer_window)
 			else:
 				seq += line
 
+
+
+	print('calculating jobs...')
+
+	jobs = []
+
+	for m in range(len(mRNAs)):
+		for s in range(len(sRNAs)):
+
+			jobs.append((m,s))
+
+	total = len(jobs)
+
+	print(" ", f"{total:,} jobs", flush=True)
+
+	out_file = "test_out.txt"
+	with open(out_file, 'w') as outf:
+		outf.write("")
+
+	print('processing jobs...')
+
+	pbar = tqdm(total=total)
+	for m, s in jobs:
+		pbar.update()
+
+		# print(m)
+
+		m_name, m_seq = mRNAs[m]
+		s_name, s_seq = sRNAs[s]
+
+
+		# query_file = f"{s_name}.fa"
+
+		# with open(query_file, 'w') as outf:
+		# 	print(">", s_name, sep='', file=outf)
+		# 	print(s_seq, file=outf)
+
+
+		z = len(s_seq) + 10
+
+
+		call = ['RNAplex', '-f', rnaplex_f, '-z', str(z)]
+		# print(" ".join(call))
+		p = Popen(call, stdout=PIPE, stdin=PIPE, encoding='utf-8')
+
+
+		out, err = p.communicate(f">{m_name}\n{m_seq}\n>{s_name}\n{s_seq}")
+		out = out.strip().split("\n")[-1].split()
+		out = "\t".join(out)
+
+		with open(out_file, 'a') as outf:
+			print(s_name, m_name, out, sep='\t', file=outf)
+		# print(out)
+		# sys.exit()
+
+		# while True:
+			
+		# 	target = p.stdout.readline().lstrip(">").rstrip()
+		# 	if target != "(null)":
+		# 		m_name = target
+		# 	p.stdout.readline()
+		# 	line = p.stdout.readline().split()
+
+		# 	line = [m_name, s_name] + line
+
+		# 	print(line)
+
+
+		# sys.exit()
+
+		# for line in p.stdout:
+		# 	line = line.strip()
+
+
+
+
+		# p.wait()
+
+		# sys.exit()
+
+		# os.remove(query_file)
+
+		# sys.exit()
+
+
+
+	pbar.close()
+
+	sys.exit()
 
 
 	kmer_d = {}
