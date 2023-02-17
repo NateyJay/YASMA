@@ -8,9 +8,193 @@ from os.path import isfile, isdir
 from pprint import pprint
 from tqdm import tqdm
 from multiprocessing import Lock, Process, Queue, current_process, Pool
+import re
 
 from .generics import *
 from .cli import cli
+
+
+
+def plex_by_stdin(q_name, q_seq, t_name, t_seq, verbose=False):
+
+	z = len(q_seq) + 10
+
+	call = ['RNAplex', '-f', '2', '-z', str(z)]
+	p = Popen(call, stdout=PIPE, stdin=PIPE, encoding='utf-8')
+
+	if verbose:
+		print()
+		print("[plex] target", t_name, t_seq)
+		print("[plex] query ", q_name, q_seq)
+
+
+	inp = f">{t_name}\n{t_seq}\n>{q_name}\n{q_seq}"
+	# print(inp)
+
+	# print(f'command approximation:\necho "{inp}" | {" ".join(call)}')
+
+	out, err = p.communicate(inp)
+	out = out.strip().split("\n")
+	if verbose:
+		print()
+		for o in out:
+			print("[plex]", o)
+		print()
+	out = out[-1].split()
+	del out[2]
+	
+	if verbose:
+		print('[plex]', out)
+		print()
+	return(out)
+
+
+
+def clean_plex(hit, s_full_seq, m_full_seq, window_start, window_stop, verbose=False):
+
+	s_from, s_to = [int(h)-1 for h in hit[2].split(",")]
+	m_from, m_to = [int(h)-1 for h in hit[1].split(",")]
+
+
+	m_window_seq = m_full_seq[window_start : window_stop + 1]
+
+
+
+
+	dots = hit[0].split("&")
+
+	if verbose:
+		print()
+		print("Inputs:")
+		print(">mRNA")
+		print(m_window_seq)
+		print(">sRNA")
+		print(s_full_seq)
+
+
+
+
+		print()
+		print("Plex output:")
+		print(m_full_seq[window_start : window_stop + 1][m_from : m_to+1])
+		print(dots[0])
+		print(dots[1][::-1])
+		# print(s_full_seq[s_from : s_to])
+		print(s_full_seq[s_from : s_to + 1][::-1])
+
+
+	### Filling in gaps
+
+	left_gap = len(s_full_seq) - s_to - 1
+	right_gap = s_from + 1
+
+	# s_seq = s_full_seq[s_left-1:s_right]
+	s_seq = s_full_seq
+
+	m_i_left = window_start + m_from - left_gap 
+	if m_i_left < 0:
+		return(False)
+	m_seq = m_full_seq[m_i_left : window_start + m_to + right_gap]
+
+
+
+	m_deq = list(m_seq)
+	s_deq = list(s_seq[::-1])
+	m_dot = list(left_gap * "?" + dots[0] + (right_gap-1) * "?")
+	s_dot = list(left_gap * "?" + dots[1][::-1] + (right_gap-1) * "?")
+
+
+	# print(left_gap * "-" + dots[0] + (right_gap-1) * "-")
+	# print(left_gap * "-" + dots[1][::-1] + (right_gap-1) * "-")
+	# print(s_seq[::-1])
+
+
+	if verbose:
+		print()
+		print("Modeled positions:")
+		print("".join(m_deq))
+		print("".join(m_dot))
+		print("".join(s_dot))
+		print("".join(s_deq))
+		print()
+
+
+	pair_d = {
+		"UA":"|", "AU":"|", 
+		"UG":":", "GU":":",
+		"GC":"|", "CG":"|",
+		"CA":".", "AC":".",
+		"CC":".", "GG":".", 
+		"UU":".", "AA":".",
+		"GA":".", "AG":".",
+		"UC":".", "CU":"."
+	}
+
+	dot = ''
+
+	i = 0
+	while True:
+		try:
+			m = m_dot[i].replace("(","|")
+		except IndexError:
+			break
+
+		try:
+			s = s_dot[i].replace(")","|")
+		except:
+			s = " "
+
+		# print(m,s)
+
+		if s == ' ':
+			dot += " "
+			s_deq.insert(i, " ")
+
+		elif m != s and (m == "|" or s == "|"):
+			if m == "|":
+				m_deq.insert(i, "-")
+				m_dot.insert(i, "-")
+			elif s == "|":
+				s_deq.insert(i, "-")
+				s_dot.insert(i, "-")
+			else:
+				sys.exit("huh?")
+
+			dot += "-"
+
+		else:
+			dot += pair_d[m_deq[i]+s_deq[i]]
+
+		# print(m_dot[i].replace("(","|"),s_dot[i].replace(")","|"))
+		i += 1
+
+	m_deq = "".join(m_deq)
+	s_deq = "".join(s_deq)
+
+	dot = re.sub("^[\\-]+", " ", dot)
+	s_deq = re.sub("^[\\-]+", " ", s_deq)
+
+		
+	if verbose:
+		print()
+		print("Clean duplex:")
+		print(m_deq)
+		# print("".join(m_dot))
+		print(dot)
+		# print("".join(s_dot))
+		print(s_deq)
+	# sys.exit()
+
+
+
+
+
+	duplex = (m_deq, dot, s_deq)
+
+	# pprint(duplex)
+	return(duplex)
+
+
 
 
 
@@ -201,9 +385,16 @@ def target(cdna_file, output_directory, force, max_rank, rnaplex_f, threads):
 			# sys.exit()
 
 
+	kmer_size = 6
+	# kmer_window = 30
+	kmer_window_expansion = 30
+	kmer_threshold = 6
+
+	kmer_d = {}
+
+	window_d = {}
 
 	mRNAs = []
-	mRNA_lengths = {}
 
 	with open(cdna_file, 'r') as f:
 		header = f.readline()
@@ -223,7 +414,7 @@ def target(cdna_file, output_directory, force, max_rank, rnaplex_f, threads):
 				seq = seq.upper().replace("T","U")
 
 				mRNAs.append((header, seq))
-				mRNA_lengths[header] = len(seq)
+				# mRNA_lengths[header] = len(seq)
 
 				seq = ''
 				header = line[1:]
@@ -250,19 +441,13 @@ def target(cdna_file, output_directory, force, max_rank, rnaplex_f, threads):
 
 
 
-	kmer_size = 6
-	# kmer_window = 30
-	kmer_window_expansion = 5
-	kmer_threshold = 6
-
-	kmer_d = {}
-
-	window_d = {}
 
 	# print(len(mRNAs))
 
 	pbar = tqdm(total=len(mRNAs))
 	for m_i, mRNA in enumerate(mRNAs):
+		kmer_d = {}
+
 		m_name, m_seq = mRNA
 		# print(m_name)#, m_seq)
 		pbar.update()
@@ -271,138 +456,113 @@ def target(cdna_file, output_directory, force, max_rank, rnaplex_f, threads):
 
 		for k_i, kmer in enumerate(get_kmers(complement_mRNA, k=kmer_size)):
 
-			# print(complement_mRNA)
-			# print(kmer, m_name, k_i)
-
 			try:
 				kmer_d[kmer]
 			except KeyError:
-				kmer_d[kmer] = dict()
+				kmer_d[kmer] = Counter()
 
-			try:
-				kmer_d[kmer][m_name]
-			except KeyError:
-				kmer_d[kmer][m_name] = Counter()
-
-			kmer_d[kmer][m_name][k_i] += 1
-
-		if m_i > 1000:
-			break
+			kmer_d[kmer][k_i] += 1
 
 
-	pbar.close()
-	# # pprint(kmer_d)
+	# pbar = tqdm(total=len(sRNAs))
+		window_d = {}
+		for s_name, s_seq in sRNAs:
+			# pbar.update()
 
-	# # sys.exit()
-
-	theoretical_max = len(sRNAs) * m_i
-	print(f'{theoretical_max:,} maximum number of queries by transcript')
-
-
-	window_count = 0
-	count = 0
-	pbar = tqdm(total=len(sRNAs))
-	for s_name, s_seq in sRNAs:
-		pbar.update()
-
-		s_kmers = get_kmers(s_seq, k=kmer_size)
+			s_kmers = get_kmers(s_seq, k=kmer_size)
 
 
 
-		pos_d = dict()
+			pos_c = Counter()
 
-		for s_kmer in s_kmers:
+			for s_kmer in s_kmers:
 
-			try:
-				keys = kmer_d[s_kmer].keys()
-			except KeyError:
-				keys = []
-
-			for m_name in keys:
 
 				try:
-					pos_d[m_name]
+					pos_c.update(kmer_d[s_kmer])
 				except KeyError:
-					pos_d[m_name] = Counter()
-
-				pos_d[m_name].update(kmer_d[s_kmer][m_name])
-
-		kmer_window = len(s_seq)+kmer_window_expansion
+					pass
 
 
-		for m_name, c in pos_d.items():
+			kmer_window = len(s_seq)+kmer_window_expansion
 
-			# pprint(c)
 
-			# if m_name == 'Bcin03g05620.1' and s_name == 'pl_115':
+			window_positions = []
+			for p in pos_c.keys():
 
-			flag = ""
-			for p in c.keys():
-
-				window_hits = [j for j in c.keys() if p <= j <= p+kmer_window]
+				window_hits = [j for j in pos_c.keys() if p <= j <= p+kmer_window]
 
 
 				if len(window_hits) > 6:
 
-					count += 1
-					# print(count, m_name)
-					flag = "<---- " + str(len(window_hits))
+					window_positions += window_hits
 
 
-					# print(s_name)
-					# print("  ",m_name, c.keys(), flag)
+					# window_max = max(window_hits)
+					# window_min = min(window_hits)
+					# window_range = window_max - window_min
+					# offset = round((kmer_window - window_range)/2)
+					# window_max += offset
+					# window_min -= offset
 
-					# print(window_hits)
-					window_max = max(window_hits)
-					window_min = min(window_hits)
-					window_range = window_max - window_min
-					offset = round((kmer_window - window_range)/2)
-					window_max += offset
-					window_min -= offset
-
-
-					window = (m_name, mRNA_lengths[m_name] - window_max, mRNA_lengths[m_name] - window_min)
-					# print(window)
-
-					try:
-						window_d[s_name].append(window)
-					except KeyError:
-						window_d[s_name] = [window]
-
-					window_count += 1
-
-					# sys.exit()
+					# start = len(m_seq) - window_max
+					# stop = len(m_seq) - window_min
+					# window = (m_name, start, stop)
 
 
+					# try:
+					# 	window_d[s_name].append(window)
+					# except KeyError:
+					# 	window_d[s_name] = [window]
 
-		# sys.exit()
+					# windows.append(window)
+
+					
+
+					# t_name = f"{m_name}:{start}-{stop}"
+					# t_seq = m_seq[start:stop+1]
+
+			if window_positions != []:
+				window_start = min(window_positions) - 20
+				if window_start < 1:
+					window_start = 1
+				window_stop  = max(window_positions) + 20
+			# 		print(window_hits)
+			# 		if not window_start:
+			# 			window_start = window_hits[0]
+
+			# 		window_stop = max(window_hits)
+
+			# if window_start:
+			# 	window_start -= 15
+			# 	window_stop  += 15
+
+				window = (m_name, window_start, window_stop)
+
+				t_name = f"{m_name}:{window_start}-{window_stop}"
+				t_seq = m_seq[window_start:window_stop+1]
+
+
+				# print()
+				# print("##########################")
+				# print(s_name)
+				# print(window)
+				hit = plex_by_stdin(q_name=s_name, q_seq=s_seq, t_name=t_name, t_seq=t_seq, verbose=False)
+				clean_plex(hit, s_seq, m_seq, window_start, window_stop, verbose=False)
+
+
+				# if window == ('Bcin01g03600.2', 1331, 1385):
+				# if window == ('Bcin01g03600.2', 1487, 1549):
+				# if window == ('Bcin03g06640.1', 1, 92):
+				# 	sys.exit()
+				# input()
+
+		if m_i > 10:
+			break
 
 	pbar.close()
 
 
-	pprint(window_d)
-	print(f'{len(window_d):,} sRNAs with windows')
-	print(f'{window_count:,} windows in total')
-
-	fold_reduction = theoretical_max / window_count
-	print(f'{fold_reduction} fold reduction')
-
-	sys.exit()
-
-	# 		# sys.exit()
-
-
-
-	# 	# print(len(c))
-	# 	# pprint(c.most_common(10))
-
-	# 	# print(len([v for v in c.values() if v > 3]))
-
-	# 	# sys.exit()
-
-
-
-	# sys.exit('done')
 
 
 
