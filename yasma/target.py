@@ -13,9 +13,14 @@ import re
 from .generics import *
 from .cli import cli
 
+from itertools import groupby
+
 
 
 def plex_by_stdin(q_name, q_seq, t_name, t_seq, verbose=False):
+
+	if verbose:
+		print(q_name, t_name)
 
 	z = len(q_seq) + 10
 
@@ -93,8 +98,11 @@ def clean_plex(hit, s_full_seq, m_full_seq, window_start, window_stop, verbose=F
 
 	m_i_left = window_start + m_from - left_gap 
 	if m_i_left < 0:
-		return(False)
-	m_seq = m_full_seq[m_i_left : window_start + m_to + right_gap]
+		return(False,False)
+
+	m_i_right = window_start + m_to + right_gap
+
+	m_seq = m_full_seq[m_i_left : m_i_right]
 
 
 
@@ -102,6 +110,9 @@ def clean_plex(hit, s_full_seq, m_full_seq, window_start, window_stop, verbose=F
 	s_deq = list(s_seq[::-1])
 	m_dot = list(left_gap * "?" + dots[0] + (right_gap-1) * "?")
 	s_dot = list(left_gap * "?" + dots[1][::-1] + (right_gap-1) * "?")
+
+	if len(m_deq) != len(m_dot):
+		return(False, False)
 
 
 	# print(left_gap * "-" + dots[0] + (right_gap-1) * "-")
@@ -171,9 +182,9 @@ def clean_plex(hit, s_full_seq, m_full_seq, window_start, window_stop, verbose=F
 	m_deq = "".join(m_deq)
 	s_deq = "".join(s_deq)
 
+
 	dot = re.sub("^[\\-]+", " ", dot)
 	s_deq = re.sub("^[\\-]+", " ", s_deq)
-
 		
 	if verbose:
 		print()
@@ -186,13 +197,74 @@ def clean_plex(hit, s_full_seq, m_full_seq, window_start, window_stop, verbose=F
 	# sys.exit()
 
 
+	c = Counter()
+	allenscore = 0
+
+	pair_types = {
+		"." : 'unpaired',
+		"|" : 'paired-watcri',
+		":" : 'paired-gu',
+		"-" : 'bulge',
+		" " : 'absent'
+	}
+
+	asc_d = {
+		"|" : 0,
+		"." : 1,
+		"-" : 1,
+		":" : 0.5,
+		" " : 0
+	}
+
+	yasma_d = {
+		"|" : 0,
+		"." : 1,
+		"-" : 1.5,
+		":" : 0.5,
+		" " : 0
+	}
+
+	yasma_score =0
+
+	for i,d in enumerate(dot[::-1]):
+		c[pair_types[d]] += 1
+
+		c['YasmaScore'] += yasma_d[d]
+
+
+		if i == 0:
+			asc = 0
+
+		else:
+			asc = asc_d[d]
+
+			if i <= 12:
+				asc += asc
+
+		# print(i, d, asc)
+		c['AllenScore']  += asc
+
+
+
+	# for p, name in pair_types:
+	# 	type_d[name] = dot.count(p)
+
+
+
+
+	if verbose:
+		# print([(k, sum(1 for i in g)) for k,g in groupby(list(dot))])
+		print()
+		print("Scoring:")
+		pprint(c)
+		# sys.exit()
 
 
 
 	duplex = (m_deq, dot, s_deq)
 
 	# pprint(duplex)
-	return(duplex)
+	return(duplex, c)
 
 
 
@@ -527,38 +599,25 @@ def target(cdna_file, output_directory, force, max_rank, rnaplex_f, threads):
 				if window_start < 1:
 					window_start = 1
 				window_stop  = max(window_positions) + 20
-			# 		print(window_hits)
-			# 		if not window_start:
-			# 			window_start = window_hits[0]
 
-			# 		window_stop = max(window_hits)
-
-			# if window_start:
-			# 	window_start -= 15
-			# 	window_stop  += 15
 
 				window = (m_name, window_start, window_stop)
 
 				t_name = f"{m_name}:{window_start}-{window_stop}"
 				t_seq = m_seq[window_start:window_stop+1]
 
+				verbose = True
 
-				# print()
-				# print("##########################")
-				# print(s_name)
-				# print(window)
-				hit = plex_by_stdin(q_name=s_name, q_seq=s_seq, t_name=t_name, t_seq=t_seq, verbose=False)
-				clean_plex(hit, s_seq, m_seq, window_start, window_stop, verbose=False)
+				hit = plex_by_stdin(q_name=s_name, q_seq=s_seq, t_name=t_name, t_seq=t_seq, verbose=verbose)
+				duplex, scoring_c = clean_plex(hit, s_seq, m_seq, window_start, window_stop, verbose=verbose)
 
-
-				# if window == ('Bcin01g03600.2', 1331, 1385):
-				# if window == ('Bcin01g03600.2', 1487, 1549):
-				# if window == ('Bcin03g06640.1', 1, 92):
-				# 	sys.exit()
 				# input()
 
-		if m_i > 10:
-			break
+				if scoring_c and scoring_c['AllenScore'] < 6:
+					sys.exit()
+
+		# if m_i > 10:
+		# 	break
 
 	pbar.close()
 
