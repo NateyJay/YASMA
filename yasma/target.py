@@ -16,6 +16,32 @@ from .cli import cli
 from itertools import groupby
 
 
+def plex_by_file(m_file, s_file):
+
+	z = 30
+
+	call = ['RNAplex', '-f', '2', '-z', str(z), '-t', m_file, '-q', s_file]
+	p = Popen(call, stdout=PIPE, stdin=PIPE, encoding='utf-8')
+
+
+	while True:
+
+		m_name = p.stdout.readline().strip().lstrip(">")
+		if m_name == '':
+			break
+		s_name = p.stdout.readline().strip().lstrip(">")
+		out    = p.stdout.readline().strip().split()
+		del out[2]
+
+		out = [m_name, s_name] + out
+
+		yield(out)
+
+
+
+
+
+
 
 def plex_by_stdin(q_name, q_seq, t_name, t_seq, verbose=False):
 
@@ -36,10 +62,14 @@ def plex_by_stdin(q_name, q_seq, t_name, t_seq, verbose=False):
 	inp = f">{t_name}\n{t_seq}\n>{q_name}\n{q_seq}"
 	# print(inp)
 
-	# print(f'command approximation:\necho "{inp}" | {" ".join(call)}')
+	print(f'command approximation:\necho "{inp}" | {" ".join(call)}')
+	sys.exit()
+
 
 	out, err = p.communicate(inp)
 	out = out.strip().split("\n")
+	if len(out) > 4:
+		sys.exit()
 	if verbose:
 		print()
 		for o in out:
@@ -48,31 +78,39 @@ def plex_by_stdin(q_name, q_seq, t_name, t_seq, verbose=False):
 	out = out[-1].split()
 	del out[2]
 	
-	if verbose:
-		print('[plex]', out)
-		print()
+	# if verbose:
+	# 	print('[plex]', out)
+	# 	print()
 	return(out)
 
 
 
-def clean_plex(hit, s_full_seq, m_full_seq, window_start, window_stop, verbose=False):
+def clean_plex(hit, s_full_seq, m_full_seq, verbose=False):
 
-	s_from, s_to = [int(h)-1 for h in hit[2].split(",")]
-	m_from, m_to = [int(h)-1 for h in hit[1].split(",")]
+	m_name = hit[0]
+	s_name = hit[1]
+
+	if verbose:
+		print("###############")
+		print(m_name)
+		print(s_name)
+
+	s_from, s_to = [int(h)-1 for h in hit[4].split(",")]
+	m_from, m_to = [int(h)-1 for h in hit[3].split(",")]
 
 
-	m_window_seq = m_full_seq[window_start : window_stop + 1]
+	# m_window_seq = m_full_seq[window_start : window_stop + 1]
 
 
 
 
-	dots = hit[0].split("&")
+	dots = hit[2].split("&")
 
 	if verbose:
 		print()
 		print("Inputs:")
 		print(">mRNA")
-		print(m_window_seq)
+		print(m_full_seq)
 		print(">sRNA")
 		print(s_full_seq)
 
@@ -81,7 +119,7 @@ def clean_plex(hit, s_full_seq, m_full_seq, window_start, window_stop, verbose=F
 
 		print()
 		print("Plex output:")
-		print(m_full_seq[window_start : window_stop + 1][m_from : m_to+1])
+		print(m_full_seq[m_from : m_to+1])
 		print(dots[0])
 		print(dots[1][::-1])
 		# print(s_full_seq[s_from : s_to])
@@ -96,11 +134,11 @@ def clean_plex(hit, s_full_seq, m_full_seq, window_start, window_stop, verbose=F
 	# s_seq = s_full_seq[s_left-1:s_right]
 	s_seq = s_full_seq
 
-	m_i_left = window_start + m_from - left_gap 
+	m_i_left = m_from - left_gap 
 	if m_i_left < 0:
 		return(False,False)
 
-	m_i_right = window_start + m_to + right_gap
+	m_i_right = m_to + right_gap
 
 	m_seq = m_full_seq[m_i_left : m_i_right]
 
@@ -243,6 +281,9 @@ def clean_plex(hit, s_full_seq, m_full_seq, window_start, window_stop, verbose=F
 
 		# print(i, d, asc)
 		c['AllenScore']  += asc
+
+
+	c['InteractionLength'] = len(dot.strip())
 
 
 
@@ -440,18 +481,26 @@ def target(cdna_file, output_directory, force, max_rank, rnaplex_f, threads):
 		return(kmers)
 
 
+	s_dict = {}
 
-	sRNAs = []
-	with open(read_file, 'r') as f:
-		header = f.readline()
-		for line in f:
-			line = line.strip().split("\t")
+	s_file_name = "queries.fa"
+	with open(s_file_name, 'w') as outf:
+		sRNAs = []
+		with open(read_file, 'r') as f:
+			header = f.readline()
+			for line in f:
+				line = line.strip().split("\t")
 
-			cluster, seq, rank, _, _, _ = line
-			rank = int(rank)
+				cluster, seq, rank, _, _, _ = line
+				rank = int(rank)
 
-			if rank <= max_rank:
-				sRNAs.append((cluster, seq))
+				if rank <= max_rank:
+					sRNAs.append((cluster, seq))
+
+					print(">" + cluster, file=outf)
+					print(seq, file=outf)
+
+					s_dict[cluster] = seq
 
 
 			# sys.exit()
@@ -509,9 +558,15 @@ def target(cdna_file, output_directory, force, max_rank, rnaplex_f, threads):
 
 
 
+	output_file = "target_output.txt"
+	with open(output_file, 'w') as outf:
 
+		header = ['m_name', 's_name', 'm_seq', 'interaction', 's_seq']
+		score_keys = ['InteractionLength', 'AllenScore', 'YasmaScore', 'paired-watcri', 'paired-gu', 'unpaired', 'bulge']
 
+		header += score_keys
 
+		print("\t".join(header), file=outf)
 
 
 	# print(len(mRNAs))
@@ -524,97 +579,59 @@ def target(cdna_file, output_directory, force, max_rank, rnaplex_f, threads):
 		# print(m_name)#, m_seq)
 		pbar.update()
 
-		complement_mRNA = m_seq[::-1]
-
-		for k_i, kmer in enumerate(get_kmers(complement_mRNA, k=kmer_size)):
-
-			try:
-				kmer_d[kmer]
-			except KeyError:
-				kmer_d[kmer] = Counter()
-
-			kmer_d[kmer][k_i] += 1
-
-
-	# pbar = tqdm(total=len(sRNAs))
-		window_d = {}
-		for s_name, s_seq in sRNAs:
-			# pbar.update()
-
-			s_kmers = get_kmers(s_seq, k=kmer_size)
+		m_file_name = f"{m_name}_target.fa"
+		with open(m_file_name, 'w') as outf:
+			print(">" + m_name, file=outf)
+			print(m_seq, file=outf)
 
 
 
-			pos_c = Counter()
-
-			for s_kmer in s_kmers:
 
 
-				try:
-					pos_c.update(kmer_d[s_kmer])
-				except KeyError:
-					pass
+
+		# complement_mRNA = m_seq[::-1]
+
+		# for k_i, kmer in enumerate(get_kmers(complement_mRNA, k=kmer_size)):
+
+		# 	try:
+		# 		kmer_d[kmer]
+		# 	except KeyError:
+		# 		kmer_d[kmer] = Counter()
+
+		# 	kmer_d[kmer][k_i] += 1
 
 
-			kmer_window = len(s_seq)+kmer_window_expansion
+		# for s_name, s_seq in sRNAs:
 
+		# print(s_name)
+		verbose = False
 
-			window_positions = []
-			for p in pos_c.keys():
+		for hit in plex_by_file(m_file_name, s_file_name):
 
-				window_hits = [j for j in pos_c.keys() if p <= j <= p+kmer_window]
+			m_name, s_name = hit[:2]
 
+		# hit = plex_by_stdin(q_name=s_name, q_seq=s_seq, t_name=m_name, t_seq=m_seq, verbose=verbose)
+			duplex, scoring_c = clean_plex(hit, s_dict[s_name], m_seq, verbose=verbose)
 
-				if len(window_hits) > 6:
+			if duplex:
+				m, dot, s = duplex
+				out = [m_name, s_name, m, dot, s]
 
-					window_positions += window_hits
+				for key in score_keys:
+					out.append(scoring_c[key])
 
+				with open(output_file, 'a') as outf:
+					print("\t".join(map(str, out)), file=outf)
 
-					# window_max = max(window_hits)
-					# window_min = min(window_hits)
-					# window_range = window_max - window_min
-					# offset = round((kmer_window - window_range)/2)
-					# window_max += offset
-					# window_min -= offset
+		os.remove(m_file_name)
+		# input()
 
-					# start = len(m_seq) - window_max
-					# stop = len(m_seq) - window_min
-					# window = (m_name, start, stop)
+		# for d in duplex:
+		# 	print(d)
+		# pprint(scoring_c)
 
-
-					# try:
-					# 	window_d[s_name].append(window)
-					# except KeyError:
-					# 	window_d[s_name] = [window]
-
-					# windows.append(window)
-
-					
-
-					# t_name = f"{m_name}:{start}-{stop}"
-					# t_seq = m_seq[start:stop+1]
-
-			if window_positions != []:
-				window_start = min(window_positions) - 20
-				if window_start < 1:
-					window_start = 1
-				window_stop  = max(window_positions) + 20
-
-
-				window = (m_name, window_start, window_stop)
-
-				t_name = f"{m_name}:{window_start}-{window_stop}"
-				t_seq = m_seq[window_start:window_stop+1]
-
-				verbose = True
-
-				hit = plex_by_stdin(q_name=s_name, q_seq=s_seq, t_name=t_name, t_seq=t_seq, verbose=verbose)
-				duplex, scoring_c = clean_plex(hit, s_seq, m_seq, window_start, window_stop, verbose=verbose)
-
-				# input()
-
-				if scoring_c and scoring_c['AllenScore'] < 6:
-					sys.exit()
+		# if scoring_c and scoring_c['AllenScore'] < 6:
+		# 	sys.exit()
 
 		# if m_i > 10:
 		# 	break
