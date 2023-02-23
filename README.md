@@ -1,4 +1,5 @@
-# Yet another small RNA (annotator)
+# YASMA
+*<ins>Y</ins>et <ins>a</ins>nother <ins>sm</ins>all RNA <ins>a</ins>nnotator*
  
 
 
