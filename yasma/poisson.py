@@ -206,19 +206,19 @@ class assessClass():
 
 @click.option("--window",
 	default=40,
-	help="Window size (centered on position) for counting reads, used as k in the poisson model.")
+	help="Window size (centered on position) for counting reads, used as k in the poisson model. Default 40 nt.")
 
 @click.option("--merge_dist",
 	default=150,
-	help="Maximum gap size between valid regions to merge to a single locus.")
+	help="Maximum gap size between valid regions to merge to a single locus. Default 150 nt.")
 
 @click.option('--pad',
 	default=10,
-	help='Number of bases arbitrarily added to either end of a defined locus.')
+	help='Number of bases arbitrarily added to either end of a defined locus. Default 10 nt.')
 
 @click.option('--peak_trim',
 	default=0.05,
-	help='Minimum depth, as a proportion of the maximum coverage depth in a locus, used for trimming low-depth edges from a locus.')
+	help='Minimum depth, as a proportion of the maximum coverage depth in a locus, used for trimming low-depth edges from a locus. Default 0.05 percent of peak.')
 
 
 def poisson(alignment_file, annotation_readgroups, gene_annotation, output_directory, force, window, merge_dist, pad):
