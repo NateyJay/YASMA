@@ -1,7 +1,7 @@
 # YASMA
 *<ins>Y</ins>et <ins>a</ins>nother <ins>sm</ins>all RNA <ins>a</ins>nnotator*
  
-
+**warning**: this project is in active development and the readme is woefully out of date. This tool follows a much different syntax in the current version.
 
 ### Problems with current approaches
 * ShortStack does a good job, with a easily understood algorithm and set of rules. However, it misses lots of miRNAs because of concatenation of loci.  
