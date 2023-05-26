@@ -92,6 +92,7 @@ Here the actual annotation takes place. Many options can affect the quality and 
 
 
 
+
 **Calculating poisson** model by chromosome
 
 Poisson-distributions are well suited to sRNA alignment analyses, as alignment counts are integers and occur with frequency over a genomic space.
@@ -113,6 +114,19 @@ This process is then repeated for every scaffold/contig/chromosome in the alignm
 
 ### Output files and post processing
 
+The basic annotation tool gives basic output.
+
+`Results.txt` gives the most detail about loci, in table format. Most of the first columns are directly compatible with ShortStack output. 
+
+`Annotation.gff3` gives the loci, but in gff format. 
+
+`Reads.txt` is a more detailed view at the most-common sRNAs that make up loci. By default, gives the reads adding up to 30% of total locus abundance. 
+
+
+
+**Other post-processing tools** can give more articulated output for many more uses.
+
+`yasma context` allows for the user to give a gene annotation and measure distances between sRNA loci and genic loci. 
 
 
 
