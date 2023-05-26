@@ -127,7 +127,21 @@ The basic annotation tool gives basic output.
 **Other post-processing tools** can give more articulated output for many more uses.
 
 `yasma context` allows for the user to give a gene annotation and measure distances between sRNA loci and genic loci. 
+* This produces a table called `GenomicContext.txt`, which tells distances to mRNAs, exons, and CDSs.
+* This requires an NCBI-style gff3 annotation as input.
 
+`yasma count` reports counts of loci in two formats.
+1) A traditional counts table, showing rows of loci, columns of libraries, with overlapping reads reported as an integer.
+2) A "deep counts" table, which further breaks these values by strand and size in addition to read group (library) and locus. This is reported as a long-style table, excluding rows with 0 abundance by default. This file can be very large.
+
+`yasma coverage` produces a set of coverage files (wig/bigwig) and configuration files for use with the jbrowse1 browser.
+* Setting up a jbrowse session is usually non-trivial, but this gets some of the way there with informative config settings.
+
+`yasma hairpin` models self-folding for loci, with the aim of finding hairpin-derived sRNAs.
+* This includes using ShortStack-style testing for miRNA loci, using the Axtell 2018 rule-set.
+* Hairpins are automatically processed to form a nice graphical output, colorized from RNAfold and based directly on StrucVis from the Axtell Lab.
+
+`yasma target` is still non-functional and may not be ready for some time. This is meant to be a suite that tests sRNA-transcript interactions using modeling software like RNAplex. This is similar to GSTAR from the Axtell lab, but should have performance advantages and hopefully will employ some other tools as well. Like I said, not-done-yet and will very likely change.
 
 
 
