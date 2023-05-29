@@ -221,7 +221,7 @@ class assessClass():
 	help='Minimum depth, as a proportion of the maximum coverage depth in a locus, used for trimming low-depth edges from a locus. Default 0.05 percent of peak.')
 
 
-def poisson(alignment_file, annotation_readgroups, gene_annotation, output_directory, force, window, merge_dist, pad):
+def poisson(alignment_file, annotation_readgroups, gene_annotation, output_directory, force, window, merge_dist, pad, peak_trim):
 	'''Annotator based on poisson-derived probability scores.'''
 
 	output_directory = output_directory.rstrip("/")
