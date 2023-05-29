@@ -90,6 +90,20 @@ ShortStack --readfile wt_1.fa wt_2.fa mut_1.fa mut_2.fa \
 #### **3)** Annotation
 Here the actual annotation takes place. Many options can affect the quality and discrimination of this step, so default and presets (a future option) are recommended for basic users. 
 
+A basic call of poisson-based annotation.
+```
+yasma.py poisson -a [alignment_file.bam/cram] \
+-r wt_1 -r wt_2 \
+-g [NCBI_gene_annotation.gff]
+```
+
+To use all readgroups in the annotation you can simply run like this:
+```
+yasma.py poisson -a [alignment_file.bam/cram] \
+-r ALL \
+-g [NCBI_gene_annotation.gff]
+```
+
 
 
 
