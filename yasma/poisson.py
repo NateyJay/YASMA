@@ -268,19 +268,21 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 	gene_d = {}
 	with open(gene_annotation, 'r') as f:
 		for line in f:
-			line = line.strip().split("\t")
 
-			feature_type = line[2]
+			if not line.startswith("#"):
+				line = line.strip().split("\t")
 
-			if feature_type == "mRNA":
+				feature_type = line[2]
 
-				chrom = line[0]
-				start, stop = [int(l) for l in line[3:5]]
+				if feature_type == "mRNA":
 
-				try:
-					gene_d[chrom].append((start, stop))
-				except KeyError:
-					gene_d[chrom] = [(start, stop)]
+					chrom = line[0]
+					start, stop = [int(l) for l in line[3:5]]
+
+					try:
+						gene_d[chrom].append((start, stop))
+					except KeyError:
+						gene_d[chrom] = [(start, stop)]
 
 
 
