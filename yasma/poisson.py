@@ -99,7 +99,10 @@ class assessClass():
 
 
 		unique_reads = len(seq_c.keys())
-		frac_top = strand_c["+"] / sum(strand_c.values())
+		try:
+			frac_top = strand_c["+"] / sum(strand_c.values())
+		except ZeroDivisionError:
+			frac_top = 0.5
 
 		if frac_top > 0.8:
 			strand = "+"
