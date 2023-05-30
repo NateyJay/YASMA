@@ -102,7 +102,7 @@ class assessClass():
 		try:
 			frac_top = strand_c["+"] / sum(strand_c.values())
 		except ZeroDivisionError:
-			frac_top = 0.5
+			frac_top = "NA"
 
 		if frac_top > 0.8:
 			strand = "+"
