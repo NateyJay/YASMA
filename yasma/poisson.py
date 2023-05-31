@@ -58,6 +58,8 @@ class assessClass():
 
 		### Basic information
 
+		input_len = len(reads)
+
 		reads = [r for r in reads if not r[3] + r[1] < start or not r[3] > stop ]
 		depth = len(reads)
 		rpm = depth / aligned_depth * 1000000
@@ -95,24 +97,22 @@ class assessClass():
 				size_d[2].update(size_key_d[2][sam_length])
 				size_d[3].update(size_key_d[3][sam_length])
 
+		if sum(strand_c.values()) == 0:
+			# this solution is a stop-gap. Apparently, in some species low-lambdas can lead to trace-loci being annotated, which only have reads outside of accepted ranges. 
+			return(None,None)
 
 
 
 		unique_reads = len(seq_c.keys())
-		try:
-			frac_top = strand_c["+"] / sum(strand_c.values())
-		except ZeroDivisionError:
-			frac_top = "NA"
+		frac_top = strand_c["+"] / sum(strand_c.values())
 
-		if frac_top == "NA":
-			strand = "NA"
+	
+		if frac_top > 0.8:
+			strand = "+"
+		elif frac_top < 0.2:
+			strand = "-"
 		else:
-			if frac_top > 0.8:
-				strand = "+"
-			elif frac_top < 0.2:
-				strand = "-"
-			else:
-				strand = "."
+			strand = "."
 
 		major_rna = seq_c.most_common()[0][0]
 		major_rna_depth = seq_c.most_common()[0][1]
@@ -277,7 +277,7 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 			if not line.startswith("#"):
 				line = line.strip().split("\t")
-
+				# print(line)
 				feature_type = line[2]
 
 				if feature_type == "mRNA":
@@ -550,15 +550,17 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 			
 			results_line, gff_line = assessClass().format(name, chrom, start, stop, reads, sum(chrom_depth_c.values()), last_stop)
 
+
 			last_stop = stop
 
-			with open(results_file, 'a') as outf:
-				print("\t".join(map(str, results_line)), file=outf)
+			if results_line:
+				with open(results_file, 'a') as outf:
+					print("\t".join(map(str, results_line)), file=outf)
 
-			with open(gff_file, 'a') as outf:
-				print("\t".join(map(str, gff_line)), file=outf)
+				with open(gff_file, 'a') as outf:
+					print("\t".join(map(str, gff_line)), file=outf)
 
-			top_reads_save(read_c, reads_file, read_equivalent, name)
+				top_reads_save(read_c, reads_file, read_equivalent, name)
 
 		all_loci += loci
 		# sys.exit()
