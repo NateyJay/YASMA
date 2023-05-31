@@ -104,12 +104,15 @@ class assessClass():
 		except ZeroDivisionError:
 			frac_top = "NA"
 
-		if frac_top > 0.8:
-			strand = "+"
-		elif frac_top < 0.2:
-			strand = "-"
+		if frac_top == "NA":
+			strand = "NA"
 		else:
-			strand = "."
+			if frac_top > 0.8:
+				strand = "+"
+			elif frac_top < 0.2:
+				strand = "-"
+			else:
+				strand = "."
 
 		major_rna = seq_c.most_common()[0][0]
 		major_rna_depth = seq_c.most_common()[0][1]
