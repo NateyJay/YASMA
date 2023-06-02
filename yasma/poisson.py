@@ -197,7 +197,7 @@ class assessClass():
 	help="List of read groups (RGs, libraries) to be considered for the annotation. 'ALL' uses all readgroups for annotation, but often pertainent RGs will need to be specified individually.")
 
 @click.option("-g", "--gene_annotation", 
-	required=True, 
+	required=False, 
 	type=click.Path(exists=True),
 	help='Gene annotation file in gff3 format. Tested with NCBI annotation formats.')
 
@@ -234,6 +234,8 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 	Path(output_directory).mkdir(parents=True, exist_ok=True)
 
+
+
 	# window = 40
 	cl_i = 0
 	# merge_dist = 200
@@ -247,6 +249,7 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 	chromosomes, bam_rgs = get_chromosomes(alignment_file, output_directory)
 	annotation_readgroups = check_rgs(annotation_readgroups, bam_rgs)
+
 
 
 	chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
@@ -272,23 +275,34 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 
 	gene_d = {}
-	with open(gene_annotation, 'r') as f:
-		for line in f:
+	if gene_annotation:
+		with open(gene_annotation, 'r') as f:
+			for line in f:
 
-			if not line.startswith("#"):
-				line = line.strip().split("\t")
-				# print(line)
-				feature_type = line[2]
+				if not line.startswith("#"):
+					line = line.strip().split("\t")
+					# print(line)
+					feature_type = line[2]
 
-				if feature_type == "mRNA":
+					if feature_type == "mRNA":
 
-					chrom = line[0]
-					start, stop = [int(l) for l in line[3:5]]
+						chrom = line[0]
+						start, stop = [int(l) for l in line[3:5]]
 
-					try:
-						gene_d[chrom].append((start, stop))
-					except KeyError:
-						gene_d[chrom] = [(start, stop)]
+						try:
+							gene_d[chrom].append((start, stop))
+						except KeyError:
+							gene_d[chrom] = [(start, stop)]
+
+
+	for c, l in chromosomes:
+		if c not in gene_d.keys():
+			# print(c,l)
+			# sys.exit()
+			gene_d[c] = [(1, l)]
+
+
+
 
 
 
@@ -403,7 +417,11 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 		# lambda_chrom = window / chrom_length * read_count
 
-		print("      ", round(lambda_chrom,4), 'lambda (chromosome, intergenic)')
+		if gene_annotation:
+			print("      ", round(lambda_chrom,4), 'lambda (chromosome, intergenic)')
+		else:
+			print("      ", round(lambda_chrom,4), 'lambda (chromosome, whole)')
+
 
 		# print("      ", round(lambda_chrom_rpm,4), 'lambda_rpm')
 
