@@ -234,7 +234,9 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 	Path(output_directory).mkdir(parents=True, exist_ok=True)
 
+	log_file = f"{output_directory}/Poisson_log.txt"
 
+	sys.stdout = Logger(log_file)
 
 	# window = 40
 	cl_i = 0
