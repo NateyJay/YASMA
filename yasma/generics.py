@@ -464,7 +464,11 @@ class Logger(object):
 		self.terminal.write(message)
 		# with open(self.file_name, 'a') as outf:
 		# 	outf.write(message)  
+
+
+		# if not message.endswith("\r"):
 		self.log.write(self.clear_ansi(message))
+			# print(self.clear_ansi(message), end='', file=self.log)
 
 	def flush(self):
 		self.terminal.flush()
@@ -648,26 +652,26 @@ def check_rgs(annotation_readgroups, bam_rgs):
 	# def get(self):
 
 
-class Logger(object):
-	def __init__(self, file_name):
-		self.terminal = sys.stdout
-		self.file_name = file_name
-		self.log = open(file_name, "w")
-		# with open(file_name, "w") as outf:
-		# 	outf.write("")
+# class Logger(object):
+# 	def __init__(self, file_name):
+# 		self.terminal = sys.stdout
+# 		self.file_name = file_name
+# 		self.log = open(file_name, "w")
+# 		# with open(file_name, "w") as outf:
+# 		# 	outf.write("")
 
-	def clear_ansi(self, message):
-		return(message.replace("\033[1m", "").replace("\033[0m",""))
+# 	def clear_ansi(self, message):
+# 		return(message.replace("\033[1m", "").replace("\033[0m",""))
 
-	def write(self, message):
-		self.terminal.write(message)
-		# with open(self.file_name, 'a') as outf:
-		# 	outf.write(message)  
-		self.log.write(self.clear_ansi(message))
+# 	def write(self, message):
+# 		self.terminal.write(message)
+# 		# with open(self.file_name, 'a') as outf:
+# 		# 	outf.write(message)  
+# 		self.log.write(self.clear_ansi(message))
 
-	def flush(self):
-		self.terminal.flush()
-		self.log.flush()
+# 	def flush(self):
+# 		self.terminal.flush()
+# 		self.log.flush()
 
 
 
