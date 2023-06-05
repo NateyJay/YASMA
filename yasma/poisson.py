@@ -253,6 +253,11 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 	annotation_readgroups = check_rgs(annotation_readgroups, bam_rgs)
 
 
+	output_d = {
+		'lambda' : {},
+		'loci_count' : {},
+		'cov_threshold' : {}
+	}
 
 	chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
 
@@ -415,6 +420,8 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 		lambda_chrom = window / intergenic_length * intergenic_read_count
 
+		output_d['lambda'][chrom] = lambda_chrom
+
 		# lambda_chrom_rpm = lambda_chrom / i * 1000000
 
 		# lambda_chrom = window / chrom_length * read_count
@@ -535,6 +542,7 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 					nucleated = False
 
 
+		output_d['loci_count'][chrom] = len(loci)
 
 		print(f"       {len(loci):,} loci found")
 
@@ -585,11 +593,19 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 		all_loci += loci
 		# sys.exit()
 
+
+	print()
+	print('chromosome', 'lambda', 'loci', sep='\t')
+	for c,l in chromosomes:
+		print(c, round(output_d['lambda'][c]), output_d['loci_count'][c], sep='\t')
+
+
 	print()
 	print(f"{len(all_loci):,} loci found in total")
 		# sys.exit()
 
 
+	sys.stdout.log.close()
 
 
 
