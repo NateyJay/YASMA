@@ -595,6 +595,7 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 
 
 	print()
+	print()
 	print('chromosome', 'lambda', 'loci', sep='\t')
 	for c,l in chromosomes:
 		print(c, round(output_d['lambda'][c]), output_d['loci_count'][c], sep='\t')
@@ -605,7 +606,6 @@ def poisson(alignment_file, annotation_readgroups, gene_annotation, output_direc
 		# sys.exit()
 
 
-	sys.stdout.log.close()
 
 
 
