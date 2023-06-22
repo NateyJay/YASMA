@@ -16,7 +16,9 @@ from .generics import *
 from .cli import cli
 
 from statistics import mean, median
-from scipy.stats import kruskal, kstest
+# from scipy.stats import kruskal, kstest
+
+from click_option_group import optgroup, RequiredMutuallyExclusiveOptionGroup
 
 
 class dcClass():
@@ -265,83 +267,102 @@ class assessClass():
 
 @cli.command(group='Annotation', help_priority=1)
 
-@click.option("-a", "--alignment_file", 
+
+
+@optgroup.group('\nBasic options',
+                help='')
+
+@optgroup.option("-a", "--alignment_file", 
 	required=True, 
 	type=click.Path(exists=True),
 	help='Alignment file input (bam or cram).')
 
-@click.option('-r', '--annotation_readgroups', 
+@optgroup.option('-r', '--annotation_readgroups', 
 	required=True,
 	multiple=True,
 	help="List of read groups (RGs, libraries) to be considered for the annotation. 'ALL' uses all readgroups for annotation, but often pertainent RGs will need to be specified individually.")
 
-@click.option("-g", "--gene_annotation", 
-	required=False, 
-	type=click.Path(exists=True),
-	help='Gene annotation file in gff3 format. Tested with NCBI annotation formats.')
-
-@click.option("-o", "--output_directory", 
+@optgroup.option("-o", "--output_directory", 
 	# default=f"Annotation_{round(time())}", 
 	required=True,
 	type=click.Path(),
 	help="Directory name for annotation output.")
 
-@click.option("-f", "--force",
-	is_flag=True,
-	help='Force remake of supporting files.')
 
-# @click.option("-s", "--sensitivity",
-# 	default=0.95,
-# 	help="Sensitivity threshold for discovering sRNA-producing regions. Must be 0 < S <= 1.0")
 
-# @click.option("--window",
-# 	default=40,
-# 	help="Window size (centered on position) for counting reads.")
+@optgroup.group('\nCoverage options',
+                help='')
 
-@click.option("--rpm_threshold",
-	default=0.5,
-	help="Depth threshold in reads per million for discovery of a locus peak.")
+@optgroup.option('--kernel_window',
+	default=40,
+	help='This is the bandwidth smoothing window for the kernel coverage method. Default 40 nt.')
 
-@click.option("--clump_dist",
-	default=500,
-	help="")
+@optgroup.option('--coverage_method',
+	default='kernel',
+	type=click.Choice(['kernel', 'depth']),
+	help="Choice between two methods for finding genomic coverage. 'Kernel' uses a density smoothing based on the center of the read. 'depth' uses samtools depth and can be sensitive to read-length.")
 
-@click.option("--creep_dist",
+
+
+
+@optgroup.group('\nPeak finding options',
+                help='')
+
+@optgroup.option("--creep_dist",
 	default=50,
-	help="")
+	help="Distance used in 'creep' method for boundary finding. Default 50 nt.")
 
-@click.option('--pad',
+@optgroup.option('--peak_threshold',
+	default=0.05,
+	help='Minimum depth, as a proportion of the maximum coverage depth in a locus, used for trimming low-depth edges from a locus. Default 0.05 proportion of peak.')
+
+@optgroup.option("--rpm_threshold",
+	default=0.5,
+	help="Depth threshold in reads per million for discovery of a locus peak. Default 0.5 RPM.")
+
+@optgroup.option('--pad',
 	default=10,
 	help='Number of bases arbitrarily added to either end of a defined locus. Default 10 nt.')
 
-@click.option('--peak_threshold',
-	default=0.05,
-	help='Minimum depth, as a proportion of the maximum coverage depth in a locus, used for trimming low-depth edges from a locus. Default 0.05 percent of peak.')
-
-@click.option('--kernel_window',
-	default=0.40,
-	help='')
-
-
-@click.option('--coverage_method',
-	default='kernel',
-	type=click.Choice(['kernel', 'depth']),
-	help='')
-
-@click.option('--boundary_method',
+@optgroup.option('--boundary_method',
 	default='creep',
 	type=click.Choice(['creep', 'bool']),
-	help='')
+	help="Choice between two methods for finding peak boundaries. 'creep' expands peaks based on a creeping window and makes wider peaks with the creep_dist option. 'bool' makes more concise peaks based on the pad distance.")
 
 
 
-def peak(alignment_file, annotation_readgroups, gene_annotation, output_directory, force, rpm_threshold, clump_dist, creep_dist, pad, peak_threshold, kernel_window, coverage_method, boundary_method):
-	'''Annotator based on empircally-derived probability scores.'''
 
-	# window = 40
-	# clump_dist = 500
-	# creep_dist = 50
 
+@optgroup.group('\nMerging options',
+                help='')
+
+
+@optgroup.option("--clump_dist",
+	default=500,
+	help="Distance in nucleotides for which sRNA peaks should be considered for 'clumping'. Clumped loci must have sufficient similarity in sRNA-size profile and strand-preference. Default 500 nt.")
+
+@optgroup.option("--clump_strand_similarity",
+	default=0.5,
+	help="Similarity threshold of strand fraction for clumping two peaks. Difference in fraction must be smaller than threshold. Default 0.5.")
+
+
+
+
+def peak(**params):
+	'''Annotator using peak identification and similarity merging.'''
+
+	alignment_file          = params["alignment_file"]
+	annotation_readgroups   = params['annotation_readgroups']
+	output_directory        = params['output_directory']
+	kernel_window           = params['kernel_window']
+	coverage_method         = params['coverage_method']
+	creep_dist              = params['creep_dist']
+	peak_threshold          = params['peak_threshold']
+	rpm_threshold           = params['rpm_threshold']
+	pad                     = params['pad']
+	boundary_method         = params['boundary_method']
+	clump_dist              = params['clump_dist']
+	clump_strand_similarity = params['clump_strand_similarity']
 
 	output_directory = output_directory.rstrip("/")
 
@@ -766,7 +787,7 @@ def peak(alignment_file, annotation_readgroups, gene_annotation, output_director
 		unclumped_loci_count = len(loci)
 		clump_events = 0
 				
-		print(f"   clumping similar neighbors... {unclumped_loci_count} -> {len(loci)} loci", end='\r', flush=True)
+		print(f"   clumping similar neighbors... {unclumped_loci_count} -> {len(loci)} loci    ", end='\r', flush=True)
 
 		while i < (len(loci)-1):
 
@@ -821,26 +842,26 @@ def peak(alignment_file, annotation_readgroups, gene_annotation, output_director
 					dc2.get()
 
 
-					if loc1[0] == "Cluster_36":
-						print()
-						print()
-						print("i:", i)
-						print(loc1, "->", loc2)
-						print(dc1)
-						print(dc2)
-						print(dc1 == dc2)
-						print(ftop1, ftop2)
-						print(abs(ftop1 - ftop2) < 0.5)
-						print("merge?", abs(ftop1 - ftop2) < 0.5 and dc1 == dc2)
+					# if loc1[0] == "Cluster_36":
+					# 	print()
+					# 	print()
+					# 	print("i:", i)
+					# 	print(loc1, "->", loc2)
+					# 	print(dc1)
+					# 	print(dc2)
+					# 	print(dc1 == dc2)
+					# 	print(ftop1, ftop2)
+					# 	print(abs(ftop1 - ftop2) < 0.5)
+					# 	print("merge?", abs(ftop1 - ftop2) < 0.5 and dc1 == dc2)
 
-						print()
-						print()
-						print(loci[i+2])
-						input()
+					# 	print()
+					# 	print()
+					# 	print(loci[i+2])
+					# 	input()
 
 
 					# if 0.5 < len_error < 2:
-					if abs(ftop1 - ftop2) < 0.5 and dc1 == dc2:
+					if abs(ftop1 - ftop2) < clump_strand_similarity and dc1 == dc2:
 
 						# print(loc1, dep1, ftop1)
 						# print(loc2, dep2, ftop2)
@@ -857,7 +878,7 @@ def peak(alignment_file, annotation_readgroups, gene_annotation, output_director
 
 
 
-						print(f"{len(loci)} loci", end='\r', flush=True)
+						print(f"{len(loci)} loci     ", end='\r', flush=True)
 
 						clump_events += 1
 						clump_j = j
