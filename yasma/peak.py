@@ -1,7 +1,10 @@
 
 
 import sys
+
 import click
+from click_option_group import optgroup
+
 from pathlib import Path
 from os.path import isfile, isdir
 from collections import Counter#, deque
@@ -16,118 +19,243 @@ from .generics import *
 from .cli import cli
 
 from statistics import mean, median
-# from scipy.stats import kruskal, kstest
-
-from click_option_group import optgroup, RequiredMutuallyExclusiveOptionGroup
 
 
-class dcClass():
-	def __init__(self, sizes=[]):
-		self.size_d = {1 : Counter(), 2 : Counter(), 3 : Counter()}
+class sizeClass():
+	def __init__(self, 
+		sizes=[],
+		min_size=15,
+		max_size=30):
+
+
+		self.min_size=min_size
+		self.max_size=max_size
 
 		self.depth = 0
 
-		def get_size_keys(size, n, min=15, max=30):
-
-			if n == 1:
-				return(size)
-
-			out = []
-
-			for r in range(n):
-				key = []
-
-				for k in range(n):
-					key.append(str(size-n+r+1+k))
-
-				out.append("_".join(key))
-			return(out)
-
-		self.size_key_d = dict()
-		for n in [1,2,3]:
-			self.size_key_d[n] = {}
-			for size in range(15,31):
-				keys = get_size_keys(size, n)
-				self.size_key_d[n][size] = keys
+		self.size_c = Counter()
 
 		if len(sizes) > 0:
 			self.update(sizes)
 
+	def get_keys(self, size):
+		keys = set()
+
+		keys.add((size,))
+
+		keys.add((size-1, size+0,))
+		keys.add((size-0, size+1,))
+
+		keys.add((size-2, size-1, size+0,))
+		keys.add((size-1, size+0, size+1,))
+		keys.add((size-0, size+1, size+2,))
+
+		keys = [k for k in keys if min(k) >= self.min_size or max(k) <= self.max_size]
+		return(keys)
+
 
 
 	def update(self, sizes):
+
 		for size in sizes:
-			self.depth += 1
+
 
 			if 15 <= size <= 30:
 
-				self.size_d[1][size] += 1
-				self.size_d[2].update(self.size_key_d[2][size])
-				self.size_d[3].update(self.size_key_d[3][size])
+				self.depth += 1
+				self.size_c.update(self.get_keys(size))
+
+				# for mer in [1,2,3]:
+				# 	self.size_d[mer].update(self.size_key_d[mer][size])
+
 
 	def get(self):
 
-		def get_most_common(c):
-			mc = c.most_common(1)
+		mc = self.size_c.most_common()
 
-			if mc == []:
-				return("NA", 0)
+		self.size_1_depth, self.size_2_depth, self.size_3_depth = 0,0,0
 
-			else:
-				return(mc[0][0], mc[0][1])
+		for key, depth in mc:
+			if self.size_1_depth == 0 and len(key) == 1:
+				self.size_1_key, self.size_1_depth = key, depth
 
+			if self.size_2_depth == 0 and len(key) == 2:
+				self.size_2_key, self.size_2_depth = key, depth
 
+			if self.size_3_depth == 0 and len(key) == 3:
+				self.size_3_key, self.size_3_depth = key, depth
 
-		self.size_1_key, self.size_1_depth = get_most_common(self.size_d[1])
-		self.size_2_key, self.size_2_depth = get_most_common(self.size_d[2])
-		self.size_3_key, self.size_3_depth = get_most_common(self.size_d[3])
+			if self.size_1_depth * self.size_2_depth * self.size_3_depth > 0:
+				break
 
+		# pprint(self.size_c.most_common(10))
+		print(self.depth, "->", round(self.depth/2), "min")
+		print(self.size_1_key, self.size_1_depth, sep="\t")
+		print(self.size_2_key, self.size_2_depth, sep="\t")
+		print(self.size_3_key, self.size_3_depth, sep="\t")
 
 		if self.size_1_depth > self.depth * 0.5:
-			dicercall = self.size_1_key
+			sizecall = self.size_1_key
 
 		elif self.size_2_depth > self.depth * 0.5 and self.depth > 30:
-			dicercall = self.size_2_key
+			sizecall = self.size_2_key
 
 		elif self.size_3_depth > self.depth * 0.5 and self.depth > 60:
-			dicercall = self.size_3_key
+			sizecall = self.size_3_key
 
 		else:
-			dicercall = "N"
+			sizecall = tuple("N")
 
-		self.dicercall = str(dicercall)
+		self.sizecall = sizecall
+		# print(self.depth)
+		# print(self.sizecall)
+		# sys.exit()
 
-		return(dicercall)
+		return(sizecall)
+
 
 	def __str__(self):
-		return(str(self.get()))
+		out = self.get()
+		# print(out)
+		out = "_".join(map(str, out))
+
+		return(out)
+
 
 	def __eq__(self, other):
 
-		def process_dcall(dcall, s3k):
+		self.get()
+		other.get()
 
-			if dcall == "N":
-				return(set(["N"]))
+		# print(self.sizecall)
+		# print(other.sizecall)
 
 
-			keys = set(str(s3k).split("_"))
+		scall = set(self.sizecall)
+		ocall = set(other.sizecall)
 
-			if dcall.count("_") == 2:
-				keys.add("N")
 
-			return(keys)
+		if len(scall) == 3:
+			scall.add("N")
 
-		self_keys  = process_dcall(self.dicercall,  self.size_3_key)
-		other_keys = process_dcall(other.dicercall, other.size_3_key)
+		if len(ocall) == 3:
+			ocall.add("N")
 
-		common = self_keys.intersection(other_keys)
+
+		common = scall.intersection(ocall)
 
 		if len(common) > 0:
 			return True
 		else:
 			return False
 
+			
 
+# class dcClass():
+# 	def __init__(self, sizes=[]):
+# 		self.size_d = {1 : Counter(), 2 : Counter(), 3 : Counter()}
+
+# 		self.depth = 0
+
+# 		def get_size_keys(size, n, min=15, max=30):
+
+# 			if n == 1:
+# 				return(size)
+
+# 			out = []
+
+# 			for r in range(n):
+# 				key = []
+
+# 				for k in range(n):
+# 					key.append(str(size-n+r+1+k))
+
+# 				out.append("_".join(key))
+# 			return(out)
+
+# 		self.size_key_d = dict()
+# 		for n in [1,2,3]:
+# 			self.size_key_d[n] = {}
+# 			for size in range(15,31):
+# 				keys = get_size_keys(size, n)
+# 				self.size_key_d[n][size] = keys
+
+# 		if len(sizes) > 0:
+# 			self.update(sizes)
+
+
+
+# 	def update(self, sizes):
+# 		for size in sizes:
+# 			self.depth += 1
+
+# 			if 15 <= size <= 30:
+
+# 				self.size_d[1][size] += 1
+# 				self.size_d[2].update(self.size_key_d[2][size])
+# 				self.size_d[3].update(self.size_key_d[3][size])
+
+# 	def get(self):
+
+# 		def get_most_common(c):
+# 			mc = c.most_common(1)
+
+# 			if mc == []:
+# 				return("NA", 0)
+
+# 			else:
+# 				return(mc[0][0], mc[0][1])
+
+
+
+# 		self.size_1_key, self.size_1_depth = get_most_common(self.size_d[1])
+# 		self.size_2_key, self.size_2_depth = get_most_common(self.size_d[2])
+# 		self.size_3_key, self.size_3_depth = get_most_common(self.size_d[3])
+
+
+# 		if self.size_1_depth > self.depth * 0.5:
+# 			dicercall = self.size_1_key
+
+# 		elif self.size_2_depth > self.depth * 0.5 and self.depth > 30:
+# 			dicercall = self.size_2_key
+
+# 		elif self.size_3_depth > self.depth * 0.5 and self.depth > 60:
+# 			dicercall = self.size_3_key
+
+# 		else:
+# 			dicercall = "N"
+
+# 		self.dicercall = str(dicercall)
+
+# 		return(dicercall)
+
+# 	def __str__(self):
+# 		return(str(self.get()))
+
+# 	def __eq__(self, other):
+
+# 		def process_dcall(dcall, s3k):
+
+# 			if dcall == "N":
+# 				return(set(["N"]))
+
+
+# 			keys = set(str(s3k).split("_"))
+
+# 			if dcall.count("_") == 2:
+# 				keys.add("N")
+
+# 			return(keys)
+
+# 		self_keys  = process_dcall(self.dicercall,  self.size_3_key)
+# 		other_keys = process_dcall(other.dicercall, other.size_3_key)
+
+# 		common = self_keys.intersection(other_keys)
+
+# 		if len(common) > 0:
+# 			return True
+# 		else:
+# 			return False
 
 class assessClass():
 	'''produces a line assessment of a locus, similar to ShortStack3'''
@@ -136,7 +264,7 @@ class assessClass():
 
 		self.header = ['Locus','Name','Length','Reads','RPM']
 		self.header += ['UniqueReads','FracTop','Strand','MajorRNA','MajorRNAReads','Complexity']
-		self.header += ['Gap', 'size_1n','size_1n_depth', 'size_2n','size_2n_depth', 'size_3n','size_3n_depth', 'dicercall']
+		self.header += ['Gap', 'size_1n','size_1n_depth', 'size_2n','size_2n_depth', 'size_3n','size_3n_depth', 'sizecall']
 
 
 
@@ -172,7 +300,7 @@ class assessClass():
 		strand_c    = Counter()
 		# size_d      = {1 : Counter(), 2 : Counter(), 3 : Counter()}
 
-		dicercall = dcClass()
+		sizecall = sizeClass()
 
 		for read in reads:
 			sam_strand, sam_length, sam_size, sam_pos, sam_chrom, sam_rg, sam_read, sam_name = read
@@ -193,7 +321,7 @@ class assessClass():
 				seq_c[sam_read] += 1
 				strand_c[sam_strand] += 1
 
-				dicercall.update([sam_length])
+				sizecall.update([sam_length])
 
 				# size_d[1][sam_length] += 1
 				# size_d[2].update(size_key_d[2][sam_length])
@@ -237,28 +365,27 @@ class assessClass():
 		complexity = round(complexity,3)
 		rpm        = round(rpm,3)
 
-		dicercall.get()
+		sizecall.get()
 
 		result_line = [f"{chrom}:{start}-{stop}", name, stop-start, depth, rpm]
 		result_line += [unique_reads, frac_top, strand, major_rna, major_rna_depth, complexity]
 		result_line += [
 			gap, 
-			dicercall.size_1_key, dicercall.size_1_depth,
-			dicercall.size_2_key, dicercall.size_2_depth,
-			dicercall.size_3_key, dicercall.size_3_depth,
-			dicercall.dicercall
+			sizecall.size_1_key, sizecall.size_1_depth,
+			sizecall.size_2_key, sizecall.size_2_depth,
+			sizecall.size_3_key, sizecall.size_3_depth,
+			sizecall
 		]
 
 
-		if dicercall.dicercall == 'N':
+		if 'N' in sizecall.sizecall:
 			feature_type = "OtherRNA"
 		else:
-			# size_range = len(dicercall.split("_"))
-			feature_type = f"RNA_{dicercall}"
+			feature_type = f"RNA_{sizecall}"
 
 		gff_line = [
-			chrom, 'yasma_empirical',feature_type, start, stop, '.', strand, '.',
-			f'ID={name};dicercall={dicercall};depth={depth};rpm={rpm};fracTop={frac_top};majorRNA={major_rna}'
+			chrom, 'yasma_peak',feature_type, start, stop, '.', strand, '.',
+			f'ID={name};sizecall={sizecall};depth={depth};rpm={rpm};fracTop={frac_top};majorRNA={major_rna}'
 		]
 
 
@@ -374,7 +501,6 @@ def peak(**params):
 
 
 	cl_i = 0
-
 
 	# assert 0 < sensitivity <= 1.0, "sensitivity must be 0 < S <= 1.0"
 	assert 0 < peak_threshold < 1, "peak_trim must be between 0 and 1."
@@ -831,15 +957,20 @@ def peak(**params):
 					# most_common_p1 = c1.most_common(1)[0][1] / sum(c1.values())
 					# most_common_p2 = c2.most_common(1)[0][1] / sum(c2.values())
 
+					sc1 = sizeClass(len1)
+					sc2 = sizeClass(len2)
+
+					# print(sc1.get())
+					# sys.exit()
 
 
-					dc1 = dcClass(len1)
-					dc2 = dcClass(len2)
+					# dc1 = dcClass(len1)
+					# dc2 = dcClass(len2)
 
 
 
-					dc1.get()
-					dc2.get()
+					# dc1.get()
+					# dc2.get()
 
 
 					# if loc1[0] == "Cluster_36":
@@ -861,7 +992,7 @@ def peak(**params):
 
 
 					# if 0.5 < len_error < 2:
-					if abs(ftop1 - ftop2) < clump_strand_similarity and dc1 == dc2:
+					if abs(ftop1 - ftop2) < clump_strand_similarity and sc1 == sc2:
 
 						# print(loc1, dep1, ftop1)
 						# print(loc2, dep2, ftop2)
