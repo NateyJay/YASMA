@@ -57,6 +57,9 @@ class sizeClass():
 
 	def update(self, sizes):
 
+		# if type(sizes) == int:
+		# 	sizes = [sizes]
+
 		for size in sizes:
 
 
@@ -89,10 +92,10 @@ class sizeClass():
 				break
 
 		# pprint(self.size_c.most_common(10))
-		print(self.depth, "->", round(self.depth/2), "min")
-		print(self.size_1_key, self.size_1_depth, sep="\t")
-		print(self.size_2_key, self.size_2_depth, sep="\t")
-		print(self.size_3_key, self.size_3_depth, sep="\t")
+		# print(self.depth, "->", round(self.depth/2), "min")
+		# print(self.size_1_key, self.size_1_depth, sep="\t")
+		# print(self.size_2_key, self.size_2_depth, sep="\t")
+		# print(self.size_3_key, self.size_3_depth, sep="\t")
 
 		if self.size_1_depth > self.depth * 0.5:
 			sizecall = self.size_1_key
@@ -149,7 +152,7 @@ class sizeClass():
 		else:
 			return False
 
-			
+
 
 # class dcClass():
 # 	def __init__(self, sizes=[]):
@@ -623,18 +626,23 @@ def peak(**params):
 			perc = percentageClass(1, chrom_depth_c[chrom])
 
 
-			call = ['samtools', 'view', '-F', '4']
-			for rg in rgs:
-				call += ['-r', rg]
-			call += [bam, chrom]
+			reads = samtools_view(bam, rgs=rgs, locus=chrom)
 
-			p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+			for i, read in enumerate(reads):
+				_, length, _, pos, _, _, _, _ = read
+			# call = ['samtools', 'view', '-F', '4']
+			# for rg in rgs:
+			# 	call += ['-r', rg]
+			# call += [bam, chrom]
 
-			for i,line in enumerate(p.stdout):
-				line = line.strip().split("\t")
+			# p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
 
-				pos    = int(line[3])
-				length = int(line[5].rstrip("M"))
+			# for i,line in enumerate(p.stdout):
+			# 	line = line.strip().split("\t")
+
+
+			# 	pos    = int(line[3])
+			# 	length = int(line[5].rstrip("M"))
 
 				pos += math.floor(length / 2)
 				depth_c[pos] += 1
@@ -643,7 +651,7 @@ def peak(**params):
 				if perc_out:
 					print(f"   reading position depths ..... {perc_out}%", end='\r', flush=True)
 
-			p.wait()
+			# p.wait()
 			print()
 
 
@@ -806,8 +814,6 @@ def peak(**params):
 
 
 
-
-
 		perc = percentageClass(5, candidate_peak_count)
 
 		i = 0
@@ -871,6 +877,250 @@ def peak(**params):
 
 
 
+		# ## another attempt
+
+
+		# locus_i = 0
+
+
+		# def get_considered_loci(i):
+		# 	out = [i]
+		# 	n = 0
+		# 	current_end = loci[i][3]
+		# 	while True:
+		# 		n += 1
+
+		# 		next_start = loci[i+n][2]
+
+		# 		if next_start < current_end + clump_dist:
+		# 			out.append(i+n)
+
+		# 		else:
+		# 			return(out)
+
+
+		# considered_loci = get_considered_loci(locus_i)
+
+
+		# def get_frac_top(l):
+
+		# 	c = Counter(l)
+
+		# 	try:
+		# 		ftop = c['+'] / sum(c.values())
+		# 	except ZeroDivisionError:
+		# 		ftop = -1
+
+		# 	return(ftop)
+
+		
+		
+		# read_table = deque()
+		# # each row is a read
+		# # columns:
+		# # 0 - locus_name
+		# # 1 - identification
+
+		# unclumped_loci_count = len(loci)
+
+
+		# in_locus = False
+
+		# print(f"   clumping similar neighbors... {unclumped_loci_count} -> {len(loci)} loci    ", end='\r', flush=True)
+
+
+		# reads = [r for r in samtools_view(alignment_file, locus=chrom, rgs=annotation_readgroups)]
+
+		# for read in reads:
+
+		# 	sam_strand, sam_length, _, sam_lbound, _, _, _, read_name = read
+		# 	sam_rbound = sam_lbound + sam_length
+
+
+		# 	if sam_lbound > considered_loci[-1][3]:
+		# 		# try merging
+
+		# 		# cleanup
+
+
+
+		# 		locus_i += 1
+
+
+
+
+
+		# ## New clumping method
+
+
+		# input_loci = loci[:]
+
+		# new_clump_events = []
+
+		# def get_frac_top(c):
+
+		# 	try:
+		# 		ftop = c['+'] / sum(c.values())
+		# 	except ZeroDivisionError:
+		# 		ftop = -1
+
+		# 	return(ftop)
+
+
+		# locus_i = 0
+		# loc_name, _, loc_lbound, loc_rbound = loci[locus_i]
+		# nex_name, _, nex_lbound, nex_rbound = loci[locus_i+1]
+
+		# loc_size = sizeClass()
+		# nex_size = sizeClass()
+		# run_size = sizeClass()
+
+		# loc_strand_c = Counter()
+		# nex_strand_c = Counter()
+		# run_strand_c = Counter()
+
+		# in_locus = False
+
+		# unclumped_loci_count = len(loci)
+
+
+		# print(f"   clumping similar neighbors... {unclumped_loci_count} -> {len(loci)} loci    ", end='\r', flush=True)
+
+
+		# reads = [r for r in samtools_view(alignment_file, locus=chrom, rgs=annotation_readgroups)]
+
+		# for read in reads:
+
+		# 	if locus_i == len(loci):
+		# 		break
+
+
+		# 	sam_strand, sam_length, _, sam_lbound, _, _, _, read_name = read
+		# 	sam_rbound = sam_lbound + sam_length
+
+
+
+		# 	if sam_rbound >= loc_lbound and sam_lbound <= loc_rbound:
+		# 	# if sam_lbound >= loc_lbound and sam_rbound <= loc_rbound:
+		# 		# reads are within the locus
+
+		# 		in_locus = True
+
+		# 		loc_size.update([sam_length])
+		# 		loc_strand_c[sam_strand] += 1
+
+
+
+		# 	elif nex_lbound > loc_rbound + clump_dist:
+		# 		# nex is too far to clump
+
+		# 		in_locus = False
+
+		# 		locus_i += 1
+
+		# 		loc_name, _, loc_lbound, loc_rbound = loci[locus_i]
+		# 		nex_name, _, nex_lbound, nex_rbound = loci[locus_i+1]
+
+		# 		loc_size = sizeClass()
+		# 		nex_size = sizeClass()
+		# 		run_size = sizeClass()
+
+		# 		loc_strand_c = Counter()
+		# 		nex_strand_c = Counter()
+		# 		run_strand_c = Counter()
+
+
+		# 	if in_locus:
+
+		# 		if sam_rbound >= nex_lbound and sam_lbound <= nex_rbound:
+
+		# 			nex_size.update([sam_length])
+		# 			nex_strand_c[sam_strand] += 1
+
+		# 		elif sam_rbound > nex_rbound:
+		# 			# evaluate if loc should clump to nex
+
+		# 			ftop1 = get_frac_top(loc_strand_c)
+		# 			ftop2 = get_frac_top(nex_strand_c)
+
+
+		# 			# print()
+		# 			# print()
+		# 			# print()
+		# 			# print(loc_name, loc_lbound, loc_rbound)
+		# 			# print(ftop1)
+		# 			# print(loc_size)
+		# 			# print()
+		# 			# print(nex_name, nex_lbound, nex_rbound)
+		# 			# print(ftop2)
+		# 			# print(nex_size)
+		# 			# print()
+		# 			# print(abs(ftop1 - ftop2) < clump_strand_similarity, "<- strand?")
+		# 			# print(loc_size == nex_size, "<- size?")
+		# 			# input()
+
+		# 			if abs(ftop1 - ftop2) < clump_strand_similarity and loc_size == nex_size:
+		# 				# clumping!
+
+		# 				new_clump_events.append((loc_name, nex_name))
+
+		# 				loc_size     = run_size
+		# 				loc_strand_c = run_strand_c
+
+		# 				loci[locus_i][3] = nex_rbound
+
+		# 				del loci[locus_i+1]
+
+		# 				nex_name, _, nex_lbound, nex_rbound = loci[locus_i+1]
+
+		# 				print(f"   clumping similar neighbors .. {unclumped_loci_count} -> {len(loci)} loci     ", end='\r', flush=True)
+
+		# 			else:
+		# 				# failed to clump. 
+
+		# 				loc_size     = nex_size
+		# 				loc_strand_c = nex_strand_c
+
+		# 				run_size     = nex_size
+		# 				run_strand_c = nex_strand_c
+
+		# 				locus_i += 1
+
+		# 				loc_name, _, loc_lbound, loc_rbound = loci[locus_i]
+		# 				nex_name, _, nex_lbound, nex_rbound = loci[locus_i+1]
+
+
+
+		# 			nex_size     = sizeClass()
+		# 			nex_strand_c = Counter()
+
+
+
+
+		# 		run_size.update([sam_length])
+		# 		run_strand_c[sam_strand] += 1
+
+		# 	else:
+		# 		pass
+
+
+
+
+
+
+
+
+		print()
+
+
+
+
+
+
+		clump_list = []
+
+		# loci = input_loci
+
 
 		## Clumping neighbor loci
 
@@ -919,10 +1169,10 @@ def peak(**params):
 
 			loc1 = loci[i]
 
-			if loc1[0] == "Cluster_36":
-				print(loci[i-1])
-				print(loci[i-2])
-				print(loci[i-3])
+			# if loc1[0] == "Cluster_36":
+			# 	print(loci[i-1])
+			# 	print(loci[i-2])
+			# 	print(loci[i-3])
 
 			j = 0 
 			clump_j = 0
@@ -994,6 +1244,8 @@ def peak(**params):
 					# if 0.5 < len_error < 2:
 					if abs(ftop1 - ftop2) < clump_strand_similarity and sc1 == sc2:
 
+						clump_list.append((loc1[0], loc2[0]))
+
 						# print(loc1, dep1, ftop1)
 						# print(loc2, dep2, ftop2)
 						# print('merge!!')
@@ -1020,6 +1272,10 @@ def peak(**params):
 		print()
 
 
+		# pprint(new_clump_events[:10])
+		# print()
+		# pprint(clump_list[:10])
+		# sys.exit()
 
 		# for i in range(1356816, 1360359):
 
