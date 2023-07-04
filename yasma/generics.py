@@ -437,7 +437,7 @@ def samtools_depth(bam, annotation_readgroups, locus=False):
 
 
 
-def samtools_view(bam, dcr_range=False, non_range=False, locus=False, rgs=[]):
+def samtools_view(bam, dcr_range=False, non_range=False, locus=False, rgs=[], boundary_rule='loose'):
 
 	if bam.endswith('.bam'):
 		index_file = f"{bam}.bai"
@@ -453,6 +453,12 @@ def samtools_view(bam, dcr_range=False, non_range=False, locus=False, rgs=[]):
 		# print(err)
 
 		# print("WHY AM I INDEXING???")
+
+	if boundary_rule == 'tight':
+		lbound = int(locus.split(":")[-1].split("-")[0])
+		rbound = int(locus.split(":")[-1].split("-")[1])+1
+	else:
+		lbound = False
 
 
 	# call = f"samtools view -@ 4 -F 4 {bam}"
@@ -511,8 +517,12 @@ def samtools_view(bam, dcr_range=False, non_range=False, locus=False, rgs=[]):
 			size = False
 
 
+		if lbound and boundary_rule == 'tight':
+			if sam_pos >= lbound and sam_pos + length + 1 <= rbound:
+				yield(strand, length, size, sam_pos, sam_chrom, rg, seq, read_id)
 
-		yield(strand, length, size, sam_pos, sam_chrom, rg, seq, read_id)
+		else:
+			yield(strand, length, size, sam_pos, sam_chrom, rg, seq, read_id)
 
 	p.wait()
 

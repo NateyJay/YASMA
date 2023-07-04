@@ -20,6 +20,8 @@ from .cli import cli
 
 from statistics import mean, median
 
+from time import time
+
 
 class sizeClass():
 	def __init__(self, 
@@ -152,113 +154,66 @@ class sizeClass():
 		else:
 			return False
 
+	def __add__(self, other):
+		self.size_c += other.size_c
+		self.depth += other.depth
+		return(self)
 
 
-# class dcClass():
-# 	def __init__(self, sizes=[]):
-# 		self.size_d = {1 : Counter(), 2 : Counter(), 3 : Counter()}
-
-# 		self.depth = 0
-
-# 		def get_size_keys(size, n, min=15, max=30):
-
-# 			if n == 1:
-# 				return(size)
-
-# 			out = []
-
-# 			for r in range(n):
-# 				key = []
-
-# 				for k in range(n):
-# 					key.append(str(size-n+r+1+k))
-
-# 				out.append("_".join(key))
-# 			return(out)
-
-# 		self.size_key_d = dict()
-# 		for n in [1,2,3]:
-# 			self.size_key_d[n] = {}
-# 			for size in range(15,31):
-# 				keys = get_size_keys(size, n)
-# 				self.size_key_d[n][size] = keys
-
-# 		if len(sizes) > 0:
-# 			self.update(sizes)
+# tc = testClass(sizes=[22,23,24,22,22,22], strands=['+','+','+','+','+','-'])
 
 
+# print(tc.get())
 
-# 	def update(self, sizes):
-# 		for size in sizes:
-# 			self.depth += 1
+# sys.exit()
 
-# 			if 15 <= size <= 30:
+# sc1 = sizeClass()
+# sc1.update([15] *1)
+# sc1.update([16] *0)
+# sc1.update([17] *2)
+# sc1.update([18] *4)
+# sc1.update([19] *3)
+# sc1.update([20] *25)
+# sc1.update([21] *56)
+# sc1.update([22] *66)
+# sc1.update([23] *63)
+# sc1.update([24] *48)
+# sc1.update([25] *62)
+# sc1.update([26] *67)
+# sc1.update([27] *56)
+# sc1.update([28] *47)
+# sc1.update([29] *65)
+# sc1.update([30] *59)
 
-# 				self.size_d[1][size] += 1
-# 				self.size_d[2].update(self.size_key_d[2][size])
-# 				self.size_d[3].update(self.size_key_d[3][size])
-
-# 	def get(self):
-
-# 		def get_most_common(c):
-# 			mc = c.most_common(1)
-
-# 			if mc == []:
-# 				return("NA", 0)
-
-# 			else:
-# 				return(mc[0][0], mc[0][1])
-
-
-
-# 		self.size_1_key, self.size_1_depth = get_most_common(self.size_d[1])
-# 		self.size_2_key, self.size_2_depth = get_most_common(self.size_d[2])
-# 		self.size_3_key, self.size_3_depth = get_most_common(self.size_d[3])
+# print(sc1)
 
 
-# 		if self.size_1_depth > self.depth * 0.5:
-# 			dicercall = self.size_1_key
+# sc2 = sizeClass()
+# sc2.update([15] * 1)
+# sc2.update([16] * 0)
+# sc2.update([17] * 2)
+# sc2.update([18] * 4)
+# sc2.update([19] * 3)
+# sc2.update([20] * 25)
+# sc2.update([21] * 57)
+# sc2.update([22] * 67)
+# sc2.update([23] * 66)
+# sc2.update([24] * 48)
+# sc2.update([25] * 63)
+# sc2.update([26] * 68)
+# sc2.update([27] * 56)
+# sc2.update([28] * 48)
+# sc2.update([29] * 67)
+# sc2.update([30] * 61)
+# print(sc2)
 
-# 		elif self.size_2_depth > self.depth * 0.5 and self.depth > 30:
-# 			dicercall = self.size_2_key
+# sc1 += sc2
 
-# 		elif self.size_3_depth > self.depth * 0.5 and self.depth > 60:
-# 			dicercall = self.size_3_key
+# pprint(sc1.size_c)
 
-# 		else:
-# 			dicercall = "N"
+# print(sc1)
+# sys.exit()
 
-# 		self.dicercall = str(dicercall)
-
-# 		return(dicercall)
-
-# 	def __str__(self):
-# 		return(str(self.get()))
-
-# 	def __eq__(self, other):
-
-# 		def process_dcall(dcall, s3k):
-
-# 			if dcall == "N":
-# 				return(set(["N"]))
-
-
-# 			keys = set(str(s3k).split("_"))
-
-# 			if dcall.count("_") == 2:
-# 				keys.add("N")
-
-# 			return(keys)
-
-# 		self_keys  = process_dcall(self.dicercall,  self.size_3_key)
-# 		other_keys = process_dcall(other.dicercall, other.size_3_key)
-
-# 		common = self_keys.intersection(other_keys)
-
-# 		if len(common) > 0:
-# 			return True
-# 		else:
-# 			return False
 
 class assessClass():
 	'''produces a line assessment of a locus, similar to ShortStack3'''
@@ -395,6 +350,10 @@ class assessClass():
 		return(result_line, gff_line)
 
 
+
+
+
+
 @cli.command(group='Annotation', help_priority=1)
 
 
@@ -524,6 +483,39 @@ def peak(**params):
 
 		del chrom_depth_c[key]
 
+	def get_basic_dimensions(l):
+		name, chrom, start, stop = l
+		coords = f"{chrom}:{start}-{stop}"
+
+
+		reads = [r for r in samtools_view(alignment_file, 
+			locus=coords, 
+			rgs=annotation_readgroups, 
+			boundary_rule = 'tight')]
+
+
+		strand_c = Counter()
+		lens = []
+
+		for read in reads:
+			sam_strand, sam_length, _, _, _, _, _, _ = read
+
+			strand_c[sam_strand] += 1
+			lens.append(sam_length)
+
+		try:
+			frac_top = strand_c["+"] / sum(strand_c.values())
+		except ZeroDivisionError:
+			frac_top = -1
+
+		# try:
+		# 	most_common = length_c.most_common(1)[0][0]
+		# 	frac_size = length_c[most_common] / sum(strand_c.values())
+		# except ZeroDivisionError:
+		# 	most_common = False
+		# 	frac_size = -1
+		
+		return(frac_top, lens)
 
 
 
@@ -814,7 +806,7 @@ def peak(**params):
 
 
 
-		perc = percentageClass(5, candidate_peak_count)
+		perc = percentageClass(1, candidate_peak_count)
 
 		i = 0
 
@@ -876,427 +868,578 @@ def peak(**params):
 
 
 
+		clump_set = set()
 
-		# ## another attempt
 
+		class testClass():
+			def __init__(self, sizes=[], strands=[]):
 
-		# locus_i = 0
+				self.sc = sizeClass()
+				self.st = Counter()
 
 
-		# def get_considered_loci(i):
-		# 	out = [i]
-		# 	n = 0
-		# 	current_end = loci[i][3]
-		# 	while True:
-		# 		n += 1
+				for size in sizes:
+					self.sc.update([size])
 
-		# 		next_start = loci[i+n][2]
+				for strand in strands:
+					self.st[strand] += 1
 
-		# 		if next_start < current_end + clump_dist:
-		# 			out.append(i+n)
 
-		# 		else:
-		# 			return(out)
+			def update(self, sizes, strands):
 
+				self.sc = self.sc.update(sizes)
+				self.st = self.st.update(strands)
 
-		# considered_loci = get_considered_loci(locus_i)
+			def ftop(self):
 
+				try:
+					ftop = self.st['+'] / sum(self.st.values())
+				except ZeroDivisionError:
+					ftop = -1
 
-		# def get_frac_top(l):
+				return(ftop)
 
-		# 	c = Counter(l)
+			def __str__(self):
+				out = (
+					str(self.sc),
+					self.ftop())
+				return(str(out))
 
-		# 	try:
-		# 		ftop = c['+'] / sum(c.values())
-		# 	except ZeroDivisionError:
-		# 		ftop = -1
+			def get(self):
+				out = (
+					str(self.sc),
+					self.ftop())
+				return(out)
 
-		# 	return(ftop)
+			def size_test(self, other):
+				out = self.sc == other.sc
+				return(out, self.sc, other.sc)
 
-		
-		
-		# read_table = deque()
-		# # each row is a read
-		# # columns:
-		# # 0 - locus_name
-		# # 1 - identification
+			def strand_test(self, other):
+				out = abs(self.ftop() - other.ftop()) < clump_strand_similarity
+				return(out, self.ftop(), other.ftop())
 
-		# unclumped_loci_count = len(loci)
 
 
-		# in_locus = False
 
-		# print(f"   clumping similar neighbors... {unclumped_loci_count} -> {len(loci)} loci    ", end='\r', flush=True)
+		## one more
 
-
-		# reads = [r for r in samtools_view(alignment_file, locus=chrom, rgs=annotation_readgroups)]
-
-		# for read in reads:
-
-		# 	sam_strand, sam_length, _, sam_lbound, _, _, _, read_name = read
-		# 	sam_rbound = sam_lbound + sam_length
-
-
-		# 	if sam_lbound > considered_loci[-1][3]:
-		# 		# try merging
-
-		# 		# cleanup
-
-
-
-		# 		locus_i += 1
-
-
-
-
-
-		# ## New clumping method
-
-
-		# input_loci = loci[:]
-
-		# new_clump_events = []
-
-		# def get_frac_top(c):
-
-		# 	try:
-		# 		ftop = c['+'] / sum(c.values())
-		# 	except ZeroDivisionError:
-		# 		ftop = -1
-
-		# 	return(ftop)
-
-
-		# locus_i = 0
-		# loc_name, _, loc_lbound, loc_rbound = loci[locus_i]
-		# nex_name, _, nex_lbound, nex_rbound = loci[locus_i+1]
-
-		# loc_size = sizeClass()
-		# nex_size = sizeClass()
-		# run_size = sizeClass()
-
-		# loc_strand_c = Counter()
-		# nex_strand_c = Counter()
-		# run_strand_c = Counter()
-
-		# in_locus = False
-
-		# unclumped_loci_count = len(loci)
-
-
-		# print(f"   clumping similar neighbors... {unclumped_loci_count} -> {len(loci)} loci    ", end='\r', flush=True)
-
-
-		# reads = [r for r in samtools_view(alignment_file, locus=chrom, rgs=annotation_readgroups)]
-
-		# for read in reads:
-
-		# 	if locus_i == len(loci):
-		# 		break
-
-
-		# 	sam_strand, sam_length, _, sam_lbound, _, _, _, read_name = read
-		# 	sam_rbound = sam_lbound + sam_length
-
-
-
-		# 	if sam_rbound >= loc_lbound and sam_lbound <= loc_rbound:
-		# 	# if sam_lbound >= loc_lbound and sam_rbound <= loc_rbound:
-		# 		# reads are within the locus
-
-		# 		in_locus = True
-
-		# 		loc_size.update([sam_length])
-		# 		loc_strand_c[sam_strand] += 1
-
-
-
-		# 	elif nex_lbound > loc_rbound + clump_dist:
-		# 		# nex is too far to clump
-
-		# 		in_locus = False
-
-		# 		locus_i += 1
-
-		# 		loc_name, _, loc_lbound, loc_rbound = loci[locus_i]
-		# 		nex_name, _, nex_lbound, nex_rbound = loci[locus_i+1]
-
-		# 		loc_size = sizeClass()
-		# 		nex_size = sizeClass()
-		# 		run_size = sizeClass()
-
-		# 		loc_strand_c = Counter()
-		# 		nex_strand_c = Counter()
-		# 		run_strand_c = Counter()
-
-
-		# 	if in_locus:
-
-		# 		if sam_rbound >= nex_lbound and sam_lbound <= nex_rbound:
-
-		# 			nex_size.update([sam_length])
-		# 			nex_strand_c[sam_strand] += 1
-
-		# 		elif sam_rbound > nex_rbound:
-		# 			# evaluate if loc should clump to nex
-
-		# 			ftop1 = get_frac_top(loc_strand_c)
-		# 			ftop2 = get_frac_top(nex_strand_c)
-
-
-		# 			# print()
-		# 			# print()
-		# 			# print()
-		# 			# print(loc_name, loc_lbound, loc_rbound)
-		# 			# print(ftop1)
-		# 			# print(loc_size)
-		# 			# print()
-		# 			# print(nex_name, nex_lbound, nex_rbound)
-		# 			# print(ftop2)
-		# 			# print(nex_size)
-		# 			# print()
-		# 			# print(abs(ftop1 - ftop2) < clump_strand_similarity, "<- strand?")
-		# 			# print(loc_size == nex_size, "<- size?")
-		# 			# input()
-
-		# 			if abs(ftop1 - ftop2) < clump_strand_similarity and loc_size == nex_size:
-		# 				# clumping!
-
-		# 				new_clump_events.append((loc_name, nex_name))
-
-		# 				loc_size     = run_size
-		# 				loc_strand_c = run_strand_c
-
-		# 				loci[locus_i][3] = nex_rbound
-
-		# 				del loci[locus_i+1]
-
-		# 				nex_name, _, nex_lbound, nex_rbound = loci[locus_i+1]
-
-		# 				print(f"   clumping similar neighbors .. {unclumped_loci_count} -> {len(loci)} loci     ", end='\r', flush=True)
-
-		# 			else:
-		# 				# failed to clump. 
-
-		# 				loc_size     = nex_size
-		# 				loc_strand_c = nex_strand_c
-
-		# 				run_size     = nex_size
-		# 				run_strand_c = nex_strand_c
-
-		# 				locus_i += 1
-
-		# 				loc_name, _, loc_lbound, loc_rbound = loci[locus_i]
-		# 				nex_name, _, nex_lbound, nex_rbound = loci[locus_i+1]
-
-
-
-		# 			nex_size     = sizeClass()
-		# 			nex_strand_c = Counter()
-
-
-
-
-		# 		run_size.update([sam_length])
-		# 		run_strand_c[sam_strand] += 1
-
-		# 	else:
-		# 		pass
-
-
-
-
-
-
-
-
-		print()
-
-
-
-
-
-
-		clump_list = []
-
-		# loci = input_loci
-
-
-		## Clumping neighbor loci
-
-		def get_basic_dimensions(l):
-			name, chrom, start, stop = l
-			coords = f"{chrom}:{start}-{stop}"
-
-
-			reads = [r for r in samtools_view(alignment_file, locus=coords, rgs=annotation_readgroups)]
-
-			strand_c = Counter()
-			lens = []
-
-			for read in reads:
-				sam_strand, sam_length, _, _, _, _, _, _ = read
-
-				strand_c[sam_strand] += 1
-				lens.append(sam_length)
-
+		def get_frac_top(c):
 			try:
-				frac_top = strand_c["+"] / sum(strand_c.values())
+				ftop = c['+'] / sum(c.values())
 			except ZeroDivisionError:
-				frac_top = -1
+				ftop = -1
 
-			# try:
-			# 	most_common = length_c.most_common(1)[0][0]
-			# 	frac_size = length_c[most_common] / sum(strand_c.values())
-			# except ZeroDivisionError:
-			# 	most_common = False
-			# 	frac_size = -1
-			
-			return(frac_top, lens)
+			return(ftop)
 
+		def get_considered_loci(i):
 
+			if i >= len(loci):
+				return(False)
 
+			out = [i]
+			n = 1
+			current_end = loci[i][3]
+			while i+n < len(loci):
 
+				# try:
+				next_start = loci[i+n][2]
+				# except:
 
-		i = 0
+				# 	print(loci[i+n])
+				# 	sys.exit()
 
-		unclumped_loci_count = len(loci)
-		clump_events = 0
-				
-		print(f"   clumping similar neighbors... {unclumped_loci_count} -> {len(loci)} loci    ", end='\r', flush=True)
+				if next_start < current_end + clump_dist:
+					out.append(i+n)
 
-		while i < (len(loci)-1):
-
-			loc1 = loci[i]
-
-			# if loc1[0] == "Cluster_36":
-			# 	print(loci[i-1])
-			# 	print(loci[i-2])
-			# 	print(loci[i-3])
-
-			j = 0 
-			clump_j = 0
-			while i+j+1 < len(loci):
-
-				loc2 = loci[i+j+1]
-
-
-
-				if loc2[2] - loc1[3] > clump_dist:
-
-
-					for r in range(loc1[2], loc1[3]+1):
-						claim_d[r] = loc1[0]
-
-					for r in range(clump_j+1, 0,-1):
-						del loci[i+r]
-
+				else:
 					break
 
+				n += 1
+
+			return(out)
+
+
+
+
+
+
+		loci_copy = loci[:]
+
+
+		start = time()
+
+
+		locus_i = 0
+		considered_loci = get_considered_loci(locus_i)
+		unclumped_loci_count = len(loci)
+
+
+		print(f"   clumping similar neighbors... {unclumped_loci_count} -> {len(loci)} loci    ", end='\r', flush=True)
+
+		last_claim = 'start'
+
+		# test_d = {}
+		in_locus = False
+
+
+		sizecall_d = {}
+		strand_d = {}
+		n = False
+
+
+		merge_file = f"{output_directory}/Merges.txt"
+		with open(merge_file, 'w') as outf:
+			outf.write('')
+
+
+
+		for read in samtools_view(alignment_file, locus=chrom, rgs=annotation_readgroups):
+
+			## Breaks for the final region
+			if not considered_loci:
+				break
+
+
+			## Processing sam output
+			sam_strand, sam_length, _, sam_lbound, _, _, _, read_name = read
+			sam_rbound = sam_lbound + sam_length
+
+
+			## Identifies the current claim
+
+
+			try:
+				rclaim = claim_d[sam_rbound]
+			except KeyError:
+				rclaim = None
+
+			try:
+				lclaim = claim_d[sam_lbound]
+			except KeyError:
+				lclaim = None
+
+
+			if not lclaim or not rclaim:
+				claim = f"after_{last_claim}"
+
+			elif lclaim != rclaim:
+				if lclaim:
+					last_claim = lclaim
+				claim = f"after_{last_claim}"
+
+			else:
+				in_locus = True
+				claim = lclaim
+				last_claim = lclaim
+
+
+			# if sam_lbound in claim_d and sam_rbound in claim_d:
+			# 	lclaim = claim_d[sam_lbound]
+			# 	rclaim = claim_d[sam_rbound]
+
+			# 	if lclaim == rclaim:
+			# 		in_locus = True
+			# 		claim = lclaim
+			# 	else:
+			# 		claim = f'after_{last_claim}'
+			# else:
+			# 	claim = f'after_{last_claim}'
+
+
+
+			try:
+				sizecall_d[claim]
+			except KeyError:
+				sizecall_d[claim] = sizeClass()
+				strand_d[claim] = Counter()
+
+
+
+
+
+			# if claim == 'Cluster_564':
+			# 	print(claim, sam_lbound, sam_rbound, sam_strand, sam_length, sep='\t')
+
+
+
+
+
+
+			## Adding values to current claim
+			if in_locus:
+
+				sizecall_d[claim].update([sam_length])
+				strand_d[claim].update([sam_strand])
+
+
+			verbose = False
+
+			if sam_lbound > loci[considered_loci[-1]][3]:
+
+				if len(considered_loci) == 1:
+
+					with open(merge_file, 'a') as outf:
+						print('', file=outf)
+						pprint([loci[c] for c in considered_loci], outf)
+						print('      -> locus has no other regions in range', file=outf)
+						# input()
+
+					locus_i += 1
+					considered_loci = get_considered_loci(locus_i)
 
 				else:
 
+					n = 0
+					while True:
+						with open(merge_file, 'a') as outf:
+							print('', file=outf)
+							pprint([loci[c] for c in considered_loci], outf)
+							# input()
 
-					ftop1, len1 = get_basic_dimensions(loc1)
-					ftop2, len2 = get_basic_dimensions(loc2)
+						none_merged = True
+						
+						current_locus = loci[locus_i]
 
+						# print(considered_loci)
+						for n in considered_loci[1:]:
+							next_locus = loci[n]
 
-					# c1 = Counter(len1)
-					# c2 = Counter(len2)
+							# print()
+							# print()
+							# print(current_locus)
+							# print(next_locus)
+							# print(sam_lbound)
+							# print()
 
-					# most_common_p1 = c1.most_common(1)[0][1] / sum(c1.values())
-					# most_common_p2 = c2.most_common(1)[0][1] / sum(c2.values())
-
-					sc1 = sizeClass(len1)
-					sc2 = sizeClass(len2)
-
-					# print(sc1.get())
-					# sys.exit()
-
-
-					# dc1 = dcClass(len1)
-					# dc2 = dcClass(len2)
-
-
-
-					# dc1.get()
-					# dc2.get()
-
-
-					# if loc1[0] == "Cluster_36":
-					# 	print()
-					# 	print()
-					# 	print("i:", i)
-					# 	print(loc1, "->", loc2)
-					# 	print(dc1)
-					# 	print(dc2)
-					# 	print(dc1 == dc2)
-					# 	print(ftop1, ftop2)
-					# 	print(abs(ftop1 - ftop2) < 0.5)
-					# 	print("merge?", abs(ftop1 - ftop2) < 0.5 and dc1 == dc2)
-
-					# 	print()
-					# 	print()
-					# 	print(loci[i+2])
-					# 	input()
+							try:
+								current_sc = sizecall_d[current_locus[0]]
+								current_ft = get_frac_top(strand_d[current_locus[0]])
+							except KeyError:
+								current_sc = sizeClass()
+								current_ft = -1
+								# print(f"\nWarning: region {current_locus} may not have counts")
 
 
-					# if 0.5 < len_error < 2:
-					if abs(ftop1 - ftop2) < clump_strand_similarity and sc1 == sc2:
-
-						clump_list.append((loc1[0], loc2[0]))
-
-						# print(loc1, dep1, ftop1)
-						# print(loc2, dep2, ftop2)
-						# print('merge!!')
-						# print()
+							try:
+								next_sc = sizecall_d[next_locus[0]]
+								next_ft = get_frac_top(strand_d[next_locus[0]])
+							except KeyError:
+								next_sc = sizeClass()
+								next_ft = -1
+								# print(f"\nWarning: region {next_locus} may not have counts")
 
 
-						print(f"   clumping similar neighbors .. {unclumped_loci_count} -> ", end='', flush=True)
+							def test_by_samtools(c):
+								coords = f"{c[1]}:{c[2]}-{c[3]}"
+
+								sc = sizeClass()
+								strand_c = Counter()
+								sizes, strands = [], []
+
+								for read in samtools_view(alignment_file, locus=coords, rgs=annotation_readgroups, boundary_rule='tight'):
+									sam_strand, sam_length, _, sam_lbound, _, _, _, read_name = read
+									sam_rbound = sam_lbound + sam_length
+
+									sc.update([sam_length])
+									strand_c[sam_strand] += 1
+
+									sizes.append(sam_length)
+									strands.append(sam_strand)
 
 
-						loc1[3] = loc2[3]
-						loci[i] = loc1
+								# print()
+								# print("sam read count:", sum(strand_c.values()))
+
+								ft = get_frac_top(strand_c)
+
+								return(sc, ft, sizes, strands)
+
+
+
+							size_test = current_sc == next_sc
+							frac_test = abs(current_ft - next_ft) < clump_strand_similarity
+							# print(size_test, current_sc, next_sc, sep='\t')
+							# print(frac_test, current_ft, next_ft, sep='\t')
+
+							acc_to_merge = size_test and frac_test
 
 
 
 
-						print(f"{len(loci)} loci     ", end='\r', flush=True)
 
-						clump_events += 1
-						clump_j = j
+							## Code to test if the methods produce equivalent results
 
-				j += 1
-			i += 1
+							# sam_sc1, sam_ft1, sizes1, strands1 = test_by_samtools(current_locus)
+							# sam_sc2, sam_ft2, sizes2, strands2 = test_by_samtools(next_locus)
 
+							# sam_to_merge = sam_sc1 == sam_sc2 and abs(sam_ft1 - sam_ft2) < clump_strand_similarity
+
+							# if acc_to_merge and not sam_to_merge:
+							# 	print()
+							# 	print()
+							# 	print(current_locus)
+							# 	print(next_locus)
+							# 	print(sam_lbound, "<- sam_lbound")
+							# 	print()
+
+							# 	print("acc current:")
+							# 	print(current_sc)
+							# 	print(current_sc.depth)
+							# 	print(current_ft)
+							# 	print()
+							# 	print("sam current:")
+							# 	print(sam_sc1)
+							# 	print(sam_sc1.depth)
+							# 	print(sam_ft1)
+							# 	print()
+							# 	print("acc next:")
+							# 	print(next_sc)
+							# 	print(next_sc.depth)
+							# 	print(next_ft)
+							# 	print()
+							# 	print("sam next:")
+							# 	print(sam_sc2)
+							# 	print(sam_sc2.depth)
+							# 	print(sam_ft2)
+							# 	print()
+
+							# 	print(size_test, "<- size_test")
+							# 	print(frac_test, "<- frac_test")
+							# 	print()
+
+							# 	input()
+
+
+
+
+							with open(merge_file, 'a') as outf:
+								print(current_locus, "->", next_locus, file=outf)
+								print("", file=outf)
+								print("", size_test, current_sc, next_sc, sep='\t', file=outf)
+								print("", frac_test, round(current_ft,4), round(next_ft,4), sep='\t', file=outf)
+								print("", file=outf)
+
+							if size_test and frac_test:
+								## Then merge!
+
+								none_merged = False
+
+								with open(merge_file, 'a') as outf:
+									print(f"merging {current_locus[0]} to {next_locus[0]}", file=outf)
+									print("", file=outf)
+
+									clump_set.add((current_locus[0], next_locus[0]))
+
+
+									## Packing counts into first locus
+
+									for r in range(locus_i, n):
+
+										to_loc   = current_locus[0]
+										from_loc = loci[r+1][0]
+
+
+										try:
+											sizecall_d[to_loc] += sizecall_d[from_loc]
+											strand_d[to_loc] += strand_d[from_loc]
+											print(f"  packing -> {to_loc} with {sizecall_d[from_loc].depth} reads from {from_loc}", file=outf)
+										except KeyError:
+											# print(f"\nWarning: region {next_locus} may not have counts")
+											pass
+
+										to_loc   = current_locus[0]
+										from_loc = f"after_{loci[r][0]}"
+
+										try:
+											sizecall_d[to_loc] += sizecall_d[from_loc]
+											strand_d[to_loc] += strand_d[from_loc]
+											print(f"  packing -> {to_loc} with {sizecall_d[from_loc].depth} reads from {from_loc}", file=outf)
+										except KeyError:
+											# print(f"\nWarning: region {next_locus} may not have counts")
+											pass
+
+									to_loc   = f"after_{current_locus[0]}"
+									from_loc = f"after_{loci[n][0]}"
+
+									try:
+										sizecall_d[to_loc] += sizecall_d[from_loc]
+										strand_d[to_loc] += strand_d[from_loc]
+										print(f"  packing -> {to_loc} with {sizecall_d[from_loc].depth} reads from {from_loc}", file=outf)
+									except KeyError:
+										# print(f"\nWarning: region {next_locus} may not have counts")
+										pass
+
+
+
+								## Redefining current locus boundaries
+								loci[locus_i][3] = loci[n][3]
+
+
+								## Eliminating loci up to the one that was merged
+								for r in range(locus_i, n)[::-1]:
+									del loci[r+1]
+
+
+								## Filling in claim_d
+								for r in range(loci[locus_i][2],loci[locus_i][3]+1):
+									claim_d[r] = loci[locus_i][0]
+
+
+								break
+
+
+						## updating considered loci in light of merging
+						considered_loci = get_considered_loci(locus_i) 
+
+						if none_merged:
+							with open(merge_file, 'a') as outf:
+								print("      -> no valid merges for considered_loci", file=outf)
+							locus_i += 1
+							considered_loci = get_considered_loci(locus_i) 
+							break
+
+						if len(considered_loci) == 1:
+							with open(merge_file, 'a') as outf:
+								print('      -> new locus has no other regions in range', file=outf)
+							locus_i += 1
+							considered_loci = get_considered_loci(locus_i) 
+							break
+
+						if sam_lbound < loci[considered_loci[-1]][3]:
+							with open(merge_file, 'a') as outf:
+								print("      -> loci passed read location", file=outf)
+							last_claim = loci[considered_loci[-1]][0]
+							break
+
+						# # print(n, considered_loci[-1])
+						# if n == considered_loci[-1]:
+						# 	break
+
+						# print(n)
+						# print(considered_loci)
+
+
+					# if n == considered_loci[-1]:
+					# 	locus_i += 1
+
+					# 	considered_loci = get_considered_loci(locus_i) 
+
+
+				print(f"   clumping similar neighbors... {unclumped_loci_count} -> {len(loci)} loci    ", end='\r', flush=True)
+
+
+
+
+		stop = time()
+
+		print()
+		print()
+		new_time = stop - start
+		print(new_time, " <- new method")
 		print()
 
 
-		# pprint(new_clump_events[:10])
+		# ### Old clustering method, using samtools view search (slow)
+
+		# start = time()
+
+		# loci = loci_copy[:]
+
+		# i = 0
+
+		# unclumped_loci_count = len(loci)
+				
+		# print(f"   clumping similar neighbors... {unclumped_loci_count} -> {len(loci)} loci    ", end='\r', flush=True)
+
+		# while i < (len(loci)-1):
+
+		# 	loc1 = loci[i]
+
+		# 	# if loc1[0] == "Cluster_36":
+		# 	# 	print(loci[i-1])
+		# 	# 	print(loci[i-2])
+		# 	# 	print(loci[i-3])
+
+		# 	j = 0 
+		# 	clump_j = 0
+		# 	while i+j+1 < len(loci):
+
+		# 		loc2 = loci[i+j+1]
+
+
+
+		# 		if loc2[2] - loc1[3] > clump_dist:
+
+
+		# 			for r in range(loc1[2], loc1[3]+1):
+		# 				claim_d[r] = loc1[0]
+
+		# 			for r in range(clump_j+1, 0,-1):
+		# 				del loci[i+r]
+
+		# 			break
+
+
+		# 		else:
+
+
+		# 			ftop1, len1 = get_basic_dimensions(loc1)
+		# 			ftop2, len2 = get_basic_dimensions(loc2)
+
+		# 			sc1 = sizeClass(len1)
+		# 			sc2 = sizeClass(len2)
+
+
+		# 			if abs(ftop1 - ftop2) < clump_strand_similarity and sc1 == sc2:
+
+
+		# 				if (loc1[0], loc2[0]) not in clump_set:
+
+		# 					print()
+		# 					print()
+		# 					pprint(loc1)
+		# 					pprint(loc2)
+		# 					print(sc1, sc2, sep='\t')
+		# 					print(ftop1, ftop2, sep='\t')
+		# 					print(sc1.depth, sc2.depth, sep='\t')
+		# 					input()
+
+		# 				# clump_list.append((loc1[0], loc2[0]))
+
+		# 				# print(loc1, dep1, ftop1)
+		# 				# print(loc2, dep2, ftop2)
+		# 				# print('merge!!')
+		# 				# print()
+
+
+		# 				print(f"   clumping similar neighbors .. {unclumped_loci_count} -> ", end='', flush=True)
+
+
+		# 				loc1[3] = loc2[3]
+		# 				loci[i] = loc1
+
+
+
+
+		# 				print(f"{len(loci)} loci     ", end='\r', flush=True)
+
+		# 				clump_j = j
+
+		# 		j += 1
+		# 	i += 1
+
 		# print()
-		# pprint(clump_list[:10])
-		# sys.exit()
-
-		# for i in range(1356816, 1360359):
-
-		# 	try:
-		# 		d = peak_c[i]
-		# 	except KeyError:
-		# 		d = 0
-
-		# 	try:
-		# 		c = claim_d[i]
-		# 	except KeyError:
-		# 		c = None
-
-		# 	rpm = round(read_equivalent * d, 2)
-
-		# 	print(i, d, rpm, rpm >= rpm_threshold, c, sep="\t")
 
 
-		# print(rpm_threshold)
 
-		# sys.exit()
+		# stop = time()
+
+		# print()
+		# old_time = stop - start
+		# print(old_time, " <- old method")
+		# print("  ", round(old_time / new_time), "x faster", sep='')
+		# print()
 
 
 
@@ -1357,7 +1500,7 @@ def peak(**params):
 		print()
 
 		print(f"   {len(loci):,} loci found")
-		print(f"      from {clump_events} clumping events")
+		# print(f"      from {clump_events} clumping events")
 
 		mean_length   = mean([l[3]-l[2] for l in loci])
 		median_length = median([l[3]-l[2] for l in loci])
