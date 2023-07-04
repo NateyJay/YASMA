@@ -455,7 +455,7 @@ def peak(**params):
 
 	output_directory = output_directory.rstrip("/")
 
-	Path(output_directory+ "/Empirical/").mkdir(parents=True, exist_ok=True)
+	Path(output_directory+ "/peak/").mkdir(parents=True, exist_ok=True)
 
 	log_file = f"{output_directory}/Empirical_log.txt"
 
@@ -539,6 +539,14 @@ def peak(**params):
 	with open(reads_file, 'w') as outf:
 		print(TOP_READS_HEADER, file=outf)
 
+
+
+	region_file = f"{output_directory}/Regions.gff3"
+	with open(region_file, 'w') as outf:
+		print("##gff-version 3", file=outf)
+
+		for chrom, chrom_length in chromosomes:
+			print(f"##sequence-region   {chrom} 1 {chrom_length}", file=outf)
 
 
 
@@ -867,6 +875,21 @@ def peak(**params):
 		loci.sort(key=lambda x: x[2])
 
 
+		with open(region_file, 'a') as outf:
+
+			for l in loci:
+
+				name, chrom, start, stop = l
+
+				line = [chrom, 'yasma_peak','region', start, stop, '.', '.', '.',
+			f'ID={name}']
+
+				line = "\t".join(map(str,line))
+				print(line, file=outf)
+
+		## Performing clumping by reading whole chromosome alignments
+
+
 
 		clump_set = set()
 
@@ -922,7 +945,6 @@ def peak(**params):
 
 
 
-		## one more
 
 		def get_frac_top(c):
 			try:
