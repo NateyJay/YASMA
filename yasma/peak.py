@@ -23,6 +23,9 @@ from statistics import mean, median
 from time import time
 
 
+
+
+
 class sizeClass():
 	def __init__(self, 
 		sizes=[],
@@ -160,59 +163,6 @@ class sizeClass():
 		return(self)
 
 
-# tc = testClass(sizes=[22,23,24,22,22,22], strands=['+','+','+','+','+','-'])
-
-
-# print(tc.get())
-
-# sys.exit()
-
-# sc1 = sizeClass()
-# sc1.update([15] *1)
-# sc1.update([16] *0)
-# sc1.update([17] *2)
-# sc1.update([18] *4)
-# sc1.update([19] *3)
-# sc1.update([20] *25)
-# sc1.update([21] *56)
-# sc1.update([22] *66)
-# sc1.update([23] *63)
-# sc1.update([24] *48)
-# sc1.update([25] *62)
-# sc1.update([26] *67)
-# sc1.update([27] *56)
-# sc1.update([28] *47)
-# sc1.update([29] *65)
-# sc1.update([30] *59)
-
-# print(sc1)
-
-
-# sc2 = sizeClass()
-# sc2.update([15] * 1)
-# sc2.update([16] * 0)
-# sc2.update([17] * 2)
-# sc2.update([18] * 4)
-# sc2.update([19] * 3)
-# sc2.update([20] * 25)
-# sc2.update([21] * 57)
-# sc2.update([22] * 67)
-# sc2.update([23] * 66)
-# sc2.update([24] * 48)
-# sc2.update([25] * 63)
-# sc2.update([26] * 68)
-# sc2.update([27] * 56)
-# sc2.update([28] * 48)
-# sc2.update([29] * 67)
-# sc2.update([30] * 61)
-# print(sc2)
-
-# sc1 += sc2
-
-# pprint(sc1.size_c)
-
-# print(sc1)
-# sys.exit()
 
 
 class assessClass():
@@ -358,7 +308,7 @@ class assessClass():
 
 
 
-@optgroup.group('\nBasic options',
+@optgroup.group('\n  Basic options',
                 help='')
 
 @optgroup.option("-a", "--alignment_file", 
@@ -379,7 +329,7 @@ class assessClass():
 
 
 
-@optgroup.group('\nCoverage options',
+@optgroup.group('\n  Coverage options',
                 help='')
 
 @optgroup.option('--kernel_window',
@@ -394,7 +344,7 @@ class assessClass():
 
 
 
-@optgroup.group('\nPeak finding options',
+@optgroup.group('\n  Peak finding options',
                 help='')
 
 @optgroup.option("--creep_dist",
@@ -422,7 +372,7 @@ class assessClass():
 
 
 
-@optgroup.group('\nMerging options',
+@optgroup.group('\n  Merging options',
                 help='')
 
 
@@ -433,6 +383,10 @@ class assessClass():
 @optgroup.option("--clump_strand_similarity",
 	default=0.5,
 	help="Similarity threshold of strand fraction for clumping two peaks. Difference in fraction must be smaller than threshold. Default 0.5.")
+
+@optgroup.option("--min_locus_length",
+	default=30,
+	help="Minimum size for a locus to be included. Default 30 nt.")
 
 
 
@@ -452,6 +406,7 @@ def peak(**params):
 	boundary_method         = params['boundary_method']
 	clump_dist              = params['clump_dist']
 	clump_strand_similarity = params['clump_strand_similarity']
+	min_locus_length        = params['min_locus_length']
 
 	output_directory = output_directory.rstrip("/")
 
@@ -482,6 +437,41 @@ def peak(**params):
 			chrom_depth_c[key[1]] += chrom_depth_c[key]
 
 		del chrom_depth_c[key]
+
+
+	def test_by_samtools(c):
+		coords = f"{c[1]}:{c[2]}-{c[3]}"
+
+		sc = sizeClass()
+		strand_c = Counter()
+		sizes, strands = [], []
+
+		for read in samtools_view(alignment_file, locus=coords, rgs=annotation_readgroups, boundary_rule='tight'):
+			sam_strand, sam_length, _, sam_lbound, _, _, _, read_name = read
+			sam_rbound = sam_lbound + sam_length
+
+			sc.update([sam_length])
+			strand_c[sam_strand] += 1
+
+			sizes.append(sam_length)
+			strands.append(sam_strand)
+
+
+		# print()
+		# print("sam read count:", sum(strand_c.values()))
+
+		ft = get_frac_top(strand_c)
+
+		return(sc, ft, sizes, strands)
+
+
+	def get_frac_top(c):
+		try:
+			ftop = c['+'] / sum(c.values())
+		except ZeroDivisionError:
+			ftop = -1
+
+		return(ftop)
 
 	def get_basic_dimensions(l):
 		name, chrom, start, stop = l
@@ -541,18 +531,18 @@ def peak(**params):
 
 
 
-	region_file = f"{output_directory}/Regions.gff3"
+	region_file = f"{output_directory}/peak/Regions.gff3"
 	with open(region_file, 'w') as outf:
 		print("##gff-version 3", file=outf)
 
 		for chrom, chrom_length in chromosomes:
 			print(f"##sequence-region   {chrom} 1 {chrom_length}", file=outf)
 
+	merge_file = f"{output_directory}/peak/Merges.txt"
+	with open(merge_file, 'w') as outf:
+		outf.write('')
 
 
-
-
-	## iterating through chromosomes and reads
 
 	all_loci = []
 	total_read_count = 0
@@ -562,7 +552,11 @@ def peak(**params):
 	total_reads = sum(chrom_depth_c.values())
 	read_equivalent = 1 / sum(chrom_depth_c.values()) * 1000000
 
+	depth_wig = wiggleClass(f"{output_directory}/peak/Depths.wig", rpm_threshold, total_reads)
+	peak_wig = wiggleClass(f"{output_directory}/peak/Depths_peak.wig", rpm_threshold, total_reads)
 
+
+	## iterating through chromosomes and reads
 
 	for chrom_count, chrom_and_length in enumerate(chromosomes):
 
@@ -645,7 +639,7 @@ def peak(**params):
 			# 	length = int(line[5].rstrip("M"))
 
 				pos += math.floor(length / 2)
-				depth_c[pos] += 1
+				depth_c[pos-half_window] += 1
 
 				perc_out = perc.get_percent(i)
 				if perc_out:
@@ -682,6 +676,30 @@ def peak(**params):
 			return(kernel_c)
 
 
+		# def write_depths_to_wiggle(c, file, peaks_only=False):
+		# 	# chrom, chrom_length
+
+		# 	depths = [0.0000]
+		# 	print(chrom_length)
+		# 	with open(file, 'a') as outf:
+		# 		for p in range(chrom_length):
+
+		# 			depth = round(c[p] / total_reads * 1000000, 4)
+
+		# 			if peaks_only and depth < rpm_threshold:
+		# 				depth = 0
+
+		# 			if depth != depths[-1]:
+		# 				# chr19 49302000 49302300 -1.0
+		# 				print(f"variableStep  chrom={chrom}  span={len(depths)}", file=outf)
+		# 				print(f"{p-len(depths)+2} {depths[-1]}", file=outf)
+
+		# 				depths = []
+
+		# 			depths.append(depth)
+
+
+
 
 
 
@@ -699,6 +717,13 @@ def peak(**params):
 				bam=alignment_file, 
 				rgs=annotation_readgroups, 
 				chrom=chrom)
+
+
+
+
+		depth_wig.add_chrom(peak_c, chrom, chrom_length, peaks_only=False)
+		peak_wig.add_chrom(peak_c, chrom, chrom_length, peaks_only=True)
+
 
 		claim_d = {}
 		loci = []
@@ -855,13 +880,24 @@ def peak(**params):
 					for r in range(lbound, rbound + 1):
 						claim_d[r] = claim
 
-					loci.append([claim, chrom, lbound, rbound])
+					locus = [claim, chrom, lbound, rbound]
+					loci.append(locus)
 
-					# print()
-					# print(f"{lbound:,} <- {center:,} -> {rbound:,}")
-					# print(loci[-1])
-					# print(rbound - lbound, "nt")
-					# input()
+
+
+					## assessing regions which are actually depth 0
+					# sc, ft, sizes, strands = test_by_samtools(locus)
+
+					# if sc.depth == 0:
+
+
+
+
+					# 	print()
+					# 	print(f"{lbound:,} <- {center:,} -> {rbound:,}")
+					# 	print(loci[-1])
+					# 	print(rbound - lbound, "nt")
+					# 	input()
 
 		print()
 
@@ -887,6 +923,10 @@ def peak(**params):
 				line = "\t".join(map(str,line))
 				print(line, file=outf)
 
+
+
+
+
 		## Performing clumping by reading whole chromosome alignments
 
 
@@ -894,65 +934,7 @@ def peak(**params):
 		clump_set = set()
 
 
-		class testClass():
-			def __init__(self, sizes=[], strands=[]):
 
-				self.sc = sizeClass()
-				self.st = Counter()
-
-
-				for size in sizes:
-					self.sc.update([size])
-
-				for strand in strands:
-					self.st[strand] += 1
-
-
-			def update(self, sizes, strands):
-
-				self.sc = self.sc.update(sizes)
-				self.st = self.st.update(strands)
-
-			def ftop(self):
-
-				try:
-					ftop = self.st['+'] / sum(self.st.values())
-				except ZeroDivisionError:
-					ftop = -1
-
-				return(ftop)
-
-			def __str__(self):
-				out = (
-					str(self.sc),
-					self.ftop())
-				return(str(out))
-
-			def get(self):
-				out = (
-					str(self.sc),
-					self.ftop())
-				return(out)
-
-			def size_test(self, other):
-				out = self.sc == other.sc
-				return(out, self.sc, other.sc)
-
-			def strand_test(self, other):
-				out = abs(self.ftop() - other.ftop()) < clump_strand_similarity
-				return(out, self.ftop(), other.ftop())
-
-
-
-
-
-		def get_frac_top(c):
-			try:
-				ftop = c['+'] / sum(c.values())
-			except ZeroDivisionError:
-				ftop = -1
-
-			return(ftop)
 
 		def get_considered_loci(i):
 
@@ -986,10 +968,10 @@ def peak(**params):
 
 
 
-		loci_copy = loci[:]
+		# loci_copy = loci[:]
 
 
-		start = time()
+		# start = time()
 
 
 		locus_i = 0
@@ -1010,9 +992,12 @@ def peak(**params):
 		n = False
 
 
-		merge_file = f"{output_directory}/Merges.txt"
-		with open(merge_file, 'w') as outf:
-			outf.write('')
+		def final_check_and_increment(i):
+			if loci[i][3] - loci[i][2] < min_locus_length:
+				del loci[i]
+			else:
+				i += 1
+			return(i)
 
 
 
@@ -1107,7 +1092,9 @@ def peak(**params):
 						print('      -> locus has no other regions in range', file=outf)
 						# input()
 
-					locus_i += 1
+					
+					locus_i = final_check_and_increment(locus_i)
+
 					considered_loci = get_considered_loci(locus_i)
 
 				else:
@@ -1152,30 +1139,6 @@ def peak(**params):
 								# print(f"\nWarning: region {next_locus} may not have counts")
 
 
-							def test_by_samtools(c):
-								coords = f"{c[1]}:{c[2]}-{c[3]}"
-
-								sc = sizeClass()
-								strand_c = Counter()
-								sizes, strands = [], []
-
-								for read in samtools_view(alignment_file, locus=coords, rgs=annotation_readgroups, boundary_rule='tight'):
-									sam_strand, sam_length, _, sam_lbound, _, _, _, read_name = read
-									sam_rbound = sam_lbound + sam_length
-
-									sc.update([sam_length])
-									strand_c[sam_strand] += 1
-
-									sizes.append(sam_length)
-									strands.append(sam_strand)
-
-
-								# print()
-								# print("sam read count:", sum(strand_c.values()))
-
-								ft = get_frac_top(strand_c)
-
-								return(sc, ft, sizes, strands)
 
 
 
@@ -1317,14 +1280,14 @@ def peak(**params):
 						if none_merged:
 							with open(merge_file, 'a') as outf:
 								print("      -> no valid merges for considered_loci", file=outf)
-							locus_i += 1
+							locus_i = final_check_and_increment(locus_i)
 							considered_loci = get_considered_loci(locus_i) 
 							break
 
 						if len(considered_loci) == 1:
 							with open(merge_file, 'a') as outf:
 								print('      -> new locus has no other regions in range', file=outf)
-							locus_i += 1
+							locus_i = final_check_and_increment(locus_i)
 							considered_loci = get_considered_loci(locus_i) 
 							break
 
@@ -1353,118 +1316,16 @@ def peak(**params):
 
 
 
-		stop = time()
-
-		print()
-		print()
-		new_time = stop - start
-		print(new_time, " <- new method")
-		print()
-
-
-		# ### Old clustering method, using samtools view search (slow)
-
-		# start = time()
-
-		# loci = loci_copy[:]
-
-		# i = 0
-
-		# unclumped_loci_count = len(loci)
-				
-		# print(f"   clumping similar neighbors... {unclumped_loci_count} -> {len(loci)} loci    ", end='\r', flush=True)
-
-		# while i < (len(loci)-1):
-
-		# 	loc1 = loci[i]
-
-		# 	# if loc1[0] == "Cluster_36":
-		# 	# 	print(loci[i-1])
-		# 	# 	print(loci[i-2])
-		# 	# 	print(loci[i-3])
-
-		# 	j = 0 
-		# 	clump_j = 0
-		# 	while i+j+1 < len(loci):
-
-		# 		loc2 = loci[i+j+1]
-
-
-
-		# 		if loc2[2] - loc1[3] > clump_dist:
-
-
-		# 			for r in range(loc1[2], loc1[3]+1):
-		# 				claim_d[r] = loc1[0]
-
-		# 			for r in range(clump_j+1, 0,-1):
-		# 				del loci[i+r]
-
-		# 			break
-
-
-		# 		else:
-
-
-		# 			ftop1, len1 = get_basic_dimensions(loc1)
-		# 			ftop2, len2 = get_basic_dimensions(loc2)
-
-		# 			sc1 = sizeClass(len1)
-		# 			sc2 = sizeClass(len2)
-
-
-		# 			if abs(ftop1 - ftop2) < clump_strand_similarity and sc1 == sc2:
-
-
-		# 				if (loc1[0], loc2[0]) not in clump_set:
-
-		# 					print()
-		# 					print()
-		# 					pprint(loc1)
-		# 					pprint(loc2)
-		# 					print(sc1, sc2, sep='\t')
-		# 					print(ftop1, ftop2, sep='\t')
-		# 					print(sc1.depth, sc2.depth, sep='\t')
-		# 					input()
-
-		# 				# clump_list.append((loc1[0], loc2[0]))
-
-		# 				# print(loc1, dep1, ftop1)
-		# 				# print(loc2, dep2, ftop2)
-		# 				# print('merge!!')
-		# 				# print()
-
-
-		# 				print(f"   clumping similar neighbors .. {unclumped_loci_count} -> ", end='', flush=True)
-
-
-		# 				loc1[3] = loc2[3]
-		# 				loci[i] = loc1
-
-
-
-
-		# 				print(f"{len(loci)} loci     ", end='\r', flush=True)
-
-		# 				clump_j = j
-
-		# 		j += 1
-		# 	i += 1
-
-		# print()
-
-
-
 		# stop = time()
 
 		# print()
-		# old_time = stop - start
-		# print(old_time, " <- old method")
-		# print("  ", round(old_time / new_time), "x faster", sep='')
+		# print()
+		# new_time = stop - start
+		# print(new_time, " <- new method")
 		# print()
 
 
-
+		print()
 
 		## Assessing locus dimensions and making annotations
 
@@ -1538,9 +1399,20 @@ def peak(**params):
 		print(f"     abundance:")
 		print(f"       mean ---> {round(mean_depth,1)} reads ({round(mean_depth * read_equivalent, 2)} rpm)")
 		print(f"       median -> {median_depth} reads ({round(median_depth * read_equivalent, 2)} rpm)")
+		# sys.exit()
+
+		# • Formalize the coverage file outputs
+		# • Formalize all other intermediate file outputs
+		# • Include a log file (any tables?)
+		# • Produce an alignment process which extracts tables of log.
 
 	print()
+	print()
 
+	print("converting coverage files to bigwig...")
+
+	depth_wig.convert(output_directory=output_directory)
+	peak_wig.convert(output_directory=output_directory)
 
 
 
