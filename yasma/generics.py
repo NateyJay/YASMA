@@ -569,6 +569,96 @@ def check_rgs(annotation_readgroups, bam_rgs):
 	# def get(self):
 
 
+class wiggleClass():
+	'''A class to handle producing rpm wig/bigwig files from a counter object c[pos] = depth'''
+
+	def __init__(self, file, rpm_threshold, total_reads):
+		self.file = file
+		# self.file = f"./{output_directory}/Coverages/{file}.wig"
+		self.outf = open(self.file, 'w')
+
+		self.rpm_threshold = rpm_threshold
+		self.total_reads   = total_reads
+
+
+
+	def add_chrom(self, c, chrom, chrom_length, peaks_only=False):
+	
+		depths = [0.0000]
+
+		for p in range(chrom_length):
+
+			depth = round(c[p] / self.total_reads * 1000000, 4)
+
+			if peaks_only and depth < self.rpm_threshold:
+				depth = 0
+
+			if depth != depths[-1]:
+				# chr19 49302000 49302300 -1.0
+				print(f"variableStep  chrom={chrom}  span={len(depths)}", file=self.outf)
+				print(f"{p-len(depths)+2} {depths[-1]}", file=self.outf)
+
+				depths = []
+
+			depths.append(depth)
+
+	# def add(self, val, pos, chrom):
+
+	# 	if val != self.val:
+	# 		span = pos - self.start_pos
+
+	# 		if span > 0:
+
+	# 			print(f"variableStep chrom={chrom} span={span}", file=self.outf)
+	# 			print(f"{self.start_pos} {self.val}", file=self.outf)
+
+	# 			self.val = val
+	# 			self.start_pos = pos
+
+	def convert(self, output_directory, cleanup=False):
+
+		self.outf.close()
+
+		wig = self.file
+
+		bigwig = wig.replace(".wig", ".bigwig")
+
+		print(f"  {wig} -> {bigwig}", flush=True)
+
+		call = f"wigToBigWig {wig} ./{output_directory}/ChromSizes.txt {bigwig}"
+
+		p = Popen(call.split(), stdout=PIPE, stderr=PIPE, encoding='utf-8')
+
+		out, err= p.communicate()
+
+		if out.strip() + err.strip() != "":
+
+			print(out)
+			print(err)
+
+		if cleanup:
+			os.remove(wig)
+
+# def wig_to_bigwig(wig, output_directory):#, cleanup=True):
+
+# 	bigwig = wig.replace(".wig", ".bigwig")
+
+# 	call = f"wigToBigWig {wig} ./{output_directory}/ChromSizes.txt {bigwig}"
+
+# 	print(call)
+
+# 	p = Popen(call.split(), stdout=PIPE, stderr=PIPE, encoding='utf-8')
+
+# 	out, err= p.communicate()
+
+# 	if out.strip() + err.strip() != "":
+
+# 		print(out)
+# 		print(err)
+
+	# if cleanup:
+	# 	os.remove(wig)
+
 class Logger(object):
 	def __init__(self, file_name):
 		self.terminal = sys.stdout
