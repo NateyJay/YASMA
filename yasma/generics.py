@@ -24,6 +24,8 @@ from statistics import median, mean
 
 from math import log10
 
+import pyBigWig
+
 
 
 TOP_READS_HEADER = "cluster\tseq\trank\tdepth\trpm\tlocus_prop"
@@ -567,6 +569,66 @@ def check_rgs(annotation_readgroups, bam_rgs):
 	annotation_readgroups = set(annotation_readgroups)
 	return(annotation_readgroups)
 	# def get(self):
+
+
+class color:
+	PURPLE = '\033[95m'
+	CYAN = '\033[96m'
+	DARKCYAN = '\033[36m'
+	BLUE = '\033[94m'
+	GREEN = '\033[92m'
+	YELLOW = '\033[93m'
+	RED = '\033[91m'
+	BOLD = '\033[1m'
+	UNDERLINE = '\033[4m'
+	END = '\033[0m'
+
+
+class bigwigClass():
+	'''A class to handle producing rpm bigwig files from a counter object c[pos] = depth'''
+
+	def __init__(self, file, rpm_threshold, total_reads, chromosomes, strand= "+"):
+		self.file = file
+		# self.file = f"./{output_directory}/Coverages/{file}.wig"
+		self.bw = pyBigWig.open(self.file, 'w')
+
+		self.rpm_threshold = rpm_threshold
+		self.total_reads   = total_reads
+
+		self.bw.addHeader(chromosomes)
+
+		if strand == "+":
+			self.strand = 1
+		elif strand == "-":
+			self.strand = -1 
+
+
+	def add_chrom(self, c, chrom, chrom_length, peaks_only=False):
+	
+		depths = [0.0000]
+
+		for p in range(chrom_length):
+
+			depth = round(c[p] / self.total_reads * 1000000, 4) * self.strand
+
+			if peaks_only and depth < self.rpm_threshold:
+				depth = 0
+
+			if depth != depths[-1]:
+				# chr19 49302000 49302300 -1.0
+				# print(f"variableStep  chrom={chrom}  span={len(depths)}")
+				# print(f"{p-len(depths)+2} {depths[-1]}")
+
+				# self.bw.addEntries(chrom, [p-len(depths)+2], values=[depths[-1]], span=len(depths))
+				# print(chrom, p-len(depths)+2, p+2, depths[-1], sep='\t')
+
+
+				# self.bw.addEntries([chrom], [p-len(depths)+2], [p+2], values=[depths[-1]])
+				self.bw.addEntries(chrom, [p-len(depths)+2], values=[depths[-1]], span=len(depths))
+
+				depths = []
+
+			depths.append(depth)
 
 
 class wiggleClass():
