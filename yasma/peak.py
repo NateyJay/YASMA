@@ -511,7 +511,7 @@ def peak(**params):
 
 	## preparing output files
 
-	gff_file = f"{output_directory}/Annotation.gff3"
+	gff_file = f"{output_directory}/Loci.gff3"
 
 	with open(gff_file, 'w') as outf:
 		print("##gff-version 3", file=outf)
