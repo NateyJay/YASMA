@@ -82,6 +82,7 @@ class sizeClass():
 		mc = self.size_c.most_common()
 
 		self.size_1_depth, self.size_2_depth, self.size_3_depth = 0,0,0
+		self.size_1_key, self.size_2_key, self.size_3_key = None, None, None
 
 		for key, depth in mc:
 			if self.size_1_depth == 0 and len(key) == 1:
@@ -850,7 +851,7 @@ def peak(**params):
 
 			perc_out = perc.get_percent(i)
 			if perc_out:
-				print(f"   forming peaks to regions ....... {perc_out}%", end='\r', flush=True)
+				print(f"   forming peaks to regions .... {perc_out}%", end='\r', flush=True)
 			i += 1
 
 
@@ -910,13 +911,11 @@ def peak(**params):
 
 		## Sorting loci by position
 
-		print(f"   sorting and writingregions...")
+		print(f"   sorting and writing regions to gff...", flush=True)
 
 		loci.sort(key=lambda x: x[2])
 
 
-
-		print(f"   sorting regions...")
 
 		with open(region_file, 'a') as outf:
 
