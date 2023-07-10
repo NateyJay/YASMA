@@ -24,9 +24,86 @@ from time import time
 import json
 
 from shutil import copyfile
+from subprocess import PIPE, Popen
 
 
 
+
+
+
+
+class bigwigClass():
+	'''A class to handle producing rpm bigwig files from a counter object c[pos] = depth'''
+
+	def __init__(self, file, total_reads, chromosomes, strand= "+", name=''):
+		self.file = file
+		# self.file = f"./{output_directory}/Coverages/{file}.wig"
+		self.bw = pyBigWig.open(self.file, 'w')
+
+		self.total_reads   = total_reads
+
+		self.bw.addHeader(chromosomes)
+
+		if strand == "+":
+			self.strand = 1
+		elif strand == "-":
+			self.strand = -1 
+
+		self.name= name
+
+
+	def reset(self, chrom_length):
+		# self.last_depth_pos = 1
+		self.last_pos = 1
+		# self.last_depth = 0
+		# self.span = 0
+		self.depths = [0] * chrom_length
+
+
+	def add(self, pos, length):
+
+		for r in range(pos, pos+length+1):
+			self.depths[r] += 1
+
+		self.last_pos = r
+
+	def rle(self, chrom):
+		last_depth = 0
+		span = 1
+		last_pos = 0
+
+		starts = []
+		ends   = []
+		values = []
+
+		# print(self.depths)
+		# sys.exit()
+
+		for pos, depth in enumerate(self.depths):
+
+			if depth == last_depth:
+				span += 1
+
+			else:
+
+
+				ends.append(pos)
+				starts.append(last_pos)
+				values.append(round(last_depth / self.total_reads * 1000000, 8) * self.strand)
+
+				# print(self.name, chrom, last_pos, "->", pos, depth, sep='\t')
+
+				last_depth = depth
+				last_pos   = pos
+				span       = 1
+
+		if last_pos < pos:
+			ends.append(pos)
+			starts.append(last_pos)
+			values.append(round(last_depth / self.total_reads * 1000000, 8) * self.strand)
+
+
+		self.bw.addEntries([chrom] * len(values), starts, ends=ends, values=values)
 
 
 
@@ -80,6 +157,10 @@ from shutil import copyfile
 	default=25,
 	help="Maximum read size for specific coverage treatment Default 25 nt.")
 
+@optgroup.option("--force",
+	default=False,
+	help="Maximum read size for specific coverage treatment Default 25 nt.")
+
 
 
 def jbrowse(**params):
@@ -91,7 +172,8 @@ def jbrowse(**params):
 	min_size               = params['min_size']
 	max_size               = params['max_size']
 	genome_file            = params['genome_file']
-	input_config            = params['config_file']
+	input_config           = params['config_file']
+	force                  = params['force']
 
 	output_directory = output_directory.rstrip("/")
 
@@ -240,7 +322,7 @@ def jbrowse(**params):
 								"type": "MultiRowLineRenderer",
 								"color": "rgb(202, 178, 202)"
 								}
-					  	}
+						}
 					}
 				]
 			}
@@ -327,47 +409,57 @@ def jbrowse(**params):
 
 	print()
 	print("Copying data to jbrowse folder...")
-	copyfile(f"{output_directory}/Loci.gff3", f"{ann_dir}/Loci.gff3")
-	copyfile(f"{output_directory}/peak/Regions.gff3", f"{ann_dir}/Regions.gff3")
-	copyfile(genome_file, f"{output_directory}/jbrowse/{genome_name}/{genome_name}.fa")
-	copyfile(genome_file+'.fai', f"{output_directory}/jbrowse/{genome_name}/{genome_name}.fa.fai")
 
+	def copy_it(src, des):
+		if force or not isfile(des):
+			print(f"  {src.split('/')[-1]}")
+			copyfile(src, des)
 
-	sys.exit()
+	copy_it(f"{output_directory}/Loci.gff3", f"{ann_dir}/Loci.gff3")
+	copy_it(f"{output_directory}/peak/Regions.gff3", f"{ann_dir}/Regions.gff3")
+	copy_it(genome_file, f"{output_directory}/jbrowse/{genome_name}/{genome_name}.fa")
+	copy_it(genome_file+'.fai', f"{output_directory}/jbrowse/{genome_name}/{genome_name}.fa.fai")
 
 
 	print()
 	print(f"Calculating coverage for sizes {min_size} to {max_size}...")
+	print()
 
-
-
-	wig_d = {}
+	keys = []
 	for r in sizes:
-		if r not in color_d:
-			color_d[r] = 'pink'
-
 		for s in ['-','+']:
 			key = f"{r}{s}"
+			keys.append(key)
 
-			wig_d[key] = bigwigClass(f"{cov_dir}/{key}.bigwig", 
-				rpm_threshold=False, 
+
+
+
+
+	bw_d = {}
+	for key in keys:
+		bw_d[key] = bigwigClass(f"{cov_dir}/{key}.bigwig", 
 				total_reads=total_reads, 
 				chromosomes=chromosomes,
-				strand = s)
-			# wig_d[key] = wiggleClass(f"{cov_dir}/{key}.wig", rpm_threshold=False, total_reads=total_reads)
+				strand = key[-1],
+				name=key)
 
 
-
-
-	## iterating through chromosomes and reads
+	counter_d = {}
 
 	for chrom_count, chrom_and_length in enumerate(chromosomes):
 
+
+
 		chrom, chrom_length = chrom_and_length
 		print(f"{chrom_count+1} / {len(chromosomes)}")
-		print(f"chrom: {chrom}")
+		print(f"chrom: {chrom} - {chrom_length:,} bp")
 
-		counter_d = make_counter_dict()
+		print()
+
+
+		for key in keys:
+			bw_d[key].reset(chrom_length)
+
 
 
 		perc = percentageClass(1, chrom_depth_c[chrom])
@@ -384,36 +476,28 @@ def jbrowse(**params):
 			else:
 				key = "non" + strand
 
-			for p in range(pos, pos+length+1):
-				counter_d[key][p] += 1
+
+			bw_d[key].add(pos, length)
 
 
 			perc_out = perc.get_percent(i)
 			if perc_out:
 				print(f"   reading position depths ..... {perc_out}%", end='\r', flush=True)
 
-			# if i > 1000:
-			# 	break
 
-		# p.wait()
-		print()
-
-		print("   writing...  ", end= '', flush=True)
-		for size in sizes:
-			for strand in ['-','+']:
-				key = str(size) + strand
-				print("•", key, sep='', end=' ', flush=True)
-			
-				wig_d[key].add_chrom(counter_d[key], chrom, chrom_length)
+			# bw_d[key].add(counter_d[key], pos, chrom)
 
 		print()
-		# break
+		print("   writing: ", end='')
+		for key in keys:
+			print(key, end='  ', flush=True)
+			bw_d[key].rle(chrom)
 
-	for r in sizes:
-		for s in ['-','+']:
-			key = f"{r}{s}"
+		print()
+		print()
 
-			wig_d[key].bw.close()
+	for key in keys:
+		bw_d[key].bw.close()
 
 
 
