@@ -176,26 +176,17 @@ class assessClass():
 
 
 
+	def format(self, locus, seq_c, strand_c, sizecall, aligned_depth, last_stop):
 
-
-	def format(self, name, chrom, start, stop, reads, aligned_depth, last_stop):
-
-
-		# size_key_d = dict()
-		# for n in [1,2,3]:
-		# 	size_key_d[n] = {}
-		# 	for size in range(15,31):
-		# 		keys = get_size_keys(size, n)
-		# 		size_key_d[n][size] = keys
-
+		name, chrom, start, stop = locus
 
 
 		### Basic information
 
-		input_len = len(reads)
+		# input_len = len(reads)
 
-		reads = [r for r in reads if not r[3] + r[1] < start or not r[3] > stop ]
-		depth = len(reads)
+		# reads = [r for r in reads if not r[3] + r[1] < start or not r[3] > stop ]
+		depth = sum(seq_c.values())
 		rpm = depth / aligned_depth * 1000000
 
 
@@ -204,40 +195,40 @@ class assessClass():
 
 		### ShortStack standard metrics
 
-		seq_c       = Counter()
-		strand_c    = Counter()
+		# seq_c       = Counter()
+		# strand_c    = Counter()
 		# size_d      = {1 : Counter(), 2 : Counter(), 3 : Counter()}
 
-		sizecall = sizeClass()
+		# sizecall = sizeClass()
 
-		for read in reads:
-			sam_strand, sam_length, sam_size, sam_pos, sam_chrom, sam_rg, sam_read, sam_name = read
-
-
-
-			if 15 <= sam_length <= 30:
-
-				# print(sam_length)
-				# print(self.get_size_keys(sam_length, 1))
-				# print(self.get_size_keys(sam_length, 2))
-				# print(self.get_size_keys(sam_length, 3))
-				# print(self.get_size_keys(sam_length, 4))
-				# sys.exit()
+		# for read in reads:
+		# 	sam_strand, sam_length, sam_size, sam_pos, sam_chrom, sam_rg, sam_read, sam_name = read
 
 
 
-				seq_c[sam_read] += 1
-				strand_c[sam_strand] += 1
+		# 	if 15 <= sam_length <= 30:
 
-				sizecall.update([sam_length])
+		# 		# print(sam_length)
+		# 		# print(self.get_size_keys(sam_length, 1))
+		# 		# print(self.get_size_keys(sam_length, 2))
+		# 		# print(self.get_size_keys(sam_length, 3))
+		# 		# print(self.get_size_keys(sam_length, 4))
+		# 		# sys.exit()
 
-				# size_d[1][sam_length] += 1
-				# size_d[2].update(size_key_d[2][sam_length])
-				# size_d[3].update(size_key_d[3][sam_length])
 
-		if sum(strand_c.values()) == 0:
-			# this solution is a stop-gap. Apparently, in some species low-lambdas can lead to trace-loci being annotated, which only have reads outside of accepted ranges. 
-			return(None,None)
+
+		# 		seq_c[sam_read] += 1
+		# 		strand_c[sam_strand] += 1
+
+		# 		sizecall.update([sam_length])
+
+		# 		# size_d[1][sam_length] += 1
+		# 		# size_d[2].update(size_key_d[2][sam_length])
+		# 		# size_d[3].update(size_key_d[3][sam_length])
+
+		# if sum(strand_c.values()) == 0:
+		# 	# this solution is a stop-gap. Apparently, in some species low-lambdas can lead to trace-loci being annotated, which only have reads outside of accepted ranges. 
+		# 	return(None,None)
 
 
 
@@ -390,6 +381,11 @@ class assessClass():
 
 
 
+@optgroup.group('\n Debugging options',
+                help='')
+
+@optgroup.option('--debug', default=False, help='Debug flag')
+
 
 def peak(**params):
 	'''Annotator using peak identification and similarity merging.'''
@@ -407,6 +403,12 @@ def peak(**params):
 	clump_dist              = params['clump_dist']
 	clump_strand_similarity = params['clump_strand_similarity']
 	min_locus_length        = params['min_locus_length']
+	debug                   = params['debug']
+
+	if debug: 
+		show_warnings = True
+	else:
+		show_warnings = False
 
 	output_directory = output_directory.rstrip("/")
 
@@ -552,8 +554,8 @@ def peak(**params):
 	total_reads = sum(chrom_depth_c.values())
 	read_equivalent = 1 / sum(chrom_depth_c.values()) * 1000000
 
-	depth_wig = wiggleClass(f"{output_directory}/peak/Depths.wig", rpm_threshold, total_reads)
-	peak_wig = wiggleClass(f"{output_directory}/peak/Depths_peak.wig", rpm_threshold, total_reads)
+	# depth_wig = wiggleClass(f"{output_directory}/peak/Depths.wig", rpm_threshold, total_reads)
+	# peak_wig = wiggleClass(f"{output_directory}/peak/Depths_peak.wig", rpm_threshold, total_reads)
 
 
 	## iterating through chromosomes and reads
@@ -721,8 +723,8 @@ def peak(**params):
 
 
 
-		depth_wig.add_chrom(peak_c, chrom, chrom_length, peaks_only=False)
-		peak_wig.add_chrom(peak_c, chrom, chrom_length, peaks_only=True)
+		# depth_wig.add_chrom(peak_c, chrom, chrom_length, peaks_only=False)
+		# peak_wig.add_chrom(peak_c, chrom, chrom_length, peaks_only=True)
 
 
 		claim_d = {}
@@ -815,7 +817,7 @@ def peak(**params):
 
 			return(boundary)
 
-
+		last_one = False
 		def resolve_overlaps(lbound, center, rbound):
 
 
@@ -848,7 +850,7 @@ def peak(**params):
 
 			perc_out = perc.get_percent(i)
 			if perc_out:
-				print(f"   forming peaks to loci ....... {perc_out}%", end='\r', flush=True)
+				print(f"   forming peaks to regions ....... {perc_out}%", end='\r', flush=True)
 			i += 1
 
 
@@ -908,8 +910,13 @@ def peak(**params):
 
 		## Sorting loci by position
 
+		print(f"   sorting and writingregions...")
+
 		loci.sort(key=lambda x: x[2])
 
+
+
+		print(f"   sorting regions...")
 
 		with open(region_file, 'a') as outf:
 
@@ -988,7 +995,8 @@ def peak(**params):
 
 
 		sizecall_d = {}
-		strand_d = {}
+		strand_d   = {}
+		seq_d      = {}
 		n = False
 
 
@@ -1009,7 +1017,7 @@ def peak(**params):
 
 
 			## Processing sam output
-			sam_strand, sam_length, _, sam_lbound, _, _, _, read_name = read
+			sam_strand, sam_length, _, sam_lbound, _, _, sam_seq, read_name = read
 			sam_rbound = sam_lbound + sam_length
 
 
@@ -1041,34 +1049,13 @@ def peak(**params):
 				last_claim = lclaim
 
 
-			# if sam_lbound in claim_d and sam_rbound in claim_d:
-			# 	lclaim = claim_d[sam_lbound]
-			# 	rclaim = claim_d[sam_rbound]
-
-			# 	if lclaim == rclaim:
-			# 		in_locus = True
-			# 		claim = lclaim
-			# 	else:
-			# 		claim = f'after_{last_claim}'
-			# else:
-			# 	claim = f'after_{last_claim}'
-
-
 
 			try:
 				sizecall_d[claim]
 			except KeyError:
 				sizecall_d[claim] = sizeClass()
 				strand_d[claim] = Counter()
-
-
-
-
-
-			# if claim == 'Cluster_564':
-			# 	print(claim, sam_lbound, sam_rbound, sam_strand, sam_length, sep='\t')
-
-
+				seq_d[claim] = Counter()
 
 
 
@@ -1078,11 +1065,40 @@ def peak(**params):
 
 				sizecall_d[claim].update([sam_length])
 				strand_d[claim].update([sam_strand])
+				seq_d[claim].update([sam_seq])
 
 
 			verbose = False
 
+
+
 			if sam_lbound > loci[considered_loci[-1]][3]:
+				## Checking for any broken loci
+
+				for c in considered_loci[::-1]:
+					c_name = loci[c][0]
+
+					if c_name not in strand_d:
+						to_loc   = f"after_{c_name}"
+						from_loc = f"after_{loci[c-1][0]}"
+
+						try:
+							sizecall_d[to_loc] += sizecall_d[from_loc]
+							strand_d[to_loc] += strand_d[from_loc]
+							seq_d[to_loc] += seq_d[from_loc]
+						except KeyError:
+							pass
+
+						del loci[c]
+
+						if show_warnings:
+							print(f"Warning: bad locus {c_name} removed")
+
+				considered_loci = get_considered_loci(locus_i)
+
+
+			if sam_lbound > loci[considered_loci[-1]][3]:
+				## if all good, moving forward
 
 				if len(considered_loci) == 1:
 
@@ -1092,8 +1108,17 @@ def peak(**params):
 						print('      -> locus has no other regions in range', file=outf)
 						# input()
 
+
+					# try:
+					# 	sizecall_d[loci[locus_i][0]]
+					# except KeyError:
+					# 	print("Warning: removing locus with no claimed reads", loci[locus_i])
+					# 	del loci[locus_i]
+					# 	considered_loci = get_considered_loci(locus_i) 
+					
 					
 					locus_i = final_check_and_increment(locus_i)
+					# print("\nonly_one_considered <- increment")
 
 					considered_loci = get_considered_loci(locus_i)
 
@@ -1195,8 +1220,21 @@ def peak(**params):
 
 							# 	input()
 
+							# if current_locus[0] == 'Cluster_396' or next_locus[0] == 'Cluster_396' or last_one:
+							# 	print()
+							# 	print(locus_i)
+							# 	last_one = True
+							# 	print()
+							# 	print()
+							# 	print(current_locus)
+							# 	print(next_locus)
+							# 	print(size_test, frac_test)
 
+							# 	print(strand_d[current_locus[0]])
+							# 	input()
+							# else:
 
+							# 	last_one=False
 
 							with open(merge_file, 'a') as outf:
 								print(current_locus, "->", next_locus, file=outf)
@@ -1228,9 +1266,14 @@ def peak(**params):
 										try:
 											sizecall_d[to_loc] += sizecall_d[from_loc]
 											strand_d[to_loc] += strand_d[from_loc]
+											seq_d[to_loc] += seq_d[from_loc]
 											print(f"  packing -> {to_loc} with {sizecall_d[from_loc].depth} reads from {from_loc}", file=outf)
 										except KeyError:
+											sys.exit("error!")
 											# print(f"\nWarning: region {next_locus} may not have counts")
+
+											# del loci[locus_i]
+											# considered_loci = get_considered_loci(locus_i) 
 											pass
 
 										to_loc   = current_locus[0]
@@ -1239,9 +1282,13 @@ def peak(**params):
 										try:
 											sizecall_d[to_loc] += sizecall_d[from_loc]
 											strand_d[to_loc] += strand_d[from_loc]
+											seq_d[to_loc] += seq_d[from_loc]
 											print(f"  packing -> {to_loc} with {sizecall_d[from_loc].depth} reads from {from_loc}", file=outf)
 										except KeyError:
+											# sys.exit("error!")
 											# print(f"\nWarning: region {next_locus} may not have counts")
+											# del loci[locus_i]
+											# considered_loci = get_considered_loci(locus_i) 
 											pass
 
 									to_loc   = f"after_{current_locus[0]}"
@@ -1250,9 +1297,14 @@ def peak(**params):
 									try:
 										sizecall_d[to_loc] += sizecall_d[from_loc]
 										strand_d[to_loc] += strand_d[from_loc]
+										seq_d[to_loc] += seq_d[from_loc]
 										print(f"  packing -> {to_loc} with {sizecall_d[from_loc].depth} reads from {from_loc}", file=outf)
 									except KeyError:
 										# print(f"\nWarning: region {next_locus} may not have counts")
+
+										# sys.exit("error!")
+										# del loci[locus_i]
+										# considered_loci = get_considered_loci(locus_i) 
 										pass
 
 
@@ -1281,6 +1333,7 @@ def peak(**params):
 							with open(merge_file, 'a') as outf:
 								print("      -> no valid merges for considered_loci", file=outf)
 							locus_i = final_check_and_increment(locus_i)
+							# print("\nnone_merged <- increment")
 							considered_loci = get_considered_loci(locus_i) 
 							break
 
@@ -1288,6 +1341,7 @@ def peak(**params):
 							with open(merge_file, 'a') as outf:
 								print('      -> new locus has no other regions in range', file=outf)
 							locus_i = final_check_and_increment(locus_i)
+							# print("\nlen(considered_loci) <- increment")
 							considered_loci = get_considered_loci(locus_i) 
 							break
 
@@ -1297,18 +1351,7 @@ def peak(**params):
 							last_claim = loci[considered_loci[-1]][0]
 							break
 
-						# # print(n, considered_loci[-1])
-						# if n == considered_loci[-1]:
-						# 	break
 
-						# print(n)
-						# print(considered_loci)
-
-
-					# if n == considered_loci[-1]:
-					# 	locus_i += 1
-
-					# 	considered_loci = get_considered_loci(locus_i) 
 
 
 				print(f"   clumping similar neighbors... {unclumped_loci_count} -> {len(loci)} loci    ", end='\r', flush=True)
@@ -1329,7 +1372,7 @@ def peak(**params):
 
 		## Assessing locus dimensions and making annotations
 
-		read_depths = []
+		# read_depths = []
 
 		perc = percentageClass(increment=5, total=len(loci))
 
@@ -1345,24 +1388,31 @@ def peak(**params):
 			name, chrom, start, stop = locus
 			coords = f"{chrom}:{start}-{stop}"
 
+			# print(locus)
+			strand_c = strand_d[name]
+			sizecall = sizecall_d[name]
+			read_c   = seq_d[name]
 
-			reads = [r for r in samtools_view(alignment_file, locus=coords, rgs=annotation_readgroups)]
 
-			read_depths.append(len(reads))
+			# reads = [r for r in samtools_view(alignment_file, locus=coords, rgs=annotation_readgroups)]
 
-			read_c = Counter()
-			for read in reads:
-				sam_strand, _, _, _, _, _, sam_read, _ = read
+			# read_depths.append(len(reads))
 
-				if sam_strand == '-':
-					sam_read = complement(sam_read[::-1])
+			# read_c = Counter()
+			# for read in reads:
+			# 	sam_strand, _, _, _, _, _, sam_read, _ = read
 
-				read_c[sam_read] += 1
+			# 	if sam_strand == '-':
+			# 		sam_read = complement(sam_read[::-1])
+
+			# 	read_c[sam_read] += 1
 
 
 
 			
-			results_line, gff_line = assessClass().format(name, chrom, start, stop, reads, sum(chrom_depth_c.values()), last_stop)
+			# results_line, gff_line = assessClass().format(name, chrom, start, stop, reads, sum(chrom_depth_c.values()), last_stop)
+
+			results_line, gff_line = assessClass().format(locus, read_c, strand_c, sizecall, sum(chrom_depth_c.values()), last_stop)
 
 
 			last_stop = stop
@@ -1392,7 +1442,7 @@ def peak(**params):
 		print(f"       mean ---> {round(mean_length,1)} bp")
 		print(f"       median -> {median_length} bp")
 
-
+		read_depths = [sum(strand_d[k].values()) for k in strand_d.keys()]
 		mean_depth   = mean(read_depths)
 		median_depth = median(read_depths)
 
@@ -1409,10 +1459,10 @@ def peak(**params):
 	print()
 	print()
 
-	print("converting coverage files to bigwig...")
+	# print("converting coverage files to bigwig...")
 
-	depth_wig.convert(output_directory=output_directory)
-	peak_wig.convert(output_directory=output_directory)
+	# depth_wig.convert(output_directory=output_directory)
+	# peak_wig.convert(output_directory=output_directory)
 
 
 
