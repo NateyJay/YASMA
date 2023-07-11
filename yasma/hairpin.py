@@ -1005,8 +1005,9 @@ class hairpinClass():
 
 
 @cli.command(group="Calculation", help_priority=5)
+
 @click.option("-a", "--alignment_file", 
-	required=True, 
+	required=False, 
 	type=click.Path(exists=True),
 	help='Alignment file input (bam or cram).')
 
@@ -1033,8 +1034,17 @@ class hairpinClass():
 # 	default="Poisson", 
 # 	help="Annotator algorithm used (Poisson or Dicer)")
 
-def hairpin(alignment_file, output_directory, ignore_replication, max_length):
+def hairpin(**params):
 	"""Evaluates annotated loci for hairpin or miRNA structures."""
+
+	ic = inputClass(params)
+	ic.check(['alignment_file'])
+
+	output_directory     = ic.inputs['output_directory']
+	alignment_file       = ic.inputs['alignment_file']
+
+	ignore_replication   = params['ignore_replication']
+	max_length           = params['max_length']
 
 
 	def get_genome_file():

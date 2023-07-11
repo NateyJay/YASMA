@@ -2,13 +2,14 @@
 
 import sys
 # import os
-# from pprint import pprint
+from pprint import pprint
 
 # import click
 
 from subprocess import PIPE, Popen, call
 # from pathlib import Path
 
+from pathlib import Path
 from os.path import isfile, isdir
 
 from time import time, sleep
@@ -26,6 +27,135 @@ from math import log10
 
 import pyBigWig
 
+import json
+
+
+
+class inputClass():
+	def __init__(self, params):
+
+		output_directory = params['output_directory']
+		output_directory = output_directory.rstrip("/")
+		Path(output_directory).mkdir(parents=True, exist_ok=True)
+
+		self.file = f"{output_directory}/inputs.json"
+
+		self.input_list = [
+			"alignment_file",
+			'annotation_readgroups',
+			'genome_file',
+			'config_file',
+			'gene_annotation_file'
+			]
+
+		if isfile(self.file):
+			self.read()
+		else:
+			self.inputs = {'output_directory' : output_directory}
+
+			for i in self.input_list:
+				self.inputs[i] = None
+
+		self.parse(params)
+		self.write()
+
+
+	def read(self):
+		with open(self.file, 'r') as f:
+			self.inputs = json.load(f)
+
+
+	def write(self):
+		with open(self.file, 'w') as outf:
+			outf.write(json.dumps(self.inputs, indent=2))
+
+
+	def parse(self, params):
+		self.params = params
+
+		if 'annotation_readgroups' in params:
+			params['annotation_readgroups'] = list(params['annotation_readgroups'])
+
+		for option in self.input_list:
+			try:
+				value = params[option]
+			except KeyError:
+				value = None
+
+			self.add(option, value)
+
+	def add(self, option, value):
+
+		saved_value = self.inputs[option]
+
+		if not saved_value:
+			self.inputs[option] = value
+
+		elif not value:
+			pass
+
+		elif saved_value != value:
+			print(f"  Warning: input for option '{option}' does not match logged value")
+
+			res = input(f"Replace '{self.inputs[option]}' with '{value}'? (y/n)")
+
+			if res == 'y':
+				self.inputs[option] = value
+
+
+
+	def get(self):
+		out = []
+
+		for i in self.input_list:
+			out.append(self.inputs[i])
+
+		return(out)
+
+	def check(self, required_options):
+
+		if 'output_directory' not in required_options:
+			required_options = ['output_directory'] + required_options
+
+		self.required_options = required_options
+
+		print(color.BOLD + "Required options:" + color.END)
+		pass_check = True
+		offset = 25
+
+		for option in required_options:
+			value = self.inputs[option]
+
+			print(color.BOLD + '[', end='')
+			if not value:
+				pass_check=False
+				print(" ", end='')
+
+			else:
+				print(f"x", end='')
+
+			print('] ' + color.END, end='')
+
+			print(f"{option}:", "." * (offset-len(option)), f"{color.BOLD}{value}{color.END}")
+
+
+			# 	pass_check = False
+			# 	print(f'Error: required option {option} not supplied or in logged inputs...')
+		print()
+		if not pass_check:
+			sys.exit("Error: one or more essential options are not provided in inputs or program call")
+
+		print()
+		print(color.BOLD + "Other options:" + color.END)
+
+		for option, value  in self.params.items():
+			if option not in self.required_options:
+
+				value = self.params[option]
+
+				print(f"    {option}:", "." * (offset-len(option)), f"{color.BOLD}{value}{color.END}")
+
+		print()
 
 
 TOP_READS_HEADER = "cluster\tseq\trank\tdepth\trpm\tlocus_prop"
