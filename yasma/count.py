@@ -66,12 +66,12 @@ def init(l, r, a, o, ):
 @cli.command(group='Calculation', help_priority=4)
 
 @click.option("-a", "--alignment_file", 
-	required=True, 
+	required=False, 
 	type=click.Path(exists=True),
 	help='Alignment file input (bam or cram).')
 
 @click.option("-o", "--output_directory", 
-	default=f"Annotation_{round(time())}", 
+	required=False,
 	type=click.Path(),
 	help="Directory name for annotation output")
 
@@ -91,28 +91,28 @@ def init(l, r, a, o, ):
 	is_flag=True,
 	help="Don't save zero depth entries to Counts.deep.txt. Saves file space, but can make it harder to analyze.")
 
-# @click.option("-m", "--method", 
-# 	default="Poisson", 
-# 	help="Annotator algorithm used (Poisson or Dicer)")
 
-# @click.option("-t", "--threads",
-# 	default=8,
-# 	help="number of simultaneous threads for samtools_view.")
-
-
-def count(alignment_file, output_directory, locus_files, gff_files, ignore_zeroes):
+def count(** params):
 	"""Gets counts for all readgroups, loci, strand, and sizes."""
 
-	output_directory = output_directory.rstrip("/")
+	ic = inputClass(params)
+	ic.check(['alignment_file'])
+
+	output_directory     = ic.inputs['output_directory']
+	alignment_file       = ic.inputs['alignment_file']
+
+	locus_files          = params['locus_files']
+	gff_files            = params['gff_files']
+	ignore_zeroes        = params['ignore_zeroes']
+
+
+
 
 	counts_file = f"{output_directory}/Counts.txt"
 	deep_counts_file = f"{output_directory}/Counts.deep.txt"
 
 	if len(locus_files) == 0:
 		locus_files = [f"{output_directory}/Results.txt"]
-
-
-
 
 
 	c = Counter()

@@ -304,12 +304,12 @@ class assessClass():
                 help='')
 
 @optgroup.option("-a", "--alignment_file", 
-	required=True, 
+	required=False, 
 	type=click.Path(exists=True),
 	help='Alignment file input (bam or cram).')
 
 @optgroup.option('-r', '--annotation_readgroups', 
-	required=True,
+	required=False,
 	multiple=True,
 	help="List of read groups (RGs, libraries) to be considered for the annotation. 'ALL' uses all readgroups for annotation, but often pertainent RGs will need to be specified individually.")
 
@@ -391,9 +391,14 @@ class assessClass():
 def peak(**params):
 	'''Annotator using peak identification and similarity merging.'''
 
-	alignment_file          = params["alignment_file"]
-	annotation_readgroups   = params['annotation_readgroups']
-	output_directory        = params['output_directory']
+	ic = inputClass(params)
+	ic.check(['alignment_file', 'annotation_readgroups'])
+
+
+	output_directory        = ic.inputs['output_directory']
+	alignment_file          = ic.inputs["alignment_file"]
+	annotation_readgroups   = ic.inputs['annotation_readgroups']
+
 	kernel_window           = params['kernel_window']
 	coverage_method         = params['coverage_method']
 	creep_dist              = params['creep_dist']
@@ -406,16 +411,16 @@ def peak(**params):
 	min_locus_length        = params['min_locus_length']
 	debug                   = params['debug']
 
+
 	if debug: 
 		show_warnings = True
 	else:
 		show_warnings = False
 
-	output_directory = output_directory.rstrip("/")
 
 	Path(output_directory+ "/peak/").mkdir(parents=True, exist_ok=True)
 
-	log_file = f"{output_directory}/Empirical_log.txt"
+	log_file = f"{output_directory}/peak/log.txt"
 
 	sys.stdout = Logger(log_file)
 
@@ -671,6 +676,7 @@ def peak(**params):
 				if perc_out:
 					print(f"   calculating kernel density .. {perc_out}%", end='\r', flush=True)
 
+
 				if len(window_dq) > kernel_window:
 					window_dq.popleft()
 
@@ -818,7 +824,7 @@ def peak(**params):
 
 			return(boundary)
 
-		last_one = False
+
 		def resolve_overlaps(lbound, center, rbound):
 
 
@@ -911,7 +917,7 @@ def peak(**params):
 
 		## Sorting loci by position
 
-		print(f"   sorting and writing regions to gff...", flush=True)
+		print(f"   sorting and writing regions ......", flush=True)
 
 		loci.sort(key=lambda x: x[2])
 
@@ -1022,7 +1028,6 @@ def peak(**params):
 
 			## Identifies the current claim
 
-
 			try:
 				rclaim = claim_d[sam_rbound]
 			except KeyError:
@@ -1049,14 +1054,13 @@ def peak(**params):
 
 
 
+			## logs the claim to the data containers
 			try:
 				sizecall_d[claim]
 			except KeyError:
 				sizecall_d[claim] = sizeClass()
 				strand_d[claim] = Counter()
 				seq_d[claim] = Counter()
-
-
 
 
 			## Adding values to current claim
@@ -1093,11 +1097,14 @@ def peak(**params):
 						if show_warnings:
 							print(f"Warning: bad locus {c_name} removed")
 
+
 				considered_loci = get_considered_loci(locus_i)
 
 
 			if sam_lbound > loci[considered_loci[-1]][3]:
 				## if all good, moving forward
+
+
 
 				if len(considered_loci) == 1:
 
@@ -1105,21 +1112,13 @@ def peak(**params):
 						print('', file=outf)
 						pprint([loci[c] for c in considered_loci], outf)
 						print('      -> locus has no other regions in range', file=outf)
-						# input()
 
-
-					# try:
-					# 	sizecall_d[loci[locus_i][0]]
-					# except KeyError:
-					# 	print("Warning: removing locus with no claimed reads", loci[locus_i])
-					# 	del loci[locus_i]
-					# 	considered_loci = get_considered_loci(locus_i) 
-					
-					
 					locus_i = final_check_and_increment(locus_i)
 					# print("\nonly_one_considered <- increment")
 
 					considered_loci = get_considered_loci(locus_i)
+
+
 
 				else:
 
@@ -1219,7 +1218,7 @@ def peak(**params):
 
 							# 	input()
 
-							# if current_locus[0] == 'Cluster_396' or next_locus[0] == 'Cluster_396' or last_one:
+							# if current_locus[0] == 'Cluster_401' or next_locus[0] == 'Cluster_401' or last_one:
 							# 	print()
 							# 	print(locus_i)
 							# 	last_one = True
@@ -1230,6 +1229,7 @@ def peak(**params):
 							# 	print(size_test, frac_test)
 
 							# 	print(strand_d[current_locus[0]])
+							# 	print(strand_d[next_locus[0]])
 							# 	input()
 							# else:
 
@@ -1356,6 +1356,14 @@ def peak(**params):
 				print(f"   clumping similar neighbors... {unclumped_loci_count} -> {len(loci)} loci    ", end='\r', flush=True)
 
 
+		print()
+		for i,locus in enumerate(loci):
+			name = locus[0]
+
+			if name not in strand_d:
+				print("Serious problem - loci with no reads broke through:", name)
+
+				del loci[i]
 
 
 		# stop = time()
@@ -1367,7 +1375,6 @@ def peak(**params):
 		# print()
 
 
-		print()
 
 		## Assessing locus dimensions and making annotations
 

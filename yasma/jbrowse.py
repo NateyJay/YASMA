@@ -116,12 +116,12 @@ class bigwigClass():
 				help='')
 
 @optgroup.option("-a", "--alignment_file", 
-	required=True, 
+	required=False, 
 	type=click.Path(exists=True),
 	help='Alignment file input (bam or cram).')
 
 @optgroup.option('-r', '--annotation_readgroups', 
-	required=True,
+	required=False,
 	multiple=True,
 	help="List of read groups (RGs, libraries) to be considered for the annotation. 'ALL' uses all readgroups for annotation, but often pertainent RGs will need to be specified individually.")
 
@@ -134,7 +134,7 @@ class bigwigClass():
 
 @optgroup.option("-g", "--genome_file", 
 	# default=f"Annotation_{round(time())}", 
-	required=True,
+	required=False,
 	type=click.Path(exists=True),
 	help='Genome or assembly which was used for the original alignment.')
 
@@ -166,16 +166,18 @@ class bigwigClass():
 def jbrowse(**params):
 	'''Tool to build coverage and config files for jbrowse2.'''
 
-	alignment_file         = params["alignment_file"]
-	annotation_readgroups  = params['annotation_readgroups']
-	output_directory       = params['output_directory']
+	ic = inputClass(params)
+	ic.check(["alignment_file", "annotation_readgroups", "genome_file"])
+
+	output_directory       = ic.inputs['output_directory']
+	alignment_file         = ic.inputs["alignment_file"]
+	annotation_readgroups  = ic.inputs['annotation_readgroups']
+	genome_file            = ic.inputs['genome_file']
+	input_config           = ic.inputs['config_file']
+
 	min_size               = params['min_size']
 	max_size               = params['max_size']
-	genome_file            = params['genome_file']
-	input_config           = params['config_file']
 	force                  = params['force']
-
-	output_directory = output_directory.rstrip("/")
 
 	genome_name = genome_file.rstrip(".gz").rstrip(".fa").split("/")[-1]
 
@@ -432,6 +434,16 @@ def jbrowse(**params):
 			keys.append(key)
 
 
+
+
+	coverage_already_made = False
+	for key in keys:
+		file = f"{cov_dir}/{key}.bigwig"
+		if isfile(file):
+			coverage_already_made = True
+
+	if coverage_already_made and not force:
+		sys.exit("Coverage files found -> skipping make! (override with --force)")
 
 
 
