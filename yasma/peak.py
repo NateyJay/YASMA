@@ -391,6 +391,10 @@ class assessClass():
 def peak(**params):
 	'''Annotator using peak identification and similarity merging.'''
 
+	rc = requirementClass()
+	rc.add_samtools()
+	rc.check()
+
 	ic = inputClass(params)
 	ic.check(['alignment_file', 'annotation_readgroups'])
 
@@ -437,14 +441,18 @@ def peak(**params):
 
 	# chromosomes = [c for c in chromosomes if c[0] == 'NC_037320.1']
 
-	chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
 
-	keys = list(chrom_depth_c.keys())
-	for key in keys:
-		if key[0] in annotation_readgroups:
-			chrom_depth_c[key[1]] += chrom_depth_c[key]
 
-		del chrom_depth_c[key]
+	# chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
+
+	# keys = list(chrom_depth_c.keys())
+	# for key in keys:
+	# 	if key[0] in annotation_readgroups:
+	# 		chrom_depth_c[key[1]] += chrom_depth_c[key]
+
+	# 	del chrom_depth_c[key]
+
+	chrom_depth_c = get_chromosome_depths(alignment_file)
 
 
 	def test_by_samtools(c):
@@ -519,7 +527,7 @@ def peak(**params):
 
 	## preparing output files
 
-	gff_file = f"{output_directory}/Loci.gff3"
+	gff_file = f"{output_directory}/peak/loci.gff3"
 
 	with open(gff_file, 'w') as outf:
 		print("##gff-version 3", file=outf)
@@ -528,29 +536,37 @@ def peak(**params):
 			print(f"##sequence-region   {chrom} 1 {chrom_length}", file=outf)
 
 
-	results_file = f"{output_directory}/Results.txt"
+	results_file = f"{output_directory}/peak/loci.txt"
 	with open(results_file, 'w') as outf:
 		print("\t".join(assessClass().header), file=outf)
 
 
-	reads_file = f"{output_directory}/Reads.txt"
+	reads_file = f"{output_directory}/peak/reads.txt"
 	with open(reads_file, 'w') as outf:
 		print(TOP_READS_HEADER, file=outf)
 
 
 
-	region_file = f"{output_directory}/peak/Regions.gff3"
+	region_file = f"{output_directory}/peak/regions.gff3"
 	with open(region_file, 'w') as outf:
 		print("##gff-version 3", file=outf)
 
 		for chrom, chrom_length in chromosomes:
 			print(f"##sequence-region   {chrom} 1 {chrom_length}", file=outf)
 
-	merge_file = f"{output_directory}/peak/Merges.txt"
+	merge_file = f"{output_directory}/peak/merges.txt"
 	with open(merge_file, 'w') as outf:
 		outf.write('')
 
 
+	stats_file = f"{output_directory}/peak/stats.txt"
+	with open(stats_file, 'w') as outf:
+		print("chromosome\tregions\tloci\tchromosome_length\tproportion_genome_annotated\tmean_length\tmedian_length\treads\tproportion_libraries_annotated\tmean_abundance\tmedian_abundance", file=outf)
+
+
+	stats_file = f"{output_directory}/peak/stats_by_chrom.txt"
+	with open(stats_file, 'w') as outf:
+		print("chromosome\tregions\tloci\tchromosome_length\tproportion_genome_annotated\tmean_length\tmedian_length\treads\tproportion_libraries_annotated\tmean_abundance\tmedian_abundance", file=outf)
 
 	all_loci = []
 	total_read_count = 0
@@ -566,6 +582,9 @@ def peak(**params):
 
 	## iterating through chromosomes and reads
 
+	print("Annotating loci for each chromosome...")
+	print()
+
 	for chrom_count, chrom_and_length in enumerate(chromosomes):
 
 
@@ -573,7 +592,6 @@ def peak(**params):
 		loci = []
 		chrom, chrom_length = chrom_and_length
 
-		print()
 		print()
 		print(f"{chrom_count+1} / {len(chromosomes)}")
 		print(f"chrom: {chrom}")
@@ -1438,23 +1456,26 @@ def peak(**params):
 		print()
 		print()
 
-		print(f"   {len(loci):,} loci found")
-		# print(f"      from {clump_events} clumping events")
 
-		mean_length   = mean([l[3]-l[2] for l in loci])
-		median_length = median([l[3]-l[2] for l in loci])
+		locus_lengths = [l[3]-l[2] for l in loci]
+		mean_length   = mean(locus_lengths)
+		median_length = median(locus_lengths)
+		proportion_chromosome_annotated = round(sum(locus_lengths) / chrom_length, 4)
 
 		print(f"     length:")
 		print(f"       mean ---> {round(mean_length,1)} bp")
 		print(f"       median -> {median_length} bp")
+		print(f"       proportion of chromosome annotated -> {proportion_chromosome_annotated}")
 
-		read_depths = [sum(strand_d[k].values()) for k in strand_d.keys()]
+		read_depths = [sum(strand_d[l[0]].values()) for l in loci]
 		mean_depth   = mean(read_depths)
 		median_depth = median(read_depths)
+		proportion_libraries_annotated = round(sum(read_depths) / chrom_depth_c[chrom], 4)
 
 		print(f"     abundance:")
 		print(f"       mean ---> {round(mean_depth,1)} reads ({round(mean_depth * read_equivalent, 2)} rpm)")
 		print(f"       median -> {median_depth} reads ({round(median_depth * read_equivalent, 2)} rpm)")
+		print(f"       proportion of reads annotated -> {proportion_libraries_annotated}")
 		# sys.exit()
 
 		# • Formalize the coverage file outputs
@@ -1462,6 +1483,14 @@ def peak(**params):
 		# • Include a log file (any tables?)
 		# • Produce an alignment process which extracts tables of log.
 
+		with open(stats_file, 'a') as outf:
+			out = [chrom]
+			out += [unclumped_loci_count, len(loci)]
+			out += [chrom_length, proportion_chromosome_annotated, mean_length, median_length]
+			out += [chrom_depth_c[chrom], proportion_libraries_annotated, mean_depth, median_depth]
+			print("\t".join(map(str, out)), file=outf)
+
+		print()
 	print()
 	print()
 

@@ -125,7 +125,7 @@ class foldClass():
 		out, err = p.communicate(f">{temp_name}\n{self.seq}")
 
 
-		self.fold_file = f"{self.output_directory}/Folds/{self.name}_unannotated.eps"
+		self.fold_file = f"{self.output_directory}/hairpin/folds/{self.name}_unannotated.eps"
 
 		# print(self.fold_file)
 		os.rename(f"{temp_name}_ss.ps", self.fold_file)
@@ -207,7 +207,7 @@ class foldClass():
 
 	def write(self):
 
-		outf = open(f"{self.output_directory}/Folds/{self.name}.eps", 'w')
+		outf = open(f"{self.output_directory}/hairpin/folds/{self.name}.eps", 'w')
 
 		for line in self.lines:
 
@@ -530,7 +530,7 @@ class hairpinClass():
 			return
 
 
-		self.mas_positions = [r + self.seq.index(self.mas) for r in range(len(self.mas) + 1)]
+		self.mas_positions = [r + self.seq.index(self.mas) for r in range(len(self.mas))]
 
 		self.mas_structures = self.find_secondary_structures("".join([self.fold[p] for p in self.mas_positions]))
 
@@ -555,7 +555,7 @@ class hairpinClass():
 			else:
 				self.valid = True
 
-				Path(f'./{self.output_directory}/Folds').mkdir(parents=True, exist_ok=True)
+				Path(f'./{self.output_directory}/hairpin/folds').mkdir(parents=True, exist_ok=True)
 				fold = foldClass(self.name, self.seq, self.alignment_file, self.locus, self.strand, self.mas, self.output_directory)
 
 				self.assess_miRNA()
@@ -1037,6 +1037,11 @@ class hairpinClass():
 def hairpin(**params):
 	"""Evaluates annotated loci for hairpin or miRNA structures."""
 
+	rc = requirementClass()
+	rc.add_samtools()
+	rc.add_RNAfold()
+	rc.check()
+
 	ic = inputClass(params)
 	ic.check(['alignment_file'])
 
@@ -1099,11 +1104,11 @@ def hairpin(**params):
 
 	genome_file = get_genome_file()
 
-	results_file = f"{output_directory}/Results.txt"
+	results_file = f"{output_directory}/peak/loci.txt"
 	assert isfile(results_file), f"results_file {results_file} not found... (Have you run annotation with this directory?)"
 
 	input_mas_d = {}
-	tops_file = f"{output_directory}/Reads.txt"
+	tops_file = f"{output_directory}/peak/reads.txt"
 	with open(tops_file, 'r') as f:
 		header = f.readline()
 		for line in f:
@@ -1120,7 +1125,8 @@ def hairpin(**params):
 
 	header_line = "name\tlocus\tstrand\tstranded\tlength\tshort_enough\tseq\tfold\tmfe\tmas\tstar\tduplex_mas\tduplex_fold\tduplex_star\tvalid_fold\truling\tmfe_per_nt\tmismatches_asymm\tmismatches_total\tno_mas_structures\tno_star_structures\tprecision\tstar_found"
 
-	hairpin_file = f"{output_directory}/Hairpins.txt"
+	Path(output_directory+ "/hairpin/folds").mkdir(parents=True, exist_ok=True)
+	hairpin_file = f"{output_directory}/hairpin/hairpins.txt"
 	with open(hairpin_file, 'w') as outf:
 		print(header_line, file=outf)
 

@@ -95,6 +95,10 @@ def init(l, r, a, o, ):
 def count(** params):
 	"""Gets counts for all readgroups, loci, strand, and sizes."""
 
+	rc = requirementClass()
+	rc.add_samtools()
+	rc.check()
+
 	ic = inputClass(params)
 	ic.check(['alignment_file'])
 
@@ -107,12 +111,14 @@ def count(** params):
 
 
 
+	Path(output_directory+ "/counts/").mkdir(parents=True, exist_ok=True)
 
-	counts_file = f"{output_directory}/Counts.txt"
-	deep_counts_file = f"{output_directory}/Counts.deep.txt"
+
+	counts_file = f"{output_directory}/counts/counts.basic.txt"
+	deep_counts_file = f"{output_directory}/counts/counts.deep.txt"
 
 	if len(locus_files) == 0:
-		locus_files = [f"{output_directory}/Results.txt"]
+		locus_files = [f"{output_directory}/peak/loci.txt"]
 
 
 	c = Counter()

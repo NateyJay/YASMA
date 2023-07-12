@@ -65,12 +65,12 @@ from shutil import copyfile
 	help='Genome or assembly which was used for the original alignment.')
 
 
-@optgroup.option("-c", "--config_file", 
+@optgroup.option("-j", "--jbrowse_directory", 
 	# default=f"Annotation_{round(time())}", 
 	required=False,
 	default=None,
 	type=click.Path(exists=True),
-	help='An already made config to which we will add our entries.')
+	help='A path to a working directory for a jbrowse2 instance.')
 
 
 
@@ -86,6 +86,7 @@ from shutil import copyfile
 				help='')
 
 @optgroup.option("--overwrite", 
+	is_flag=True,
 	default=False,
 	help='Allowing the overwrite of inputs already logged.')
 
@@ -94,10 +95,15 @@ def inputs(**params):
 	'''A tool to log inputs, which will be referenced by later tools.'''
 
 
+	rc = requirementClass()
+	rc.add_samtools()
+	rc.check()
+
 	ic = inputClass(params)
+	ic.check_chromosomes()
 
 	print()
-	print("Inputs:")
+	print(color.BOLD + "Inputs:" + color.END)
 	pprint(ic.inputs)
 
 
