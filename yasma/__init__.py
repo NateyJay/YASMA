@@ -16,3 +16,12 @@ from .inputs import *
 
 
 
+## Functionality to add:
+## [x] Requirements checking
+## [ ] Documentation on github
+## [ ] Logging of all functions
+## [x] Sensible output naming
+## [ ] Alignment convenience function
+## [x] Checking that alignment/genome/annotations all match in chromosome names.
+
+

@@ -31,6 +31,76 @@ import json
 
 
 
+
+class requirementClass():
+	def __init__(self):
+		self.reqs = []
+
+	def add_samtools(self):
+		try:
+			p = Popen(['samtools', 'version'], stdout=PIPE, stderr=PIPE, encoding='utf-8')
+			out,err = p.communicate()
+			out = out.split("\n")
+			found=True
+			version = out[0].split()[-1]
+
+		except FileNotFoundError:
+			found=False
+			version=''
+
+		self.reqs.append(('samtools', found, version))
+
+	def add_RNAfold(self):
+
+		try:
+			p = Popen(['RNAfold', '--version'], stdout=PIPE, stderr=PIPE, encoding='utf-8')
+			out,err = p.communicate()
+			out = out.split("\n")
+			found=True
+			version = out[0].split()[-1]
+
+		except FileNotFoundError:
+			found=False
+			version=''
+
+		self.reqs.append(('RNAfold', found, version))
+
+	def add_bedtools(self):
+
+		try:
+			p = Popen(['bedtools', '--version'], stdout=PIPE, stderr=PIPE, encoding='utf-8')
+			out,err = p.communicate()
+			out = out.split("\n")
+			found=True
+			version = out[0].split()[-1]
+
+		except FileNotFoundError:
+			found=False
+			version=''
+
+		self.reqs.append(('bedtools', found, version))
+
+	def check(self):
+
+		fail=False
+
+		print(color.BOLD + "Requirements:" + color.END)
+
+		for tool, found, version in self.reqs:
+			if not found:
+				fail = True
+
+			if found:
+				print(color.BOLD + '[x]' + color.END, tool, "->", version)
+			else:
+				print(color.BOLD + '[ ]' + color.END, tool)
+
+		
+		if fail:
+			sys.exit("Error: requirements not met!")
+
+		print()
+
 class inputClass():
 	def __init__(self, params):
 
@@ -44,7 +114,7 @@ class inputClass():
 			"alignment_file",
 			'annotation_readgroups',
 			'genome_file',
-			'config_file',
+			'jbrowse_directory',
 			'gene_annotation_file'
 			]
 
@@ -84,6 +154,8 @@ class inputClass():
 
 			self.add(option, value)
 
+
+
 	def add(self, option, value):
 
 		saved_value = self.inputs[option]
@@ -95,9 +167,12 @@ class inputClass():
 			pass
 
 		elif saved_value != value:
-			print(f"  Warning: input for option '{option}' does not match logged value")
+			print(f"  Warning: input for option '{color.BOLD}{option}{color.END}' does not match logged value")
 
-			res = input(f"Replace '{self.inputs[option]}' with '{value}'? (y/n)")
+			print(f"  Replace: ... '{self.inputs[option]}'")
+			print(f"  with: ...... '{value}'")
+
+			res = input("   (y)es or (n)o?\n")
 
 			if res == 'y':
 				self.inputs[option] = value
@@ -143,9 +218,8 @@ class inputClass():
 			# 	print(f'Error: required option {option} not supplied or in logged inputs...')
 		print()
 		if not pass_check:
-			sys.exit("Error: one or more essential options are not provided in inputs or program call")
+			sys.exit("Error: one or more essential options are not provided in 'inputs.json' or program call")
 
-		print()
 		print(color.BOLD + "Other options:" + color.END)
 
 		for option, value  in self.params.items():
@@ -156,6 +230,63 @@ class inputClass():
 				print(f"    {option}:", "." * (offset-len(option)), f"{color.BOLD}{value}{color.END}")
 
 		print()
+
+	def check_chromosomes(self):
+
+		genome_chromosomes = set()
+		if self.inputs['genome_file']:
+
+			with open(self.inputs['genome_file'] + ".fai", 'r') as f:
+
+				for line in f:
+					genome_chromosomes.add(line.split()[0])
+
+			# print(genome_chromosomes)
+
+
+		gene_annotation_chromosomes = set()
+		if self.inputs['gene_annotation_file']:
+
+			with open(self.inputs['gene_annotation_file']) as f:
+
+				for line in f:
+					gene_annotation_chromosomes.add(line.split()[0])
+
+			gene_annotation_chromosomes = list(gene_annotation_chromosomes)
+			# print(gene_annotation_chromosomes)
+
+
+		alignment_chromosomes = set()
+		if self.inputs['alignment_file']:
+			p = Popen(['samtools', 'view', '-H', self.inputs['alignment_file']],
+				stdout=PIPE, stderr=PIPE, encoding='utf-8')
+
+			for line in p.stdout:
+				if line.startswith("@SQ"):
+					alignment_chromosomes.add(line.split("\t")[1][3:])
+
+			p.wait()
+
+			# print(alignment_chromosomes)
+		all_chroms = set()
+		all_chroms.update(genome_chromosomes)
+		all_chroms.update(gene_annotation_chromosomes)
+		all_chroms.update(alignment_chromosomes)
+
+		def is_found(chrom, chrom_set):
+			if chrom in chrom_set:
+				return(" x")
+			elif len(chrom_set) == 0:
+				return(None)
+			else:
+				return("  ")
+
+		print("Checking chromosome/scaffold/contig overlaps between inputs...")
+		print()
+		print('genome', 'align', 'gene', 'chrom/scaffold', sep='\t')
+		print("--------------------------------------")
+		for chrom in all_chroms:
+			print(is_found(chrom, genome_chromosomes), is_found(chrom, alignment_chromosomes), is_found(chrom, gene_annotation_chromosomes), chrom, sep='\t')
 
 
 TOP_READS_HEADER = "cluster\tseq\trank\tdepth\trpm\tlocus_prop"
@@ -386,7 +517,7 @@ def get_lambda(alignment_file, chromosomes, window_length, output_directory):
 
 
 def get_global_depth(output_directory, alignment_file, force=False, aggregate_by=['rg','chrom','length']):
-	depth_file = f"./{output_directory}/GlobalDepth.txt"
+	depth_file = f"./{output_directory}/global_depth.txt"
 
 	header = ['rg','chrom','length','abundance']
 
@@ -679,12 +810,29 @@ def get_chromosomes(file, output_directory=False):
 			rgs.append(o[1].split(":")[-1])
 
 
-	if output_directory:
-		with open(f"./{output_directory}/ChromSizes.txt", 'w') as outf:
-			for chrom, size in chromosomes:
-				print(chrom, size, sep='\t', file=outf)
+	# if output_directory:
+	# 	with open(f"./{output_directory}/chrom_sizes.txt", 'w') as outf:
+	# 		for chrom, size in chromosomes:
+	# 			print(chrom, size, sep='\t', file=outf)
 
 	return(chromosomes, rgs)
+
+def get_chromosome_depths(bam_file):
+	print("reading chromosome depths from idxstats...")
+	print()
+
+	p = Popen(['samtools', 'idxstats', bam_file], stdout=PIPE, stderr=PIPE, encoding='utf-8')
+
+	chrom_depths = Counter()
+	for line in p.stdout:
+		line = line.strip().split("\t")
+		chrom_depths[line[0]] += int(line[2])
+		# print(line)
+
+	p.wait()
+
+	return(chrom_depths)
+
 
 
 def check_rgs(annotation_readgroups, bam_rgs):

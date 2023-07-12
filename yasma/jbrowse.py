@@ -108,7 +108,7 @@ class bigwigClass():
 
 
 
-@cli.command(group='Utilities', help_priority=3)
+@cli.command(group='Calculation', help_priority=2)
 
 
 
@@ -131,6 +131,13 @@ class bigwigClass():
 	type=click.Path(),
 	help="Directory name for annotation output.")
 
+@optgroup.option("--gene_annotation_file", 
+	# default=f"Annotation_{round(time())}", 
+	required=False,
+	default=None,
+	type=click.Path(exists=True),
+	help='Annotation file for genes (gff3) matching the included genome.')
+
 
 @optgroup.option("-g", "--genome_file", 
 	# default=f"Annotation_{round(time())}", 
@@ -139,15 +146,18 @@ class bigwigClass():
 	help='Genome or assembly which was used for the original alignment.')
 
 
+@optgroup.group("\n  Should include")
+
+@optgroup.option("-j", "--jbrowse_directory", 
+	# default=f"Annotation_{round(time())}", 
+	required=False,
+	default=None,
+	type=click.Path(exists=True),
+	help='A path to a working directory for a jbrowse2 instance.')
+
 
 @optgroup.group('\n  Options',
 				help='')
-
-@optgroup.option("-c", "--config_file", 
-	# default=f"Annotation_{round(time())}", 
-	required=False,
-	type=click.Path(exists=True),
-	help='An already made config to which we will add our entries.')
 
 @optgroup.option("--min_size",
 	default=20,
@@ -158,8 +168,14 @@ class bigwigClass():
 	help="Maximum read size for specific coverage treatment Default 25 nt.")
 
 @optgroup.option("--force",
+	is_flag=True,
 	default=False,
-	help="Maximum read size for specific coverage treatment Default 25 nt.")
+	help="Force remake of coverage files")
+
+@optgroup.option("--overwrite_config",
+	is_flag=True,
+	default=False,
+	help="Option to overwrite and make a new jbrowse config.json de novo.")
 
 
 
@@ -173,11 +189,19 @@ def jbrowse(**params):
 	alignment_file         = ic.inputs["alignment_file"]
 	annotation_readgroups  = ic.inputs['annotation_readgroups']
 	genome_file            = ic.inputs['genome_file']
-	input_config           = ic.inputs['config_file']
+	jbrowse_directory      = ic.inputs['jbrowse_directory']
+	gene_annotation_file   = ic.inputs["gene_annotation_file"]
 
 	min_size               = params['min_size']
 	max_size               = params['max_size']
 	force                  = params['force']
+	overwrite_config       = params['overwrite_config']
+
+	jbrowse_directory = jbrowse_directory.rstrip("/")
+	if jbrowse_directory:
+		input_config = f"{jbrowse_directory}/config.json"
+	else:
+		input_config = None
 
 	genome_name = genome_file.rstrip(".gz").rstrip(".fa").split("/")[-1]
 
@@ -192,14 +216,16 @@ def jbrowse(**params):
 	chromosomes, bam_rgs = get_chromosomes(alignment_file, output_directory)
 	annotation_readgroups = check_rgs(annotation_readgroups, bam_rgs)
 
-	chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
+	# chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
 
-	keys = list(chrom_depth_c.keys())
-	for key in keys:
-		if key[0] in annotation_readgroups:
-			chrom_depth_c[key[1]] += chrom_depth_c[key]
+	# keys = list(chrom_depth_c.keys())
+	# for key in keys:
+	# 	if key[0] in annotation_readgroups:
+	# 		chrom_depth_c[key[1]] += chrom_depth_c[key]
 
-		del chrom_depth_c[key]
+	# 	del chrom_depth_c[key]
+
+	chrom_depth_c = get_chromosome_depths(alignment_file)
 
 	total_reads = sum(chrom_depth_c.values())
 
@@ -262,17 +288,17 @@ def jbrowse(**params):
 			}
 		return(d)
 
-	def make_annotation_track(name):
+	def make_annotation_track(name, uri):
 
-		track_id = f"{output_directory}_{name}"
+		# track_id = f"{output_directory}_{name}"
 
 		d = { "type": "FeatureTrack",
-				"trackId": track_id,
-				"name": f"{output_directory}_{name}",
+				"trackId": name,
+				"name": name, #f"{output_directory}_{name}",
 				"adapter": {
 					"type": "Gff3Adapter",
 					"gffLocation": {
-						"uri": f"{genome_name}/{output_directory}_annotations/{name}.gff3",
+						"uri": uri, #f"{genome_name}/{output_directory}_annotations/{name}.gff3",
 						"locationType": "UriLocation"
 					}
 				},
@@ -282,7 +308,7 @@ def jbrowse(**params):
 				"displays": [
 					{
 						"type": "LinearBasicDisplay",
-						"displayId": f"{output_directory}_{name}",
+						"displayId": name, #f"{output_directory}_{name}",
 						"renderer": {
 							"type": "SvgFeatureRenderer",
 							"color1": "jexl:customColor(feature)"
@@ -351,9 +377,9 @@ def jbrowse(**params):
 
 
 
-	def read_config(input_config):
+	def read_config(input_config, overwrite):
 		print()
-		if not input_config:
+		if not input_config or overwrite:
 			print("Making config.json de novo")
 			return({})
 		with open(input_config, 'r') as f:
@@ -361,7 +387,7 @@ def jbrowse(**params):
 			data = json.load(f)
 		return(data)
 
-	config_d = read_config(input_config)
+	config_d = read_config(input_config, overwrite_config)
 
 	if 'plugins' not in config_d:
 		config_d['plugins'] = []
@@ -386,14 +412,32 @@ def jbrowse(**params):
 
 	names = [c['name'] for c in config_d['tracks']]
 
+	## Gene annotation
+	name = gene_annotation_file.rstrip('.gff3').rstrip(".gff").split("/")[-1]
+	if name not in names:
+		print(f"  adding track: {color.BOLD}{name}.gff3{color.END}")
+		at = make_annotation_track(
+			name=name,
+			uri=f"{genome_name}/{name}.gff3")
+		config_d['tracks'].append(at)
+
+	## sRNA loci
 	if f"{output_directory}_Loci" not in names:
 		print(f"  adding track: {color.BOLD}{output_directory}_Loci{color.END}")
-		config_d['tracks'].append(make_annotation_track('Loci'))
+		at = make_annotation_track(
+			name=f'{output_directory}_Loci', 
+			uri=f"{genome_name}/{output_directory}_annotations/Loci.gff3")
+		config_d['tracks'].append(at)
 
+	## sRNA regions
 	if f"{output_directory}_Regions" not in names:
 		print(f"  adding track: {color.BOLD}{output_directory}_Regions{color.END}")
-		config_d['tracks'].append(make_annotation_track('Regions'))
+		at = make_annotation_track(
+			name=f'{output_directory}_Regions', 
+			uri=f"{genome_name}/{output_directory}_annotations/Regions.gff3")
+		config_d['tracks'].append(at)
 
+	## Coverages
 	if f"{output_directory}_Coverage" not in names:
 		print(f"  adding track: {color.BOLD}{output_directory}_Coverage{color.END}")
 		config_d['tracks'].append(make_bigwig_track())
@@ -417,10 +461,11 @@ def jbrowse(**params):
 			print(f"  {src.split('/')[-1]}")
 			copyfile(src, des)
 
-	copy_it(f"{output_directory}/Loci.gff3", f"{ann_dir}/Loci.gff3")
-	copy_it(f"{output_directory}/peak/Regions.gff3", f"{ann_dir}/Regions.gff3")
+	copy_it(f"{output_directory}/peak/loci.gff3", f"{ann_dir}/loci.gff3")
+	copy_it(f"{output_directory}/peak/regions.gff3", f"{ann_dir}/regions.gff3")
 	copy_it(genome_file, f"{output_directory}/jbrowse/{genome_name}/{genome_name}.fa")
 	copy_it(genome_file+'.fai', f"{output_directory}/jbrowse/{genome_name}/{genome_name}.fa.fai")
+	copy_it(gene_annotation_file, f"{output_directory}/jbrowse/{genome_name}/{gene_annotation_file.split('/')[-1]}")
 
 
 	print()
@@ -443,73 +488,88 @@ def jbrowse(**params):
 			coverage_already_made = True
 
 	if coverage_already_made and not force:
-		sys.exit("Coverage files found -> skipping make! (override with --force)")
+		print("Coverage files found -> skipping make! (override with --force)")
+
+	else:
+
+		bw_d = {}
+		for key in keys:
+			bw_d[key] = bigwigClass(f"{cov_dir}/{key}.bigwig", 
+					total_reads=total_reads, 
+					chromosomes=chromosomes,
+					strand = key[-1],
+					name=key)
+
+
+		counter_d = {}
+
+		for chrom_count, chrom_and_length in enumerate(chromosomes):
 
 
 
-	bw_d = {}
-	for key in keys:
-		bw_d[key] = bigwigClass(f"{cov_dir}/{key}.bigwig", 
-				total_reads=total_reads, 
-				chromosomes=chromosomes,
-				strand = key[-1],
-				name=key)
+			chrom, chrom_length = chrom_and_length
+			print(f"{chrom_count+1} / {len(chromosomes)}")
+			print(f"chrom: {chrom} -> {chrom_length:,} bp")
+
+			print()
 
 
-	counter_d = {}
-
-	for chrom_count, chrom_and_length in enumerate(chromosomes):
+			for key in keys:
+				bw_d[key].reset(chrom_length)
 
 
 
-		chrom, chrom_length = chrom_and_length
-		print(f"{chrom_count+1} / {len(chromosomes)}")
-		print(f"chrom: {chrom} - {chrom_length:,} bp")
+			perc = percentageClass(1, chrom_depth_c[chrom])
 
-		print()
+			reads = samtools_view(alignment_file, rgs=annotation_readgroups, locus=chrom)
 
+			for i, read in enumerate(reads):
+
+				strand, length, _, pos, _, _, _, _ = read
+				# strand, length, size, sam_pos, sam_chrom, rg, seq, read_id)
+
+				if min_size <= length <= max_size:
+					key = str(length) + strand
+				else:
+					key = "non" + strand
+
+
+				bw_d[key].add(pos, length)
+
+
+
+				perc_out = perc.get_percent(i)
+				if perc_out:
+					print(f"   reading position depths ..... {perc_out}%", end='\r', flush=True)
+
+
+
+			print()
+			print("   writing: ", end='')
+			for key in keys:
+				print(key, end='  ', flush=True)
+				bw_d[key].rle(chrom)
+
+			print()
+			print()
 
 		for key in keys:
-			bw_d[key].reset(chrom_length)
+			bw_d[key].bw.close()
 
 
 
-		perc = percentageClass(1, chrom_depth_c[chrom])
-
-		reads = samtools_view(alignment_file, rgs=annotation_readgroups, locus=chrom)
-
-		for i, read in enumerate(reads):
-
-			strand, length, _, pos, _, _, _, _ = read
-			# strand, length, size, sam_pos, sam_chrom, rg, seq, read_id)
-
-			if min_size <= length <= max_size:
-				key = str(length) + strand
-			else:
-				key = "non" + strand
+	print()
+	print('copying with rsync...')
 
 
-			bw_d[key].add(pos, length)
+	p = Popen(['rsync', '-arv', f'{output_directory}/jbrowse/', jbrowse_directory])
+	p.wait()
 
 
-			perc_out = perc.get_percent(i)
-			if perc_out:
-				print(f"   reading position depths ..... {perc_out}%", end='\r', flush=True)
 
 
-			# bw_d[key].add(counter_d[key], pos, chrom)
 
-		print()
-		print("   writing: ", end='')
-		for key in keys:
-			print(key, end='  ', flush=True)
-			bw_d[key].rle(chrom)
 
-		print()
-		print()
-
-	for key in keys:
-		bw_d[key].bw.close()
 
 
 

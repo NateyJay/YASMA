@@ -13,7 +13,7 @@ from .cli import cli
 @cli.command(group='Calculation', help_priority=3)
 
 @click.option("-g", "--gene_annotation_file", 
-	required=True, 
+	required=False, 
 	type=click.Path(exists=True),
 	help='Gene annotation file in gff3 format. Tested with NCBI annotation formats.')
 
@@ -31,20 +31,32 @@ from .cli import cli
 	help='Force remake of supporting files')
 
 
-def context(gene_annotation_file, output_directory, force):
+def context(**params):
 	"""Compares annotations to identify cluster genomic context."""
 
-	output_directory = output_directory.rstrip("/")
 
-	if not isdir(output_directory):
-		sys.exit(f"output directory does not exist: {output_directory}")
+	rc = requirementClass()
+	rc.add_bedtools()
+	rc.check()
 
-	ann_file = f"{output_directory}/Annotation.gff3"
+	ic = inputClass(params)
+	ic.check(['gene_annotation_file'])
+
+
+	output_directory        = ic.inputs['output_directory']
+	gene_annotation_file    = ic.inputs["gene_annotation_file"]
+
+	force                   = params['force']
+
+
+
+
+	ann_file = f"{output_directory}/peak/loci.gff3"
 
 	if not isfile(ann_file):
 		sys.exit(f"Annotation file {ann_file} does not exist. Are you sure the output folder contains an annotation?")
 
-	results_file = f"{output_directory}/Results.txt"
+	results_file = f"{output_directory}/peak/loci.txt"
 
 	if not isfile(results_file):
 		sys.exit(f"results file ({results_file}) not found")
@@ -83,6 +95,7 @@ def context(gene_annotation_file, output_directory, force):
 		exon_file = gene_annotation_file.replace(".gff3", ".exon.gff3")
 		cds_file  = gene_annotation_file.replace(".gff3", ".cds.gff3")
 
+
 		if not isfile(mRNA_file) or not isfile(exon_file) or not isfile(cds_file):
 			sort()
 
@@ -116,20 +129,20 @@ def context(gene_annotation_file, output_directory, force):
 	mRNA_file, exon_file, cds_file = make_subsets()
 
 
-
 	def closest(file, ID):
 
 		closest_d = {}
 
 		call= ['bedtools', 'closest', '-a', ann_file, '-b', file, '-d']
 
+		print(" ".join(call))
 		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
 		out, err = p.communicate()
 
 
 		for o in out.strip().split("\n"):
+
 			o = o.strip().split("\t")
-			# print(o)
 
 			s_strand = o[6]
 			m_strand = o[15]
@@ -211,7 +224,8 @@ def context(gene_annotation_file, output_directory, force):
 	cds_d = intersect(cds_file, ID='cds')
 
 
-	output_file = f"{output_directory}/GenomicContext.txt"
+	Path(output_directory+ "/context/").mkdir(parents=True, exist_ok=True)
+	output_file = f"{output_directory}/context/context.txt"
 
 	print()
 	print(f'Printing to...\n  {output_file}')
