@@ -296,7 +296,7 @@ class assessClass():
 
 
 
-@cli.command(group='Annotation', help_priority=1)
+@cli.command(group='Annotation', help_priority=2)
 
 
 
@@ -1464,33 +1464,40 @@ def peak(**params):
 
 		locus_lengths = [l[3]-l[2] for l in loci]
 		try:
-			mean_length   = mean(locus_lengths)
+			mean_length   = round(mean(locus_lengths),1)
 		except StatisticsError:
 			mean_length = None
 		try:
 			median_length = median(locus_lengths)
 		except StatisticsError:
 			median_length = None
-		proportion_chromosome_annotated = round(sum(locus_lengths) / chrom_length, 4)
+
+		if len(loci) > 0:
+			proportion_chromosome_annotated = round(sum(locus_lengths) / chrom_length, 4)
+		else:
+			proportion_chromosome_annotated = None
 
 		print(f"     length:")
-		print(f"       mean ---> {round(mean_length,1)} bp")
+		print(f"       mean ---> {mean_length} bp")
 		print(f"       median -> {median_length} bp")
 		print(f"       proportion of chromosome annotated -> {proportion_chromosome_annotated}")
 
 		read_depths = [sum(strand_d[l[0]].values()) for l in loci]
 		try:
-			mean_depth   = mean(read_depths)
+			mean_depth   = round(mean(read_depths),1)
 		except StatisticsError:
 			mean_depth = None
 		try:
 			median_depth = median(read_depths)
 		except StatisticsError:
 			median_depth = None
-		proportion_libraries_annotated = round(sum(read_depths) / chrom_depth_c[chrom], 4)
+		if len(loci) > 0:
+			proportion_libraries_annotated = round(sum(read_depths) / chrom_depth_c[chrom], 4)
+		else:
+			proportion_libraries_annotated = None
 
 		print(f"     abundance:")
-		print(f"       mean ---> {round(mean_depth,1)} reads ({round(mean_depth * read_equivalent, 2)} rpm)")
+		print(f"       mean ---> {mean_depth} reads ({round(mean_depth * read_equivalent, 2)} rpm)")
 		print(f"       median -> {median_depth} reads ({round(median_depth * read_equivalent, 2)} rpm)")
 		print(f"       proportion of reads annotated -> {proportion_libraries_annotated}")
 		# sys.exit()
