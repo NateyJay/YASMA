@@ -218,6 +218,8 @@ class inputClass():
 			# 	print(f'Error: required option {option} not supplied or in logged inputs...')
 		print()
 		if not pass_check:
+
+
 			sys.exit("Error: one or more essential options are not provided in 'inputs.json' or program call")
 
 		print(color.BOLD + "Other options:" + color.END)

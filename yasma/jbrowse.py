@@ -216,16 +216,15 @@ def jbrowse(**params):
 	chromosomes, bam_rgs = get_chromosomes(alignment_file, output_directory)
 	annotation_readgroups = check_rgs(annotation_readgroups, bam_rgs)
 
-	# chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
+	chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
 
-	# keys = list(chrom_depth_c.keys())
-	# for key in keys:
-	# 	if key[0] in annotation_readgroups:
-	# 		chrom_depth_c[key[1]] += chrom_depth_c[key]
+	keys = list(chrom_depth_c.keys())
+	for key in keys:
+		if key[0] in annotation_readgroups:
+			chrom_depth_c[key[1]] += chrom_depth_c[key]
 
-	# 	del chrom_depth_c[key]
+		del chrom_depth_c[key]
 
-	chrom_depth_c = get_chromosome_depths(alignment_file)
 
 	total_reads = sum(chrom_depth_c.values())
 

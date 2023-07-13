@@ -18,7 +18,7 @@ import math
 from .generics import *
 from .cli import cli
 
-from statistics import mean, median
+from statistics import mean, median, StatisticsError
 
 from time import time
 
@@ -443,16 +443,14 @@ def peak(**params):
 
 
 
-	# chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
+	chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
 
-	# keys = list(chrom_depth_c.keys())
-	# for key in keys:
-	# 	if key[0] in annotation_readgroups:
-	# 		chrom_depth_c[key[1]] += chrom_depth_c[key]
+	keys = list(chrom_depth_c.keys())
+	for key in keys:
+		if key[0] in annotation_readgroups:
+			chrom_depth_c[key[1]] += chrom_depth_c[key]
 
-	# 	del chrom_depth_c[key]
-
-	chrom_depth_c = get_chromosome_depths(alignment_file)
+		del chrom_depth_c[key]
 
 
 	def test_by_samtools(c):
@@ -567,6 +565,13 @@ def peak(**params):
 	stats_file = f"{output_directory}/peak/stats_by_chrom.txt"
 	with open(stats_file, 'w') as outf:
 		print("chromosome\tregions\tloci\tchromosome_length\tproportion_genome_annotated\tmean_length\tmedian_length\treads\tproportion_libraries_annotated\tmean_abundance\tmedian_abundance", file=outf)
+
+
+	overall_file = f"{output_directory}/peak/stats_overall.txt"
+	with open(overall_file, 'w') as outf:
+		outf.write('')
+
+	overall_d = {}
 
 	all_loci = []
 	total_read_count = 0
@@ -1458,8 +1463,14 @@ def peak(**params):
 
 
 		locus_lengths = [l[3]-l[2] for l in loci]
-		mean_length   = mean(locus_lengths)
-		median_length = median(locus_lengths)
+		try:
+			mean_length   = mean(locus_lengths)
+		except StatisticsError:
+			mean_length = None
+		try:
+			median_length = median(locus_lengths)
+		except StatisticsError:
+			median_length = None
 		proportion_chromosome_annotated = round(sum(locus_lengths) / chrom_length, 4)
 
 		print(f"     length:")
@@ -1468,8 +1479,14 @@ def peak(**params):
 		print(f"       proportion of chromosome annotated -> {proportion_chromosome_annotated}")
 
 		read_depths = [sum(strand_d[l[0]].values()) for l in loci]
-		mean_depth   = mean(read_depths)
-		median_depth = median(read_depths)
+		try:
+			mean_depth   = mean(read_depths)
+		except StatisticsError:
+			mean_depth = None
+		try:
+			median_depth = median(read_depths)
+		except StatisticsError:
+			median_depth = None
 		proportion_libraries_annotated = round(sum(read_depths) / chrom_depth_c[chrom], 4)
 
 		print(f"     abundance:")
@@ -1491,9 +1508,51 @@ def peak(**params):
 			print("\t".join(map(str, out)), file=outf)
 
 		print()
+
+
+		try:
+			overall_d['region_count']  += unclumped_loci_count
+			overall_d['loci_count']    += len(loci)
+			overall_d['genome_length'] += chrom_length
+			overall_d['locus_lengths'] += locus_lengths
+			overall_d['total_depth']   += chrom_depth_c[chrom]
+			overall_d['read_depths']   += read_depths
+
+		except KeyError:
+			overall_d['region_count']   = unclumped_loci_count
+			overall_d['loci_count']     = len(loci)
+			overall_d['genome_length']  = chrom_length
+			overall_d['locus_lengths']  = locus_lengths
+			overall_d['total_depth']    = chrom_depth_c[chrom]
+			overall_d['read_depths']    = read_depths
+
+
+
+
 	print()
 	print()
 
+
+	with open(overall_file, 'a') as outf:
+
+
+		print('region_count ..................', overall_d['region_count'], file=outf)
+		print('loci_count ....................', overall_d['loci_count'], file=outf)
+		print()
+
+		print('genome_length: ................', overall_d['genome_length'], 'bp', file=outf)
+		print('proportion_genome_annotated ...', 
+			round(sum(overall_d['locus_lengths'])/overall_d['genome_length'], 4), file=outf)
+		print('mean_length ...................', round(mean(overall_d['locus_lengths']),1), 'bp', file=outf)
+		print('median_length .................', median(overall_d['locus_lengths']), 'bp', file=outf)
+		print()
+
+
+		print('total_depth ...................', overall_d['total_depth'], 'reads', file=outf)
+		print('proportion_library_annotated ..', 
+			round(sum(overall_d['read_depths'])/overall_d['total_depth'], 4), file=outf)
+		print('mean_depth ....................', round(mean(overall_d['read_depths']),1), 'reads', file=outf)
+		print('median_depth ..................', median(overall_d['read_depths']), 'reads', file=outf)
 	# print("converting coverage files to bigwig...")
 
 	# depth_wig.convert(output_directory=output_directory)
