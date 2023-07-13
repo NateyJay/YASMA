@@ -22,7 +22,7 @@ from shutil import copyfile
 
 
 
-@cli.command(group='Utilities', help_priority=3)
+@cli.command(group='Preliminary', help_priority=1)
 
 
 
