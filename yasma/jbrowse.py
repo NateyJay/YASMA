@@ -580,7 +580,7 @@ def jbrowse(**params):
 
 
 		p = Popen(['rsync', '-arv', f'{output_directory}/jbrowse/', jbrowse_directory], 
-			stdout=PIPE, encoding='utf-8')
+			stdout=PIPE, encoding=ENCODING)
 
 		for l in p.stdout:
 			print(" ", l.strip())

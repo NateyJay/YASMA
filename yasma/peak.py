@@ -616,10 +616,10 @@ def peak(**params):
 				c1 += ['-r', rg]
 			c1 += [bam, chrom]
 
-			p1 = Popen(c1, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+			p1 = Popen(c1, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
 			c2 = ['samtools', 'depth', '-a', '-']
-			p2 = Popen(c2, stdin=p1.stdout, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+			p2 = Popen(c2, stdin=p1.stdout, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
 
 			
@@ -660,7 +660,7 @@ def peak(**params):
 			# 	call += ['-r', rg]
 			# call += [bam, chrom]
 
-			# p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+			# p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
 			# for i,line in enumerate(p.stdout):
 			# 	line = line.strip().split("\t")
