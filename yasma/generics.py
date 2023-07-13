@@ -31,6 +31,9 @@ import json
 
 
 
+ENCODING='cp850'
+# ENCODING=ENCODING
+
 
 class requirementClass():
 	def __init__(self):
@@ -38,7 +41,7 @@ class requirementClass():
 
 	def add_samtools(self):
 		try:
-			p = Popen(['samtools', 'version'], stdout=PIPE, stderr=PIPE, encoding='utf-8')
+			p = Popen(['samtools', 'version'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 			out,err = p.communicate()
 			out = out.split("\n")
 			found=True
@@ -53,7 +56,7 @@ class requirementClass():
 	def add_RNAfold(self):
 
 		try:
-			p = Popen(['RNAfold', '--version'], stdout=PIPE, stderr=PIPE, encoding='utf-8')
+			p = Popen(['RNAfold', '--version'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 			out,err = p.communicate()
 			out = out.split("\n")
 			found=True
@@ -68,7 +71,7 @@ class requirementClass():
 	def add_bedtools(self):
 
 		try:
-			p = Popen(['bedtools', '--version'], stdout=PIPE, stderr=PIPE, encoding='utf-8')
+			p = Popen(['bedtools', '--version'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 			out,err = p.communicate()
 			out = out.split("\n")
 			found=True
@@ -267,7 +270,7 @@ class inputClass():
 		alignment_chromosomes = set()
 		if self.inputs['alignment_file']:
 			p = Popen(['samtools', 'view', '-H', self.inputs['alignment_file']],
-				stdout=PIPE, stderr=PIPE, encoding='utf-8')
+				stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
 			for line in p.stdout:
 				if line.startswith("@SQ"):
@@ -330,7 +333,7 @@ def samtools_faidx(locus, strand, genome_file):
 
 	call = ['samtools', 'faidx', genome_file, locus]
 
-	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
 	out, err = p.communicate()
 
@@ -534,7 +537,7 @@ def get_global_depth(output_directory, alignment_file, force=False, aggregate_by
 
 		c = Counter()
 
-		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
 		print(f"{depth_file} not found.")
 		print("Reading alignment to find global depth dimensions...")
@@ -634,7 +637,7 @@ def get_rg_depth(output_directory, alignment_file, force=False):
 
 
 
-	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
 	for i,line in enumerate(p.stdout):
 		line = line.strip().split("\t")
@@ -677,7 +680,7 @@ def samtools_depth(bam, annotation_readgroups, locus=False):
 	if not isfile(index_file):
 		# call = f"samtools index {bam}"
 		call= ['samtools','index',bam]
-		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 		out,err = p.communicate()
 
 	# call = f"samtools view -@ 4 -F 4 {bam}"
@@ -692,7 +695,7 @@ def samtools_depth(bam, annotation_readgroups, locus=False):
 	if locus:
 		call.append(locus)
 
-	p1 = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+	p1 = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 	p2 = Popen(['samtools','depth','-a','-'], stdin=p1.stdout, stdout=PIPE)
 
 	for line in p2.stdout:
@@ -718,7 +721,7 @@ def samtools_view(bam, dcr_range=False, non_range=False, locus=False, rgs=[], bo
 	if not isfile(index_file):
 		# call = f"samtools index {bam}"
 		call= ['samtools','index',bam]
-		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 		out,err=p.communicate()
 		# print(out)
 		# print(err)
@@ -745,7 +748,7 @@ def samtools_view(bam, dcr_range=False, non_range=False, locus=False, rgs=[], bo
 		call.append(locus)
 		
 	# print(call)
-	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
 	for i,line in enumerate(p.stdout):
 
@@ -805,7 +808,7 @@ def get_chromosomes(file, output_directory=False):
 	call = ['samtools','view','-H', file]
 	# print(call)
 
-	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 	out, err = p.communicate()
 
 	for o in out.strip().split("\n"):
@@ -829,7 +832,7 @@ def get_chromosome_depths(bam_file):
 	print("reading chromosome depths from idxstats...")
 	print()
 
-	p = Popen(['samtools', 'idxstats', bam_file], stdout=PIPE, stderr=PIPE, encoding='utf-8')
+	p = Popen(['samtools', 'idxstats', bam_file], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
 	chrom_depths = Counter()
 	for line in p.stdout:
@@ -975,7 +978,7 @@ class wiggleClass():
 
 		call = f"wigToBigWig {wig} ./{output_directory}/ChromSizes.txt {bigwig}"
 
-		p = Popen(call.split(), stdout=PIPE, stderr=PIPE, encoding='utf-8')
+		p = Popen(call.split(), stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
 		out, err= p.communicate()
 
@@ -995,7 +998,7 @@ class wiggleClass():
 
 # 	print(call)
 
-# 	p = Popen(call.split(), stdout=PIPE, stderr=PIPE, encoding='utf-8')
+# 	p = Popen(call.split(), stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
 # 	out, err= p.communicate()
 
@@ -1043,7 +1046,7 @@ def RNAfold(seq):
 				  stdout=PIPE,
 				stderr=PIPE,
 				stdin=PIPE,
-				encoding='utf-8')
+				encoding=ENCODING)
 	out, err = p.communicate(f">{time()}\n{seq}")
 
 
@@ -1096,7 +1099,7 @@ def complement(s):
 # 	if not isfile(f"{bam}.bai"):
 # 		# call = f"samtools index {bam}"
 # 		call= ['samtools','index',bam]
-# 		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+# 		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 # 		out,err=p.communicate()
 # 		# print(out)
 # 		# print(err)
@@ -1110,7 +1113,7 @@ def complement(s):
 # 		call.append(locus)
 		
 # 	# print(call)
-# 	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+# 	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
 # 	for i,line in enumerate(p.stdout):
 
@@ -1166,7 +1169,7 @@ def complement(s):
 # 	call = ['samtools','view','-H', file]
 # 	# print(call)
 
-# 	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+# 	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 # 	out, err = p.communicate()
 
 # 	for o in out.strip().split("\n"):

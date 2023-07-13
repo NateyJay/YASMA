@@ -142,7 +142,7 @@ def context(**params):
 		call= ['bedtools', 'closest', '-a', ann_file, '-b', file, '-d']
 
 		print(" ".join(call))
-		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 		out, err = p.communicate()
 
 
@@ -191,7 +191,7 @@ def context(**params):
 		call = ['bedtools', 'intersect', '-a', ann_file, '-b', file, '-wao', '-f', '0.1']
 
 
-		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 		out, err = p.communicate()
 		# print(out)
 		# sys.exit()

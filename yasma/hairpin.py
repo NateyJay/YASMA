@@ -70,10 +70,10 @@ class foldClass():
 			sys.exit("what???")
 
 		p1 = Popen(['samtools', 'view', "-h", self.alignment_file, self.locus], 
-			stdout=PIPE, encoding='utf-8')
+			stdout=PIPE, encoding=ENCODING)
 
 		p2 = Popen(['samtools', 'depth', '-'], 
-			stdin=PIPE, stdout=PIPE, encoding='utf-8')
+			stdin=PIPE, stdout=PIPE, encoding=ENCODING)
 		# out, err = p1.communicate()
 
 		for line in p1.stdout:
@@ -121,7 +121,7 @@ class foldClass():
 					  stdout=PIPE,
 					stderr=PIPE,
 					stdin=PIPE,
-					encoding='utf-8')
+					encoding=ENCODING)
 		out, err = p.communicate(f">{temp_name}\n{self.seq}")
 
 
@@ -1055,7 +1055,7 @@ def hairpin(**params):
 	def get_genome_file():
 		call = ['samtools', 'view', '-H', alignment_file]
 
-		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding='utf-8')
+		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
 		for line in p.stdout:
 			if line.startswith("@SQ"):
