@@ -241,6 +241,11 @@ class inputClass():
 			print(f"    {option}:", "." * (offset-len(option)), f"{color.BOLD}{value}{color.END}")
 
 		print()
+		
+		if not isfile(self.inputs['genome_file']+".fai"):
+			p = Popen(['samtools', 'faidx', self.inputs['genome_file']], stdout=PIPE, stderr=PIPE)
+			p.wait()
+
 
 	def check_chromosomes(self):
 
