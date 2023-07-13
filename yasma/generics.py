@@ -245,7 +245,7 @@ class inputClass():
 
 
 	def check_chromosomes(self):
-		
+
 		if self.inputs['genome_file'] and not isfile(self.inputs['genome_file']+".fai"):
 			print(" ".join(['samtools', 'faidx', self.inputs['genome_file']]))
 			p = Popen(['samtools', 'faidx', self.inputs['genome_file']], stdout=PIPE, stderr=PIPE)
@@ -268,7 +268,8 @@ class inputClass():
 			with open(self.inputs['gene_annotation_file']) as f:
 
 				for line in f:
-					gene_annotation_chromosomes.add(line.split()[0])
+					if not line.startswith("#"):
+						gene_annotation_chromosomes.add(line.split()[0])
 
 			gene_annotation_chromosomes = list(gene_annotation_chromosomes)
 			# print(gene_annotation_chromosomes)
