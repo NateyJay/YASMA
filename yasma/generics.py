@@ -224,12 +224,18 @@ class inputClass():
 
 		print(color.BOLD + "Other options:" + color.END)
 
-		for option, value  in self.params.items():
-			if option not in self.required_options:
+		options = list(self.inputs.keys())
+		options += [o for o in self.inputs.keys() if o not in options]
+		options = [o for o in options if o not in required_options]
 
+		for option in options:
+
+			if option in self.inputs:
+				value = self.inputs[option]
+			else:
 				value = self.params[option]
 
-				print(f"    {option}:", "." * (offset-len(option)), f"{color.BOLD}{value}{color.END}")
+			print(f"    {option}:", "." * (offset-len(option)), f"{color.BOLD}{value}{color.END}")
 
 		print()
 

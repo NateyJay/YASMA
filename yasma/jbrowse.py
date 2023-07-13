@@ -152,7 +152,7 @@ class bigwigClass():
 	# default=f"Annotation_{round(time())}", 
 	required=False,
 	default=None,
-	type=click.Path(exists=True),
+	# type=click.Path(exists=True),
 	help='A path to a working directory for a jbrowse2 instance.')
 
 
@@ -197,9 +197,18 @@ def jbrowse(**params):
 	force                  = params['force']
 	overwrite_config       = params['overwrite_config']
 
-	jbrowse_directory = jbrowse_directory.rstrip("/")
 	if jbrowse_directory:
+		jbrowse_directory = jbrowse_directory.rstrip("/")
 		input_config = f"{jbrowse_directory}/config.json"
+
+		if not isfile(input_config):
+			print("Warning: config.json in jbrowse_directory not found")
+			print(" ->", input_config)
+			print()
+			print('  A new config will be generated de novo. Please check to confirm the jbrowse_directory exists and is the location of a jbrowse2 installation.')
+
+			input_config = None
+
 	else:
 		input_config = None
 
@@ -375,7 +384,6 @@ def jbrowse(**params):
 		return(d)
 
 
-
 	def read_config(input_config, overwrite):
 		print()
 		if not input_config or overwrite:
@@ -412,13 +420,14 @@ def jbrowse(**params):
 	names = [c['name'] for c in config_d['tracks']]
 
 	## Gene annotation
-	name = gene_annotation_file.rstrip('.gff3').rstrip(".gff").split("/")[-1]
-	if name not in names:
-		print(f"  adding track: {color.BOLD}{name}.gff3{color.END}")
-		at = make_annotation_track(
-			name=name,
-			uri=f"{genome_name}/{name}.gff3")
-		config_d['tracks'].append(at)
+	if gene_annotation_file:
+		name = gene_annotation_file.rstrip('.gff3').rstrip(".gff").split("/")[-1]
+		if name not in names:
+			print(f"  adding track: {color.BOLD}{name}.gff3{color.END}")
+			at = make_annotation_track(
+				name=name,
+				uri=f"{genome_name}/{name}.gff3")
+			config_d['tracks'].append(at)
 
 	## sRNA loci
 	if f"{output_directory}_Loci" not in names:
@@ -557,12 +566,25 @@ def jbrowse(**params):
 
 
 
-	print()
-	print('copying with rsync...')
+	if not isdir(jbrowse_directory):
+		print("Error: jbrowse_directory not found")
+		print(" ->", jbrowse_directory)
+		print()
+		print("Cannot copy files! Please confirm this directory exists, and reset if needed with 'yasma.py inputs --jbrowse_directory'")
+		print()
+		sys.exit()
+
+	else:
+		print()
+		print('Copying to jbrowse_directory with rsync...')
 
 
-	p = Popen(['rsync', '-arv', f'{output_directory}/jbrowse/', jbrowse_directory])
-	p.wait()
+		p = Popen(['rsync', '-arv', f'{output_directory}/jbrowse/', jbrowse_directory], 
+			stdout=PIPE, encoding='utf-8')
+
+		for l in p.stdout:
+			print(" ", l.strip())
+		p.wait()
 
 
 
