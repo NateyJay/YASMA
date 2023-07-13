@@ -22,6 +22,11 @@ from .cli import cli
 	type=click.Path(),
 	help="Directory name for annotation output")
 
+
+@click.option("--intergenic_distance", 
+	default=1000,
+	help="Distance from a gene for a locus to be defined as 'intergenic'. Default 1000 bp.")
+
 # @click.option("-m", "--method", 
 # 	default="Poisson", 
 # 	help="Annotator algorithm used (Poisson or Dicer)")
@@ -47,6 +52,7 @@ def context(**params):
 	gene_annotation_file    = ic.inputs["gene_annotation_file"]
 
 	force                   = params['force']
+	intergenic_distance     = params['intergenic_distance']
 
 
 
@@ -276,10 +282,10 @@ def context(**params):
 
 				## finding gene relationship
 
-				if d['mRNA_distance'] > 1000:
+				if d['mRNA_distance'] > intergenic_distance:
 					gene_relationship = 'intergenic'
 
-				elif 0 < d['mRNA_distance'] <= 1000:
+				elif 0 < d['mRNA_distance'] <= intergenic_distance:
 					gene_relationship = 'near-genic'
 
 				elif d['mRNA_distance'] == 0:
