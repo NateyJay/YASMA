@@ -158,3 +158,13 @@ A successful run will then copy this directory to a `jbrowse_directory`, where t
 
 	yasma.py readgroups -a alignment_file.bam
 ***
+
+
+## Detailed file descriptions
+
+*This section has yet to be finished*. It will include descriptions of key files:
+* loci.txt
+* context.txt
+* hairpins.txt
+
+
