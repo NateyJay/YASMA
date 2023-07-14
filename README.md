@@ -1,195 +1,148 @@
+
 # YASMA
-*<ins>Y</ins>et <ins>a</ins>nother <ins>sm</ins>all RNA <ins>a</ins>nnotator*
+### *<ins>Y</ins>et <ins>a</ins>nother <ins>sm</ins>all RNA <ins>a</ins>nnotator*
  
-**warning**: this project is in active development and the readme is woefully out of date. This tool follows a much different syntax in the current version.
+**warning**: this project is in active development and the readme may be out of date. 
+
+### What is yasma?
+This pipeline adds to a wide field of tools which have been used to assess ***small-RNA-sequencing*** data. Yasma is a **genome-based *de novo* approach** which is focused on **the whole sRNA population**, not just a few classes like miRNAs.
+
+There are other approaches that follow a similar strategy, namely [ShortStack](https://github.com/MikeAxtell/ShortStack). Yasma try's to solve some persistent issues with these approaches, which appear to be exacerbated in challenging systems, such as sRNAs in Fungi.
+
+
 
 ### Problems with current approaches
-* ShortStack does a good job, with a easily understood algorithm and set of rules. However, it misses lots of miRNAs because of concatenation of loci.  
-  
-* This problem is exacerbated in fungi - high background sRNA levels make it hard to distinguish off-sized, degradation-related, and other loci from dicer or RNAi-related loci.  
-  
-* Moreover, ShortStack defines the boundaries of loci based on a merge window that require only a single read to extend. This means in libraries which are overly-deep compared to the genome size, loci can be come trivially large (annotating the whole genome). **This is what we see in several fungi.**
+* **Over-merging** of distinct, but closely oriented loci.
+* **Creeping annotations** which don't don't represent the shape of a expressed region.
+* **Under-merging** where numerous similar loci are annotated separately due to sequencing gaps.
+* **Sensitivity to the depth** of a sRNA library relative to it's assembly size.
 
 
+### General annotation strategy
 
-### Ideas for implementation
-*Some implemented, others not...*
+Yasma relies on sRNA alignments to form genomic annotations. Alignments are performed using ShortStack3's alignment protocol (based on bowtie1).
+
+Annotation based on these alignments follows a 3 step approach:
+1. Building a ***sRNA coverage profile***.
+2. Finding ***contiguous peaks*** of sufficient abundance.
+3. Medium-distance merging of peaks which have ***similar sRNA profiles***.
 
-#### Loci and sub-loci.
-* one approach could be to try to only provide more detail to those defined by shortstack. Here, we would define loci which are within shortstack loci, hopefully finding shorter loci which are miRNAs.
-* This might be a good way to find miRNAs, but I think it would still be very problematic for fungi. Looking at the Tratr/Bocin annotations - virtually the entire genome is loci.
+This results in contiguous loci which are more homogenous in profile. It also tends to avoid over-annotation of background sequences.
 
+These steps will be described in more detail below (*not yet implemented*).
 
-#### Expression thresholding
-* Perhaps we could have a high minimum locus coverage threshold to find a locus, with less strict thresholds for it's edges.
-* I don't know if this would directly address the problems shortstack has with miRNA discovery.
-* Binning (not this actually) or a density-driven algorithm could be a basis for this.
-* A quantile-based RPM threshold?
-* A poisson-probability-based threshold.
+# Yasma Modules
 
+Yasma is broken into several modules, which form an analysis pipeline.
 
-#### miRNA-specific algorithms
-* Highly-multiplexed folding would allow us to try to find resilient hairpins within loci. *Are these representative of real hairpins?* It looks like from the fungi hpRNA paper that we can recover miRNAs pretty well in control species using this approach. In any case, I think more folding is an answer to this problem.
-* Maybe we could fold stretches that are highly stranded with multiple sizes. Most frequent hits could be condensed to find the most resilient hairpin.
+	yasma.py
+	Usage: yasma.py [OPTIONS] COMMAND [ARGS]...
 
+	YASMA (Yet Another small RNA Annotator)
+	  
+	Options:
+	-h, --help  Show this message and exit.
 
-# YASMA functionality
+	Commands:
+	
+	  Preliminary:
+	    inputs      A tool to log inputs, which will be referenced by later tools.
 
-The tool is divided into 3 general categories of functions. 
+	  Annotation:
+	    peak        Annotator using peak identification and similarity merging.
+	    
+	  Calculation:
+	    jbrowse     Tool to build coverage and config files for jbrowse2.
+	    context     Compares annotations to identify cluster genomic context.
+	    count       Gets counts for all readgroups, loci, strand, and sizes.
+	    hairpin     Evaluates annotated loci for hairpin or miRNA structures.
+	
+	  Utilities:
+	    adapter     Tool to check untrimmed-libraries for 3' adapter content.
+	    readgroups  Convenience function to list readgroups in an alignment file.
+***
+#### Preliminary modules
 
-* **Annotation** provides the main backbone of annotation for the tool. Currently, there are 2 approaches: 
-1) using a poisson distribution to determine thresholding, and 
-2) using a priori description of dicer-derived-sRNA sizes to pick regions which produce significantly more sRNAs.
+***align*** is not implemented yet, but it will be a wrapper for shortstack's alignment functionality.
 
-The poisson approach appears to work the best (by far) and will be used for further testing.
+    yasma.py align -l lib_a.fa -l lib_b.fa -l lib_c.fa
 
-* **Calculation** contains several tools to produce a fully usable annotation.
-* **Utilities** provide some convenience functions for the user.
+***
+***inputs*** is meant to log input file data, and do some basic prechecks. This function allows the user to input all data at this stage, and not have to call it again in subsequent functions.
 
+    yasma.py inputs -o output_dir
+    
+***Result:*** 
+This produces the `output directory` and `config.json`, logged with any values included as input. This file may be modified manually, following its format. Calls of following modules need only reference the `output_directory` to load these variables.
+***
+### Annotation module
 
+***peak*** is the main annotation suite for yasma. This module will take sRNA alignments and form annotations, based on a user specified group of libraries (AKA readgroups).
 
-## Main (poisson) annotation pipeline
-  
-The current version of the code is generally similar to ShortStack, but implements some of the changes above and some more suitable defaults to account for the changes. The pipeline currently follows 3 steps.
-  
-#### Assumptions
+	yasma.py peak -o output_dir -a alignment_file.bam -r wt_1 -r wt_2
+	
+***Result:***
+This produces many files, representing the annotation. 
+* `peak/loci.txt` and `peak/loci.gff3` - the result of the annotation, in tsv and gff formats. This is explained in detail below (*soon*).
+* `peak/regions.gff3` - regions that were merged to produce loci.
+* `peak/reads.txt` - reports the most expressed reads for a locus (up to a defined %).
+* `peak/log.txt` - a log file of the stdout for the module.
+* `peak/merges.txt` - a log of all of the merges that were performed.
+* `peak/stats*` - run statistics for the chromosomes and overall.
 
-#### **1)** Pre-processing
 
-As an input for this pipeline, libraries should be trimmed to remove any trace of adapter sequences. As with all sRNA-seq analyses, untrimmed reads should be removed. Some size selection at the trimming step might be important, as reads shorter than ~15 nt become quite problematic for alignment. This tool also relies on non-sRNA-related reads (usually short or long) to also be included in the alignment to function properly.
-  
-A good recommended trimming range would be retaining 15-30 nt reads, though this might need to be flexible depending on your organism of interest.
+### Calculation modules
 
-I usually use the tool cutadapt with the following options:
-```
-cutadapt \
--a [adapter_seq] \
---minimum-length 10 \
--O 4 \
---discard-untrimmed \
---max-n 0 \
--o [trimmed_out_file] \
-[untrimmed_file]
-```
+Yasma has several modules which are used to extract key information  from the alignment result. These are broken into separate tools, to allow the user to analyze only those they wish to.
+***
+***context*** is used to identify the genomic context of sRNA loci, compared to an input gene_annotation. It used bedtools to find closest and intersecting features and returns a summary of them. 
 
+	yasma.py context -o output_dir --gene_annotation_file ga_file.gff
 
-#### **2)** Alignment
-Currently, this approach uses ShortStack as its aligner protocol (based on Bowtie1). This is most simply run with all (trimmed) libraries and the ```--alignment_only``` option. *Note: this command is written for ShortStack 3.X*
+***Result:***
+`context/context.txt` is a tab delimited file summarizing the results of `bedtools closest` for loci against mRNAs, CDSs and exons. The result is summarized in the final column.
 
-```
-ShortStack --readfile wt_1.fa wt_2.fa mut_1.fa mut_2.fa \
---genomefile genome.fa \
---bowtie_cores 8 \
---alignment_only \
---cram \
---outdir alignment_dir
-```
+***
+***count*** performs counting arithmetic on all libraries. 
 
+	yasma.py count -o output_dir
 
+***Result:***
+This outputs 2 files: 
+* `counts/counts.txt` - a count matrix of all loci by all libraries.
+* `counts/deepcounts.txt` - a long format count table where abundances are further divided by sRNA-size and -strand -- useful for deeper analyses.
+***
+***hairpin***  tries to use folding with the sRNA profile to identify any sRNAs which might originate from hairpins. This includes miRNA testing using some basic published rules.
 
-#### **3)** Annotation
-Here the actual annotation takes place. Many options can affect the quality and discrimination of this step, so default and presets (a future option) are recommended for basic users. 
+	yasma.py hairpin -o output_dir
+	
+***Result:***
+* `hairpin/hairpins.txt` is a table summary of the findings of folding and miRNA identification attempts.
+* `hairpin/folds/Cluster_*.eps` produces structural diagrams of the fold including expression profiles - mimicking the tool [strucVis](https://github.com/MikeAxtell/strucVis).
+***
+***jbrowse*** produces all key data for visualizing the annotation with jbrowse2. To properly view the output, this will need to be installed with it's base directory provided to the tool. When run it builds a complete configuration file which can be read by jbrowse2. If the folder is specified, it will add new entries to the`json`, and copy it with the data files them to the base folder.
 
-A basic call of poisson-based annotation.
-```
-yasma.py poisson -a [alignment_file.bam/cram] \
--r wt_1 -r wt_2 \
--g [NCBI_gene_annotation.gff]
-```
+	yasma.py jbrowse -o output_dir --jbrowse_directory base_directory/ -a alignment_file.bam -g genome_file.fa --gene_annotation_file ga_file.gff3
 
-To use all readgroups in the annotation you can simply run like this:
-```
-yasma.py poisson -a [alignment_file.bam/cram] \
--r ALL \
--g [NCBI_gene_annotation.gff]
-```
+***Result:***
+A full run of this module will produce `/jbrowse/config.json` - this config file, based on the specified jbrowse installation config.
 
+Assembly and gene annotations from inputs are copied to a subfolder, named after the assembly.
+* `/jbrowse/[assembly_name]/[assembly_name].fa`
+* `/jbrowse/[assembly_name]/[assembly_name].fa.fai`
+* `/jbrowse/[assembly_name]/[gene_annotation_file].gff3`
 
+`loci` and `regions` annotations are added to sub_folder, based off of the annotation directory's name.
+* /jbrowse/[assembly_name]/[output_direc
 
+***
+#### Utility modules
+***adapter*** is a utility meant to help identify which are the most likely 3' adapter sequences in an untrimmed library. If a library is already trimmed, it will let the user know.
 
-**Calculating poisson** model by chromosome
+	yasma.py adapter -f library.fa
 
-Poisson-distributions are well suited to sRNA alignment analyses, as alignment counts are integers and occur with frequency over a genomic space.
+***
+***readgroups*** is simply a wrapper for `samtools view -H` to show what libraries are found in 
 
-This model first scans through to alignment for each chromosome, calculating the lambda coefficient. To reflect this most accurately, the tool uses gene-annotations as an input, as these will produce lots of sRNA-sized reads as the result of degradation. These can produce high background in fungi, so YASMA focuses on intergenic regions (as can be most easily defined).
-
-**Scoring window probabilities**
-
-Next, YASMA iterates through the alignment, and scores windows (default 40 nt) based on their poisson probability in a given chromosome. By default, it considers regions with P < 0.00001 as candidates. Candidate regions are then expanded until they find a window where depth is smaller than lambda - this is the preliminary boundary.
-
-**Merging and trimming**
-
-Passing regions are then merged if they are less than a threshold distance apart (default 150 nt). Finally, merged regions are trimmed to have depths at their edges with are not lower than 0.05 * their peak depth. This helps make highly peaky loci more concise.
-
-
-**Repeat for all chromosomes**
-
-This process is then repeated for every scaffold/contig/chromosome in the alignment.
-
-### Output files and post processing
-
-The basic annotation tool gives basic output.
-
-`Results.txt` gives the most detail about loci, in table format. Most of the first columns are directly compatible with ShortStack output. 
-
-`Annotation.gff3` gives the loci, but in gff format. 
-
-`Reads.txt` is a more detailed view at the most-common sRNAs that make up loci. By default, gives the reads adding up to 30% of total locus abundance. 
-
-
-
-**Other post-processing tools** can give more articulated output for many more uses.
-
-`yasma context` allows for the user to give a gene annotation and measure distances between sRNA loci and genic loci. 
-* This produces a table called `GenomicContext.txt`, which tells distances to mRNAs, exons, and CDSs.
-* This requires an NCBI-style gff3 annotation as input.
-
-`yasma count` reports counts of loci in two formats.
-1) A traditional counts table, showing rows of loci, columns of libraries, with overlapping reads reported as an integer.
-2) A "deep counts" table, which further breaks these values by strand and size in addition to read group (library) and locus. This is reported as a long-style table, excluding rows with 0 abundance by default. This file can be very large.
-
-`yasma coverage` produces a set of coverage files (wig/bigwig) and configuration files for use with the jbrowse1 browser.
-* Setting up a jbrowse session is usually non-trivial, but this gets some of the way there with informative config settings.
-
-`yasma hairpin` models self-folding for loci, with the aim of finding hairpin-derived sRNAs.
-* This includes using ShortStack-style testing for miRNA loci, using the Axtell 2018 rule-set.
-* Hairpins are automatically processed to form a nice graphical output, colorized from RNAfold and based directly on StrucVis from the Axtell Lab.
-
-`yasma target` is still non-functional and may not be ready for some time. This is meant to be a suite that tests sRNA-transcript interactions using modeling software like RNAplex. This is similar to GSTAR from the Axtell lab, but should have performance advantages and hopefully will employ some other tools as well. Like I said, not-done-yet and will very likely change.
-
-
-
-
-
-
-
-<!-- 
-### Output files
-The annotator produces several key output files:
-
-
-```Log.txt``` is a text file logging all of the runtime messages.  
-  
-```Results.txt``` is a tab-delimited description of all annotated loci.  
-  
-```Counts.txt``` is a tab-delimited table of the read depth for each read group in each locus. Counts only consider reads entirely enclosed in a locus.  
-  
-```Annotation.gff``` is a gff-formatted annotation of all loci. If prerequisites are installed, the tool will automatically sort, zip, and index the annotation for jbrowse use.  
-  
-```TopReads.txt``` is a tab-delimited table of the most abundant reads for all loci. These are given as ranked sequences, showing their depth, rpm, and cumulative proportion of a locus depth. 
-  
-```wigs``` and ```bigwigs``` are folders containing wig and bigwig (assuming prerequisites) coverage files. This includes coverages for all DCR sizes by strand, DCR and non-DCR coverages (ignoring strand), and metrics for passing and considering a sRNA-regions. -->
-
-  
-## Planned features
-
-* **Locus input.** In addition to discovery, this tool will take input loci which can be evaluated independently (or along side) *de novo* annotation.
-* **miRNA discovery methods.** This will focus on folding stranded regions of loci, including outside of locus boundaries, to try to find stable hairpins which meet miRNA rules. These will be reported as separate, possibly "daughter" loci.
-* **Preset settings.** These can be used to mimic different annotation rules - for example shortstack or the default settings for this software.
-* **Dicer agnositic settings.** This requires more thinking, as dicer-dependency is an essential aspect of this tool. However, there will likely be examples where it is hard or impossible to discern a proper dicer-range. It may be important to have informed settings for this tool to handle annotation lacking dicer information.
-* **JBrowse configuration.** Automatically producing configuration file for jbrowse.
-
-
-
-
-
+	yasma.py readgroups -a alignment_file.bam
+***
