@@ -73,7 +73,8 @@ Yasma is broken into several modules, which form an analysis pipeline.
 
     yasma.py inputs -o output_dir
     
-*Result:* 
+
+
 This produces the `output directory` and `config.json`, logged with any values included as input. This file may be modified manually, following its format. Calls of following modules need only reference the `output_directory` to load these variables.
 ***
 ### Annotation module
@@ -83,7 +84,8 @@ This produces the `output directory` and `config.json`, logged with any values i
 
 	yasma.py peak -o output_dir -a alignment_file.bam -r wt_1 -r wt_2
 	
-*Result:*  
+
+
 This produces many files, representing the annotation. 
 * `peak/loci.txt` and `peak/loci.gff3` - the result of the annotation, in tsv and gff formats. This is explained in detail below (*soon*).
 * `peak/regions.gff3` - regions that were merged to produce loci.
@@ -102,7 +104,6 @@ Yasma has several modules which are used to extract key information  from the al
 
 	yasma.py context -o output_dir --gene_annotation_file ga_file.gff
 
-*Result:*  
 `context/context.txt` is a tab delimited file summarizing the results of `bedtools closest` for loci against mRNAs, CDSs and exons. The result is summarized in the final column.
 
 ***
@@ -110,7 +111,6 @@ Yasma has several modules which are used to extract key information  from the al
 
 	yasma.py count -o output_dir
 
-*Result:*  
 This outputs 2 files: 
 * `counts/counts.txt` - a count matrix of all loci by all libraries.
 * `counts/deepcounts.txt` - a long format count table where abundances are further divided by sRNA-size and -strand -- useful for deeper analyses.
@@ -119,7 +119,8 @@ This outputs 2 files:
 
 	yasma.py hairpin -o output_dir
 	
-*Result:*  
+
+
 * `hairpin/hairpins.txt` is a table summary of the findings of folding and miRNA identification attempts.
 * `hairpin/folds/Cluster_*.eps` produces structural diagrams of the fold including expression profiles - mimicking the tool [strucVis](https://github.com/MikeAxtell/strucVis).
 ***
@@ -127,7 +128,7 @@ This outputs 2 files:
 
 	yasma.py jbrowse -o output_dir --jbrowse_directory base_directory/ -a alignment_file.bam -g genome_file.fa --gene_annotation_file ga_file.gff3
 
-*Result:*  
+
 A full run of this module will produce `/jbrowse/config.json` - this config file, based on the specified jbrowse installation config.
 
 Assembly and gene annotations from inputs are copied to a subfolder, named after the assembly.
