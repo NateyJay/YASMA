@@ -61,7 +61,8 @@ Yasma is broken into several modules, which form an analysis pipeline.
 	    adapter     Tool to check untrimmed-libraries for 3' adapter content.
 	    readgroups  Convenience function to list readgroups in an alignment file.
 ***
-#### Preliminary modules
+### Preliminary modules
+***
 
 ***align*** is not implemented yet, but it will be a wrapper for shortstack's alignment functionality.
 
@@ -76,6 +77,7 @@ Yasma is broken into several modules, which form an analysis pipeline.
 This produces the `output directory` and `config.json`, logged with any values included as input. This file may be modified manually, following its format. Calls of following modules need only reference the `output_directory` to load these variables.
 ***
 ### Annotation module
+***
 
 ***peak*** is the main annotation suite for yasma. This module will take sRNA alignments and form annotations, based on a user specified group of libraries (AKA readgroups).
 
@@ -90,8 +92,9 @@ This produces many files, representing the annotation.
 * `peak/merges.txt` - a log of all of the merges that were performed.
 * `peak/stats*` - run statistics for the chromosomes and overall.
 
-
+***
 ### Calculation modules
+***
 
 Yasma has several modules which are used to extract key information  from the alignment result. These are broken into separate tools, to allow the user to analyze only those they wish to.
 ***
@@ -136,7 +139,8 @@ Assembly and gene annotations from inputs are copied to a subfolder, named after
 * /jbrowse/[assembly_name]/[output_direc
 
 ***
-#### Utility modules
+### Utility modules
+***
 ***adapter*** is a utility meant to help identify which are the most likely 3' adapter sequences in an untrimmed library. If a library is already trimmed, it will let the user know.
 
 	yasma.py adapter -f library.fa
