@@ -108,7 +108,7 @@ class bigwigClass():
 
 
 
-@cli.command(group='Calculation', help_priority=2)
+@cli.command(group='Calculation', help_priority=3)
 
 
 
