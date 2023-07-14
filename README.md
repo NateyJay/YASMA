@@ -1,4 +1,5 @@
 
+
 # YASMA
 ### *<ins>Y</ins>et <ins>a</ins>nother <ins>sm</ins>all RNA <ins>a</ins>nnotator*
  
@@ -137,7 +138,13 @@ Assembly and gene annotations from inputs are copied to a subfolder, named after
 * `/jbrowse/[assembly_name]/[gene_annotation_file].gff3`
 
 `loci` and `regions` annotations are added to sub_folder, based off of the annotation directory's name.
-* /jbrowse/[assembly_name]/[output_direc
+* `/jbrowse/[assembly_name]/[output_directory]_Annotations/loci.txt`
+* `/jbrowse/[assembly_name]/[output_directory]_Annotations/regions.txt`
+
+Coverage files in `bigwig` format are made for each size and strand of sRNA. By default, reads 20-25 nt long are separated, with other sizes grouped as `non`. These files are in the following format:
+* `/jbrowse/[assembly_name]/[output_directory]_Coverages/[size][strand].bw`
+
+A successful run will then copy this directory to a `jbrowse_directory`, where they should be functional in a running jbrowse instance (usually started with the command `npx . serve`.
 
 ***
 ### Utility modules
