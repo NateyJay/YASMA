@@ -836,21 +836,21 @@ def get_chromosomes(file, output_directory=False):
 
 	return(chromosomes, rgs)
 
-def get_chromosome_depths(bam_file):
-	print("reading chromosome depths from idxstats...")
-	print()
+# def get_chromosome_depths(bam_file):
+# 	print("reading chromosome depths from idxstats...")
+# 	print()
 
-	p = Popen(['samtools', 'idxstats', bam_file], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+# 	p = Popen(['samtools', 'idxstats', bam_file], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
-	chrom_depths = Counter()
-	for line in p.stdout:
-		line = line.strip().split("\t")
-		chrom_depths[line[0]] += int(line[2])
-		# print(line)
+# 	chrom_depths = Counter()
+# 	for line in p.stdout:
+# 		line = line.strip().split("\t")
+# 		chrom_depths[line[0]] += int(line[2])
+# 		# print(line)
 
-	p.wait()
+# 	p.wait()
 
-	return(chrom_depths)
+# 	return(chrom_depths)
 
 
 
