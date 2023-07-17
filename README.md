@@ -160,7 +160,7 @@ A successful run will then copy this directory to a `jbrowse_directory`, where t
 ***
 
 
-## Detailed file descriptions
+# Detailed file descriptions
 
 *This section has yet to be finished*. It will include descriptions of key files:
 * loci.txt
