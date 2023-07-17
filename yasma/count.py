@@ -89,7 +89,7 @@ def init(l, r, a, o, ):
 
 @click.option("--ignore_zeroes",
 	is_flag=True,
-	help="Don't save zero depth entries to Counts.deep.txt. Saves file space, but can make it harder to analyze.")
+	help="Don't save zero depth entries to deepcounts.txt. Saves file space, but can make it harder to analyze.")
 
 
 def count(** params):
@@ -114,8 +114,8 @@ def count(** params):
 	Path(output_directory+ "/counts/").mkdir(parents=True, exist_ok=True)
 
 
-	counts_file = f"{output_directory}/counts/counts.basic.txt"
-	deep_counts_file = f"{output_directory}/counts/counts.deep.txt"
+	counts_file = f"{output_directory}/counts/counts.txt"
+	deep_counts_file = f"{output_directory}/counts/deepcounts.txt"
 
 	if len(locus_files) == 0:
 		locus_files = [f"{output_directory}/peak/loci.txt"]
