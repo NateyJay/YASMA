@@ -28,6 +28,7 @@ from subprocess import PIPE, Popen
 
 
 
+from datetime import datetime
 
 
 
@@ -177,6 +178,17 @@ class bigwigClass():
 	default=False,
 	help="Option to overwrite and make a new jbrowse config.json de novo.")
 
+@optgroup.option('-x', '--remove_name', 
+	required=False,
+	multiple=True,
+	help="Names of entries which should be removed from the config. These are synonymous with the output_directories of the runs used. Use this with caution!")
+
+
+# @optgroup.option('--delete', 
+# 	is_flag=True,
+# 	default=False,
+# 	help="Deletes source data of those files removed")
+
 
 
 def jbrowse(**params):
@@ -196,6 +208,7 @@ def jbrowse(**params):
 	max_size               = params['max_size']
 	force                  = params['force']
 	overwrite_config       = params['overwrite_config']
+	removes                = params['remove_name']
 
 	if jbrowse_directory:
 		jbrowse_directory = jbrowse_directory.rstrip("/")
@@ -384,17 +397,35 @@ def jbrowse(**params):
 		return(d)
 
 
+	def backup_config():
+		now = datetime.now()
+		backup_dir = "/".join(input_config.split("/")[:-1]) + "/config_backups/" + now.strftime("%Y.%m.%d")
+		Path(backup_dir).mkdir(parents=True, exist_ok=True)
+		backup_file = backup_dir + "/config_" + str(round(time())) + ".json"
+		copyfile(input_config, backup_file)
+
+		print(f"  Backing up config: {backup_file}")
+
+
 	def read_config(input_config, overwrite):
 		print()
 		if not input_config or overwrite:
 			print("Making config.json de novo")
 			return({})
 		with open(input_config, 'r') as f:
-			print(f"reading from input config.json: {input_config}")
+			print(f"Reading from input config.json: {input_config}")
 			data = json.load(f)
+			backup_config()
 		return(data)
 
 	config_d = read_config(input_config, overwrite_config)
+
+
+
+
+
+
+
 
 	if 'plugins' not in config_d:
 		config_d['plugins'] = []
@@ -405,6 +436,9 @@ def jbrowse(**params):
 		config_d['plugins'].append(make_plugins_object())
 	
 
+
+	## Assemblies
+
 	if 'assemblies' not in config_d:
 		config_d['assemblies'] = []
 
@@ -413,6 +447,9 @@ def jbrowse(**params):
 		print(f"  adding assembly: {color.BOLD}{genome_name}{color.END}")
 		config_d['assemblies'].append(make_assembly_object())
 		
+
+
+	#### Tracks
 
 	if 'tracks' not in config_d:
 		config_d['tracks'] = []
@@ -451,12 +488,41 @@ def jbrowse(**params):
 		config_d['tracks'].append(make_bigwig_track())
 
 
+
+	if len(removes) > 0:
+		print()
+		print("Deleting entries specified by option -x:")
+		print(" ", removes)
+		print()
+		for name in removes:
+
+			terms = [name + t for t in ['_Loci','_Regions','_Coverage']]
+			tracks_to_remove = []
+
+			# print(terms)
+
+			for i,track in enumerate(config_d['tracks']):
+				if track['name'] in terms:
+					print(f"  {color.BOLD}x{color.END}", track['name'])
+					tracks_to_remove.append(i)
+
+
+			for i in tracks_to_remove[::-1]:
+				del config_d['tracks'][i]
+			# print(track[name + '_Coverage'])
+
+		# pprint(type(config_d['tracks']))
+		# pprint(len(config_d['tracks']))
+
+		# print(name)
+
+
 	config_file = f'{output_directory}/jbrowse/config.json'
 	with open(config_file, 'w') as outf:
 		outf.write(json.dumps(config_d, indent=2))
 
 
-
+	# sys.exit()
 
 	## Copying key files to jbrowse folder
 
