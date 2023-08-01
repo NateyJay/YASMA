@@ -1496,10 +1496,12 @@ def peak(**params):
 		else:
 			proportion_libraries_annotated = None
 
-		print(f"     abundance:")
-		print(f"       mean ---> {mean_depth} reads ({round(mean_depth * read_equivalent, 2)} rpm)")
-		print(f"       median -> {median_depth} reads ({round(median_depth * read_equivalent, 2)} rpm)")
-		print(f"       proportion of reads annotated -> {proportion_libraries_annotated}")
+		if mean_depth:
+			print(f"     abundance:")
+			print(f"       mean ---> {mean_depth} reads ({round(mean_depth * read_equivalent, 2)} rpm)")
+			print(f"       median -> {median_depth} reads ({round(median_depth * read_equivalent, 2)} rpm)")
+			print(f"       proportion of reads annotated -> {proportion_libraries_annotated}")
+			
 		# sys.exit()
 
 		# • Formalize the coverage file outputs
