@@ -3,8 +3,6 @@
 import click
 from click_option_group import optgroup
 
-
-
 class customClickClass(click.Group):
 	'''A custom class designed to add 4 features, based on SE posts from the developer of click. 
 	1) adds grouping categorization to the help message: https://stackoverflow.com/questions/58745652/
@@ -80,10 +78,36 @@ class customClickClass(click.Group):
 		if len(args) <= 1:
 			args.append(self.help_flag)
 
-		return super(customClickClass, self).parse_args(ctx, args)
+		glob_options = set(["-tl", '--trimmed_libraries', "-ul", '--untrimmed_libraries'])
 
-						
+		# print(args)
+		last_is_glob = False
+		new_args = []
+		for arg in args:
 
+			if arg.startswith("-"):
+				new_args.append(arg)
+				if arg in glob_options:
+					last_is_glob = True
+					new_args.append("")
+				else:
+					last_is_glob = False
+
+			else:
+
+				if last_is_glob:
+					new_args[-1] += " " + arg
+				else:
+					new_args.append(arg)
+
+		# print(new_args)
+
+		# args = ['test-function', '-l', 'SRR3222443_trimmed.fastq SRR3222444_trimmed.fastq']
+
+
+		return super(customClickClass, self).parse_args(ctx, new_args)
+
+	
 
 
 @click.group(cls=customClickClass)
