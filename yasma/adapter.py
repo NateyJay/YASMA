@@ -5,6 +5,9 @@ import sys
 from math import floor
 
 import click
+from click_option_group import optgroup
+
+import click
 from pathlib import Path
 from os.path import isfile, isdir
 from time import time, sleep
@@ -19,23 +22,62 @@ from .cli import cli
 
 
 
-@cli.command(group='Utilities', help_priority=4)
-@click.option("-f", "--read_file", 
-	required=True, 
-	type=click.Path(exists=True),
-	help='Fasta/q library of sRNA-sequences')
+@cli.command(group='Processing', help_priority=2)
 
-@click.option('-n', 
+
+@optgroup.group('\n  Basic options',
+				help='')
+@optgroup.option("-l", "--untrimmed_libraries", 
+	required=False, 
+	type=click.UNPROCESSED, callback=validate_glob_path,
+	multiple=True,
+	help='Path to untrimmed libraries.')
+
+@optgroup.option("-o", "--output_directory", 
+	# default=f"Annotation_{round(time())}", 
+	required=True,
+	type=click.Path(),
+	help="Directory name for annotation output.")
+
+
+@optgroup.group('\n  Optional settings',
+				help='')
+
+@optgroup.option('-n', 
 	required=False,
 	default= 100000, 
 	type=int,
 	help="Number of reads to check for adapter (default 10,000)")
 
 
-def adapter(read_file, n):
+def adapter(**params):
 	'''Tool to check untrimmed-libraries for 3' adapter content.'''
 
+
+	rc = requirementClass()
+	rc.check()
+
+	ic = inputClass(params)
+	ic.check(['untrimmed_libraries'])
+
+
+	output_directory        = ic.output_directory
+	untrimmed_libraries     = ic.inputs['untrimmed_libraries']
+
+	n                       = params['n']
+
 	kmer_size = 8
+
+
+	Path(output_directory, "adapter").mkdir(parents=True, exist_ok=True)
+	
+
+	log_file = Path(output_directory,"adapter/log.txt")
+
+	sys.stdout = Logger(log_file)
+
+
+
 
 	common_adapters = {
 	'Reverse_adapter' : 'AGATCGGAAGAGCACACGTCTGAACTCCAGTCACATCACGATCTCGTATGCCGTCTTCTGCTTG',
@@ -258,137 +300,148 @@ def adapter(read_file, n):
 		return(c.most_common()[0][0])
 
 
+	adapters = []
+	for read_file in untrimmed_libraries:
+
+		print()
+		print()
+		print(read_file)
+		print("################")
+
+		if read_file.endswith(".gz"):
+			import gzip
+			f = gzip.open(read_file)
+		else:
+			f = open(read_file)
+
+		if read_file.strip(".gz").endswith((".fa", ".fasta")):
+			line_base = 2
+		elif read_file.strip(".gz").endswith((".fq", ".fastq")):
+			line_base = 4
+		else:
+			# print(f"file type not recognized: {read_file}")
+			sys.exit()
+
+		seqs = process_file(f, line_base, n)
+		print("\ntotal seqs: {}".format(len(seqs)))
+
+		f.close()
 
 
-	if read_file.endswith(".gz"):
-		import gzip
-		f = gzip.open(read_file)
-	else:
-		f = open(read_file)
+		read_length = check_for_trimming(seqs)
+		pretrim = False
+		if not read_length:
+			print("Warning: Library is likely already trimmed...")
+			pretrim = True
 
-	if read_file.strip(".gz").endswith((".fa", ".fasta")):
-		line_base = 2
-	elif read_file.strip(".gz").endswith((".fq", ".fastq")):
-		line_base = 4
-	else:
-		# print(f"file type not recognized: {read_file}")
-		sys.exit()
+		def count_kmers(seqs):
+			kmer_c = Counter()
 
-	seqs = process_file(f, line_base, n)
-	print("\ntotal seqs: {}".format(len(seqs)))
+			for seq in seqs:
 
-	f.close()
+				
+				kmers = [seq[i:i+kmer_size] for i in range(len(seq) - kmer_size)]
+
+				kmer_c.update(kmers)
+
+			return(kmer_c)
+
+		def test_preceding_base(seq):
+			cutoff = 0.75
+			counts = []
+			bases = ['A','T','G','C']
+
+			for base in bases:
+				left_seq = base + seq[:kmer_size-1]
+				counts.append(kmer_c[left_seq])
+
+			if sum(counts) == 0:
+				return(True)
+
+			# print(counts)
+
+			for i,c in enumerate(counts):
+				count_perc = c / sum(counts) 
+				if count_perc > cutoff:
+					return(f"{bases[i]}{int(count_perc*100)}")
+
+			return('-')
 
 
-	read_length = check_for_trimming(seqs)
-	pretrim = False
-	if not read_length:
-		print("Warning: Library is likely already trimmed...")
-		pretrim = True
+		kmer_c = count_kmers(seqs)
 
-	def count_kmers(seqs):
-		kmer_c = Counter()
+		best = 'None'
+		best_perc = 0
 
-		for seq in seqs:
+		for seq, names in left_common_adapters.items():
+			freq = kmer_c[seq]
+			perc = round(float(freq) / n * 100, 1)
+			# print(freq)
 
+
+			preceding = test_preceding_base(seq)
+			passing = ''
+			if perc >= 10:
+				passing = " <-"
+
+				if perc > best_perc:
+					if preceding == '-':
+						best = seq
+						best_perc = perc
+
+			try:
+				print(seq+passing, freq, perc, preceding, names[0], sep='\t')
+			except UnicodeEncodeError:
+				print("unknown error...")
 			
-			kmers = [seq[i:i+kmer_size] for i in range(len(seq) - kmer_size)]
-
-			kmer_c.update(kmers)
-
-		return(kmer_c)
-
-	def test_preceding_base(seq):
-		cutoff = 0.75
-		counts = []
-		bases = ['A','T','G','C']
-
-		for base in bases:
-			left_seq = base + seq[:kmer_size-1]
-			counts.append(kmer_c[left_seq])
-
-		if sum(counts) == 0:
-			return(True)
-
-		# print(counts)
-
-		for i,c in enumerate(counts):
-			count_perc = c / sum(counts) 
-			if count_perc > cutoff:
-				return(f"{bases[i]}{int(count_perc*100)}")
-
-		return('-')
 
 
-	kmer_c = count_kmers(seqs)
+				# to_print = [seq, freq, perc, test_preceding_base(seq), names[0]]
+				# print("\t".join(map(str,to_print)))
 
-	best = 'None'
-	best_perc = 0
+				# if seq == 'ATCTCGTA' and not disqualified:
+				# 	best = seq
+				# 	best_perc = perc
 
-	for seq, names in left_common_adapters.items():
-		freq = kmer_c[seq]
-		perc = round(float(freq) / n * 100, 1)
-		# print(freq)
-
-
-		preceding = test_preceding_base(seq)
-		passing = ''
-		if perc >= 10:
-			passing = " <-"
-
-			if perc > best_perc:
-				if preceding == '-':
-					best = seq
-					best_perc = perc
-
-		try:
-			print(seq+passing, freq, perc, preceding, names[0], sep='\t')
-		except UnicodeEncodeError:
-			print("unknown error...")
-		
-
-
-			# to_print = [seq, freq, perc, test_preceding_base(seq), names[0]]
-			# print("\t".join(map(str,to_print)))
-
-			# if seq == 'ATCTCGTA' and not disqualified:
-			# 	best = seq
-			# 	best_perc = perc
-
-			# 	override=True
+				# 	override=True
 
 
 
-	# if not best:
-	# 	print("Failed to find best adapter in knowns, trying to identify most common 5' sequence")
+		# if not best:
+		# 	print("Failed to find best adapter in knowns, trying to identify most common 5' sequence")
 
-	# 	while True:
+		# 	while True:
 
 
 
-	print()
-	print("Best adapter candidate:")
-	# if override:
-	# 	print("(percentage overriden due to discovery of known sRNA-seq adapter)")
+		print()
+		print("Best adapter candidate:")
+		# if override:
+		# 	print("(percentage overriden due to discovery of known sRNA-seq adapter)")
 
-	print()
-	print(best_perc)
-	if read_length:
-		print(read_length)
-	else:
-		print(0)
+		print()
+		print(best_perc)
+		if read_length:
+			print(read_length)
+		else:
+			print(0)
 
-	if best == "None" and pretrim:
-		print("PRE-TRIMMED")
-	else:
-		print(best)
+		if best == "None" and pretrim:
+			print("PRE-TRIMMED")
+			adapters.append('PRE-TRIMMED')
+		else:
+			print(best)
+			adapters.append(best)
 
 
 
 
+	pprint(adapters)
 
+	print(f"writing {adapters[0]} to config.json")
 
-
+	ic.inputs['adapter'] = adapters[0]
+	ic.write()
 
 
 
