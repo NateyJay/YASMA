@@ -67,7 +67,7 @@ def init(l, r, a, o, ):
 
 @click.option("-a", "--alignment_file", 
 	required=False, 
-	type=click.Path(exists=True),
+	type=click.UNPROCESSED, callback=validate_path,
 	help='Alignment file input (bam or cram).')
 
 @click.option("-o", "--output_directory", 
@@ -102,7 +102,7 @@ def count(** params):
 	ic = inputClass(params)
 	ic.check(['alignment_file'])
 
-	output_directory     = ic.inputs['output_directory']
+	output_directory     = str(ic.output_directory)
 	alignment_file       = ic.inputs['alignment_file']
 
 	locus_files          = params['locus_files']
