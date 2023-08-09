@@ -305,7 +305,7 @@ class assessClass():
 
 @optgroup.option("-a", "--alignment_file", 
 	required=False, 
-	type=click.Path(exists=True),
+	type=click.UNPROCESSED, callback=validate_path,
 	help='Alignment file input (bam or cram).')
 
 @optgroup.option('-r', '--annotation_readgroups', 
@@ -398,8 +398,7 @@ def peak(**params):
 	ic = inputClass(params)
 	ic.check(['alignment_file', 'annotation_readgroups'])
 
-
-	output_directory        = ic.inputs['output_directory']
+	output_directory        = str(ic.output_directory)
 	alignment_file          = ic.inputs["alignment_file"]
 	annotation_readgroups   = ic.inputs['annotation_readgroups']
 
@@ -592,8 +591,6 @@ def peak(**params):
 
 	for chrom_count, chrom_and_length in enumerate(chromosomes):
 
-
-
 		loci = []
 		chrom, chrom_length = chrom_and_length
 
@@ -708,33 +705,6 @@ def peak(**params):
 			return(kernel_c)
 
 
-		# def write_depths_to_wiggle(c, file, peaks_only=False):
-		# 	# chrom, chrom_length
-
-		# 	depths = [0.0000]
-		# 	print(chrom_length)
-		# 	with open(file, 'a') as outf:
-		# 		for p in range(chrom_length):
-
-		# 			depth = round(c[p] / total_reads * 1000000, 4)
-
-		# 			if peaks_only and depth < rpm_threshold:
-		# 				depth = 0
-
-		# 			if depth != depths[-1]:
-		# 				# chr19 49302000 49302300 -1.0
-		# 				print(f"variableStep  chrom={chrom}  span={len(depths)}", file=outf)
-		# 				print(f"{p-len(depths)+2} {depths[-1]}", file=outf)
-
-		# 				depths = []
-
-		# 			depths.append(depth)
-
-
-
-
-
-
 
 		## Evaluating peaks to form loci
 
@@ -750,11 +720,6 @@ def peak(**params):
 				rgs=annotation_readgroups, 
 				chrom=chrom)
 
-
-
-
-		# depth_wig.add_chrom(peak_c, chrom, chrom_length, peaks_only=False)
-		# peak_wig.add_chrom(peak_c, chrom, chrom_length, peaks_only=True)
 
 
 		claim_d = {}
@@ -847,7 +812,6 @@ def peak(**params):
 
 			return(boundary)
 
-
 		def resolve_overlaps(lbound, center, rbound):
 
 
@@ -866,15 +830,11 @@ def peak(**params):
 
 			return(lbound, rbound)
 
-
 		candidate_peak_count = len([v for v in peak_c.values() if v / total_reads * 1000000 > rpm_threshold])
-
-
 
 		perc = percentageClass(1, candidate_peak_count)
 
 		i = 0
-
 		for center, depth in peak_c.most_common():
 
 
@@ -1388,14 +1348,6 @@ def peak(**params):
 
 				del loci[i]
 
-
-		# stop = time()
-
-		# print()
-		# print()
-		# new_time = stop - start
-		# print(new_time, " <- new method")
-		# print()
 
 
 
