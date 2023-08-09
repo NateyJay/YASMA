@@ -87,14 +87,14 @@ from shutil import copyfile
 	required=False, 
 	type=click.UNPROCESSED, callback=validate_glob_path,
 	multiple=True,
-	help='Path to trimmed libraries. Does not accept wildcards, for now....')
+	help='Path to trimmed libraries. Accepts wildcards (*).')
 
 
 @optgroup.option("-ul", "--untrimmed_libraries", 
 	required=False, 
 	type=click.UNPROCESSED, callback=validate_glob_path,
 	multiple=True,
-	help='Path to untrimmed libraries.')
+	help='Path to untrimmed libraries. Accepts wildcards (*).')
 
 def inputs(**params):
 	'''A tool to log inputs, which will be referenced by later tools.'''

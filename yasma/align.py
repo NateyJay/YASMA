@@ -93,14 +93,12 @@ def get_log_details(output_directory):
 @optgroup.group('\n  Basic options',
 				help='')
 
-@optgroup.option("-tl", "--trimmed_libraries", 
+
+@optgroup.option('-tl', "--trimmed_libraries", 
 	required=False, 
-	# type=click.Path(exists=True),
-	# type=str,
-	# nargs=2,
 	type=click.UNPROCESSED, callback=validate_glob_path,
 	multiple=True,
-	help='Path to trimmed libraries. Does not accept wildcards, for now....')
+	help='Path to trimmed libraries. Accepts wildcards (*).')
 
 
 @optgroup.option("-g", "--genome_file", 
