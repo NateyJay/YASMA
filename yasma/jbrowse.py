@@ -64,8 +64,10 @@ class bigwigClass():
 	def add(self, pos, length):
 
 		for r in range(pos, pos+length+1):
-			self.depths[r] += 1
-
+			try:
+				self.depths[r] += 1
+			except IndexError:
+				print(f"WARNING: position {r:,} is longer than the total chromosome length")
 		self.last_pos = r
 
 	def rle(self, chrom):
@@ -118,7 +120,7 @@ class bigwigClass():
 
 @optgroup.option("-a", "--alignment_file", 
 	required=False, 
-	type=click.Path(exists=True),
+	type=click.UNPROCESSED, callback=validate_path,
 	help='Alignment file input (bam or cram).')
 
 @optgroup.option('-r', '--annotation_readgroups', 
@@ -136,14 +138,14 @@ class bigwigClass():
 	# default=f"Annotation_{round(time())}", 
 	required=False,
 	default=None,
-	type=click.Path(exists=True),
+	type=click.UNPROCESSED, callback=validate_path,
 	help='Annotation file for genes (gff3) matching the included genome.')
 
 
 @optgroup.option("-g", "--genome_file", 
 	# default=f"Annotation_{round(time())}", 
 	required=False,
-	type=click.Path(exists=True),
+	type=click.UNPROCESSED, callback=validate_path,
 	help='Genome or assembly which was used for the original alignment.')
 
 
@@ -153,7 +155,7 @@ class bigwigClass():
 	# default=f"Annotation_{round(time())}", 
 	required=False,
 	default=None,
-	# type=click.Path(exists=True),
+	type=click.UNPROCESSED, callback=validate_path,
 	help='A path to a working directory for a jbrowse2 instance.')
 
 
@@ -197,7 +199,7 @@ def jbrowse(**params):
 	ic = inputClass(params)
 	ic.check(["alignment_file", "annotation_readgroups", "genome_file"])
 
-	output_directory       = ic.inputs['output_directory']
+	output_directory       = str(ic.output_directory)
 	alignment_file         = ic.inputs["alignment_file"]
 	annotation_readgroups  = ic.inputs['annotation_readgroups']
 	genome_file            = ic.inputs['genome_file']
@@ -471,7 +473,7 @@ def jbrowse(**params):
 		print(f"  adding track: {color.BOLD}{output_directory}_Loci{color.END}")
 		at = make_annotation_track(
 			name=f'{output_directory}_Loci', 
-			uri=f"{genome_name}/{output_directory}_annotations/Loci.gff3")
+			uri=f"{genome_name}/{output_directory}_annotations/loci.gff3")
 		config_d['tracks'].append(at)
 
 	## sRNA regions
@@ -479,7 +481,7 @@ def jbrowse(**params):
 		print(f"  adding track: {color.BOLD}{output_directory}_Regions{color.END}")
 		at = make_annotation_track(
 			name=f'{output_directory}_Regions', 
-			uri=f"{genome_name}/{output_directory}_annotations/Regions.gff3")
+			uri=f"{genome_name}/{output_directory}_annotations/regions.gff3")
 		config_d['tracks'].append(at)
 
 	## Coverages
