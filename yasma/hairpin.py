@@ -1045,7 +1045,7 @@ def hairpin(**params):
 	ic = inputClass(params)
 	ic.check(['alignment_file'])
 
-	output_directory     = ic.inputs['output_directory']
+	output_directory     = str(ic.output_directory)
 	alignment_file       = ic.inputs['alignment_file']
 
 	ignore_replication   = params['ignore_replication']
