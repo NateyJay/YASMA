@@ -14,7 +14,7 @@ from .cli import cli
 
 @click.option("-g", "--gene_annotation_file", 
 	required=False, 
-	type=click.Path(exists=True),
+	type=click.UNPROCESSED, callback=validate_path,
 	help='Gene annotation file in gff3 format. Tested with NCBI annotation formats.')
 
 @click.option("-o", "--output_directory", 
@@ -48,7 +48,7 @@ def context(**params):
 	ic.check(['gene_annotation_file'])
 
 
-	output_directory        = ic.inputs['output_directory']
+	output_directory        = str(ic.output_directory)
 	gene_annotation_file    = ic.inputs["gene_annotation_file"]
 
 	force                   = params['force']
