@@ -1,7 +1,8 @@
 # generic functions
 
 import sys
-# import os
+import click
+from os import stat
 from pprint import pprint
 
 # import click
@@ -35,9 +36,24 @@ ENCODING='cp850'
 # ENCODING=ENCODING
 
 
+
 class requirementClass():
 	def __init__(self):
 		self.reqs = []
+
+
+	def add_cutadapt(self):
+		try:
+			p = Popen(['cutadapt', '--version'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+			out,err = p.communicate()
+			found=True
+			version = out.strip()
+
+		except FileNotFoundError:
+			found=False
+			version=''
+
+		self.reqs.append(('cutadapt', found, version))
 
 	def add_samtools(self):
 		try:
@@ -52,6 +68,50 @@ class requirementClass():
 			version=''
 
 		self.reqs.append(('samtools', found, version))
+
+	def add_shortstack(self):
+		try:
+			p = Popen(['ShortStack', '-v'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+			out,err = p.communicate()
+			out = out.split("\n")
+			print(out)
+			found=True
+			version = out[0].split()[-1]
+
+		except FileNotFoundError:
+			found=False
+			version=''
+
+		self.reqs.append(('ShortStack', found, version))
+
+
+	def add_bowtie(self):
+		try:
+			p = Popen(['bowtie', '--version'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+			out,err = p.communicate()
+			out = out.split("\n")
+			found=True
+			version = out[0].split()[-1]
+
+		except FileNotFoundError:
+			found=False
+			version=''
+
+		self.reqs.append(('bowtie', found, version))
+
+	def add_rnafold(self):
+		try:
+			p = Popen(['RNAfold', '--version'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+			out,err = p.communicate()
+			out = out.split("\n")
+			found=True
+			version = out[0].split()[-1]
+
+		except FileNotFoundError:
+			found=False
+			version=''
+
+		self.reqs.append(('RNAfold', found, version))
 
 	def add_RNAfold(self):
 
@@ -105,15 +165,25 @@ class requirementClass():
 		print()
 
 class inputClass():
+
 	def __init__(self, params):
 
 		output_directory = params['output_directory']
 		output_directory = output_directory.rstrip("/")
-		Path(output_directory).mkdir(parents=True, exist_ok=True)
 
-		self.file = f"{output_directory}/inputs.json"
+		self.output_directory = Path(output_directory)
+		self.output_directory.mkdir(parents=True, exist_ok=True)
+
+		project_name = self.output_directory.name
+
+		self.file = Path(output_directory, "inputs.json")
+
+		self.inputs = {'project_name' : output_directory}
 
 		self.input_list = [
+			"untrimmed_libraries",
+			"trimmed_libraries",
+			"adapter",
 			"alignment_file",
 			'annotation_readgroups',
 			'genome_file',
@@ -121,33 +191,77 @@ class inputClass():
 			'gene_annotation_file'
 			]
 
+
+		for i in self.input_list:
+			self.inputs[i] = None
+
 		if isfile(self.file):
-			self.read()
-		else:
-			self.inputs = {'output_directory' : output_directory}
+			try:
+				self.read()
+			except json.decoder.JSONDecodeError:
+				pass
 
-			for i in self.input_list:
-				self.inputs[i] = None
-
+		pprint(self.inputs)
 		self.parse(params)
 		self.write()
+	
 
 
 	def read(self):
 		with open(self.file, 'r') as f:
 			self.inputs = json.load(f)
 
+		self.decode_inputs()
+
 
 	def write(self):
+
+		self.encode_inputs()
 		with open(self.file, 'w') as outf:
 			outf.write(json.dumps(self.inputs, indent=2))
+		self.decode_inputs()
+
+
+	def encode_inputs(self):
+		od = str(self.output_directory.absolute())
+
+		for p in ["untrimmed_libraries", "trimmed_libraries"]:
+			if self.inputs[p]:
+				for i in range(len(self.inputs[p])):
+					self.inputs[p][i] = self.inputs[p][i].replace(od, "<OUTPUT_DIRECTORY>")
+
+		for p in ["alignment_file", 'genome_file', 'jbrowse_directory', 'gene_annotation_file']:
+			if self.inputs[p]:
+				self.inputs[p] = self.inputs[p].replace(od, "<OUTPUT_DIRECTORY>")
+
+
+
+
+
+	def decode_inputs(self):
+		od = str(self.output_directory)
+
+		for p in ["untrimmed_libraries", "trimmed_libraries"]:
+			if self.inputs[p]:
+				for i in range(len(self.inputs[p])):
+					self.inputs[p][i] = self.inputs[p][i].replace("<OUTPUT_DIRECTORY>", od)
+
+		for p in ["alignment_file", 'genome_file', 'jbrowse_directory', 'gene_annotation_file']:
+			if self.inputs[p]:
+				self.inputs[p] = self.inputs[p].replace("<OUTPUT_DIRECTORY>", od)
+
 
 
 	def parse(self, params):
-		self.params = params
+		# self.params = params
 
-		if 'annotation_readgroups' in params:
-			params['annotation_readgroups'] = list(params['annotation_readgroups'])
+
+		for p in ['annotation_readgroups', 'trimmed_libraries','untrimmed_libraries']:
+			if p in params:
+				try:
+					params[p] = list(params[p])
+				except TypeError:
+					pass
 
 		for option in self.input_list:
 			try:
@@ -161,7 +275,10 @@ class inputClass():
 
 	def add(self, option, value):
 
-		saved_value = self.inputs[option]
+		try:
+			saved_value = self.inputs[option]
+		except KeyError:
+			saved_value = ''
 
 		if not saved_value:
 			self.inputs[option] = value
@@ -193,7 +310,7 @@ class inputClass():
 	def check(self, required_options):
 
 		if 'output_directory' not in required_options:
-			required_options = ['output_directory'] + required_options
+			required_options = ['project_name'] + required_options
 
 		self.required_options = required_options
 
@@ -306,6 +423,45 @@ class inputClass():
 		print("--------------------------------------")
 		for chrom in all_chroms:
 			print(is_found(chrom, genome_chromosomes), is_found(chrom, alignment_chromosomes), is_found(chrom, gene_annotation_chromosomes), chrom, sep='\t')
+
+			
+def validate_glob_path(ctx, param, value):
+
+	paths = list(value)
+	paths = [p.strip() for p in paths]
+	paths = " ".join(paths)
+	paths = paths.strip().split(" ")
+
+	if paths == ['']:
+		# print(param)
+		# raise click.UsageError("Error: Missing or empty option '-l'")
+		return(None)
+
+	full_paths = []
+	for path in paths:
+		full_paths.append(str(Path(path).absolute()))
+		# print(path)
+		if not isfile(path):
+			raise click.BadParameter(f"path not found: {path}")
+
+	full_paths = tuple(full_paths)
+	return(full_paths)		
+
+
+def validate_path(ctx, param, value):
+
+
+	if not value:
+		return(None)
+
+	path = value.strip()
+
+	if not isfile(path):
+		raise click.BadParameter(f"path not found: {path}")
+
+	full_path = str(Path(path).absolute())
+
+	return(full_path)		
 
 
 TOP_READS_HEADER = "cluster\tseq\trank\tdepth\trpm\tlocus_prop"
@@ -540,12 +696,12 @@ def get_global_depth(output_directory, alignment_file, force=False, aggregate_by
 
 	header = ['rg','chrom','length','abundance']
 
-	if not isfile(depth_file) or force:
+	if not isfile(depth_file) or stat(depth_file).st_size < 50 or force:
 		call = ['samtools', 'view', '-F', '4', alignment_file]
-
+		print(" ".join(call))
 		c = Counter()
 
-		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+		p = Popen(call, stdout=PIPE, encoding=ENCODING)
 
 		print(f"{depth_file} not found.")
 		print("Reading alignment to find global depth dimensions...")
