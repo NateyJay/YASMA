@@ -22,7 +22,7 @@ from shutil import copyfile
 
 
 
-@cli.command(group='Preliminary', help_priority=1)
+@cli.command(group='Preliminary', help_priority=0)
 
 
 
@@ -45,7 +45,7 @@ from shutil import copyfile
 @optgroup.option("-a", "--alignment_file", 
 	required=False, 
 	default=None,
-	type=click.Path(exists=True),
+	type=click.UNPROCESSED, callback=validate_path,
 	help='Alignment file input (bam or cram).')
 
 @optgroup.option('-r', '--annotation_readgroups', 
@@ -61,7 +61,7 @@ from shutil import copyfile
 	# default=f"Annotation_{round(time())}", 
 	required=False,
 	default=None,
-	type=click.Path(exists=True),
+	type=click.UNPROCESSED, callback=validate_path,
 	help='Genome or assembly which was used for the original alignment.')
 
 
@@ -69,31 +69,35 @@ from shutil import copyfile
 	# default=f"Annotation_{round(time())}", 
 	required=False,
 	default=None,
-	type=click.Path(exists=True),
+	type=click.UNPROCESSED, callback=validate_path,
 	help='A path to a working directory for a jbrowse2 instance.')
 
 
 
-@optgroup.option("--gene_annotation_file", 
+@optgroup.option("-ga", "--gene_annotation_file", 
 	# default=f"Annotation_{round(time())}", 
 	required=False,
 	default=None,
-	type=click.Path(exists=True),
+	type=click.UNPROCESSED, callback=validate_path,
 	help='Annotation file for genes (gff3) matching the included genome.')
 
 
-@optgroup.group('\n  Options',
-				help='')
 
-@optgroup.option("--overwrite", 
-	is_flag=True,
-	default=False,
-	help='Allowing the overwrite of inputs already logged.')
+@optgroup.option('-tl', "--trimmed_libraries", 
+	required=False, 
+	type=click.UNPROCESSED, callback=validate_glob_path,
+	multiple=True,
+	help='Path to trimmed libraries. Does not accept wildcards, for now....')
 
+
+@optgroup.option("-ul", "--untrimmed_libraries", 
+	required=False, 
+	type=click.UNPROCESSED, callback=validate_glob_path,
+	multiple=True,
+	help='Path to untrimmed libraries.')
 
 def inputs(**params):
 	'''A tool to log inputs, which will be referenced by later tools.'''
-
 
 	rc = requirementClass()
 	rc.add_samtools()
