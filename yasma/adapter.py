@@ -27,11 +27,12 @@ from .cli import cli
 
 @optgroup.group('\n  Basic options',
 				help='')
-@optgroup.option("-l", "--untrimmed_libraries", 
+
+@optgroup.option("-ul", "--untrimmed_libraries", 
 	required=False, 
 	type=click.UNPROCESSED, callback=validate_glob_path,
 	multiple=True,
-	help='Path to untrimmed libraries.')
+	help='Path to untrimmed libraries. Accepts wildcards (*).')
 
 @optgroup.option("-o", "--output_directory", 
 	# default=f"Annotation_{round(time())}", 

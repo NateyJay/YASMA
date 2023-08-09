@@ -32,14 +32,12 @@ from .cli import cli
 @optgroup.group('\n  Basic options',
 				help='')
 
+
 @optgroup.option("-ul", "--untrimmed_libraries", 
 	required=False, 
-	# type=click.Path(exists=True),
-	# type=str,
-	# nargs=2,
 	type=click.UNPROCESSED, callback=validate_glob_path,
 	multiple=True,
-	help='Path to untrimmed libraries.')
+	help='Path to untrimmed libraries. Accepts wildcards (*).')
 
 
 
