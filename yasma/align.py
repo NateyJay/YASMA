@@ -53,7 +53,7 @@ def get_log_details(output_directory):
 	# Open the log file
 	with open(path_to_log, 'r') as f:
 		for line in f:
-			print("->", line.strip())
+			# print("->", line.strip())
 			if "Completed. Results" in line:
 
 				srr = line.split('/temp/')[-1].split('_readsorted.sam.gz')[0]
@@ -167,6 +167,8 @@ def align(**params):
 	if isdir(temp_folder):
 		shutil.rmtree(temp_folder)
 
+	trimmed_libraries = [t.replace(" ", "\ ") for t in trimmed_libraries]
+
 	args = ["ShortStack", "--readfile"] + trimmed_libraries + ["--genomefile", genome_file, "--bowtie_cores", cores, "--align_only", "--cram", "--mmap", 'u', "--sort_mem", "200M", "--outdir", temp_folder]
 
 	if compression == 'cram':
@@ -177,8 +179,19 @@ def align(**params):
 
 	print(" ".join(args))
 
-	p = Popen(args)#, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+	p = Popen(args, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+
+
+	error_terms = ['FAILED. Aborting']
+	for line in p.stderr:
+		print(line.strip())
+
+		for e in error_terms:
+			if e in line:
+				sys.exit("Error detected in ShortStack run!")
 	p.wait()
+
+
 
 
 	files = os.listdir(temp_folder)
@@ -194,10 +207,10 @@ def align(**params):
 
 
 	alignment_file = [f for f in files if f.endswith(compression)][0]
+	# print("found:", alignment_file)
 
 
-
-	# os.rename(Path(align_folder, alignment_file), Path(align_folder, f'alignment.{compression}'))
+	os.rename(Path(align_folder, alignment_file), Path(align_folder, f'alignment.{compression}'))
 	os.rename(Path(align_folder, 'Log.txt'), Path(align_folder, 'log.txt'))
 
 
