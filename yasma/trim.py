@@ -130,8 +130,6 @@ def trim(**params):
 
 		trimmed_libraries.append(str(Path(out_file).absolute()))
 
-		sys.exit()
-
 
 
 	ic.inputs['trimmed_libraries'] = trimmed_libraries
