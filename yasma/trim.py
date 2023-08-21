@@ -99,6 +99,7 @@ def trim(**params):
 	sys.stdout = Logger(log_file)
 
 
+
 	if adapter == "PRE-TRIMMED":
 		ic.inputs['trimmed_libraries'] = untrimmed_libraries
 		ic.write()
@@ -119,10 +120,17 @@ def trim(**params):
 
 		call = ["cutadapt", "-a", adapter, "--minimum-length", str(min_length), "--maximum-length", str(max_length), "-O", "4", "--max-n", "0", "-o", out_file, file]
 
-		p = Popen(call)
+		p = Popen(call, stdout=PIPE, encoding='utf-8')
+
+		for line in p.stdout:
+			print(line.strip())
+
+
 		p.wait()
 
 		trimmed_libraries.append(str(Path(out_file).absolute()))
+
+		sys.exit()
 
 
 
