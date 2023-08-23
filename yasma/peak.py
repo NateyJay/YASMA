@@ -6,6 +6,7 @@ import click
 from click_option_group import optgroup
 
 from pathlib import Path
+import shutil
 from os.path import isfile, isdir
 from collections import Counter#, deque
 from pprint import pprint
@@ -21,6 +22,8 @@ from .cli import cli
 from statistics import mean, median, StatisticsError
 
 from time import time
+
+import re
 
 
 
@@ -319,6 +322,12 @@ class assessClass():
 	type=click.Path(),
 	help="Directory name for annotation output.")
 
+@optgroup.option("-n", "--name", 
+	# default=f"Annotation_{round(time())}", 
+	required=False,
+	type=str,
+	help="Optional name alignment. Useful if comparing annotations.")
+
 
 
 @optgroup.group('\n  Coverage options',
@@ -332,6 +341,10 @@ class assessClass():
 	default='kernel',
 	type=click.Choice(['kernel', 'depth']),
 	help="Choice between two methods for finding genomic coverage. 'Kernel' uses a density smoothing based on the center of the read. 'depth' uses samtools depth and can be sensitive to read-length.")
+
+
+@optgroup.option('--subsample',
+	help="Allows the user to subsample alignments for the annotation to a defined depth. Accepts an integer number of reads, which can be modified with a 10^3 prefix (ex. 10M).")
 
 
 
@@ -413,6 +426,15 @@ def peak(**params):
 	clump_strand_similarity = params['clump_strand_similarity']
 	min_locus_length        = params['min_locus_length']
 	debug                   = params['debug']
+	name                    = params['name']
+	subsample               = params['subsample']
+
+	if name:
+		dir_name = f"peak_{name}"
+	else:
+		dir_name = 'peak'
+
+
 
 
 	if debug: 
@@ -421,10 +443,9 @@ def peak(**params):
 		show_warnings = False
 
 
-	Path(output_directory+ "/peak/").mkdir(parents=True, exist_ok=True)
+	Path(output_directory+ f"/{dir_name}/").mkdir(parents=True, exist_ok=True)
 
-	log_file = f"{output_directory}/peak/log.txt"
-
+	log_file = f"{output_directory}/{dir_name}/log.txt"
 	sys.stdout = Logger(log_file)
 
 
@@ -451,6 +472,62 @@ def peak(**params):
 
 		del chrom_depth_c[key]
 
+
+	def get_subsample(s):
+
+		if not s:
+			return s
+
+		multipliers = {'M' : 1000000, "K" : 1000, "G" : 1000000000}
+
+		number = float(re.sub('[A-Za-z]', '', s))
+		prefix = re.sub('\d', '', s).upper()
+
+
+		if prefix != '':
+			number = round(number * multipliers[prefix])
+
+		if number < 10000:
+			subsample_string = str(round(number))
+		elif number < 10000000:
+			subsample_string = str(round(number/1000)) + 'k'
+		else:
+			subsample_string = str(round(number/1000000)) + 'M'
+
+
+		if alignment_file.endswith(".cram"):
+			ext = '.cram'
+		elif alignment_file.endswith(".bam"):
+			ext = '.bam'
+
+
+		subsample_alignment_file = Path(alignment_file)
+		new_name = subsample_alignment_file.name.rstrip(ext) + "_" + subsample_string + ext
+		subsample_alignment_file = subsample_alignment_file.with_name(new_name)
+
+
+		print(f"Subsampling to {subsample_string} reads")
+			
+		if not isfile(subsample_alignment_file):
+
+			temp_file = Path(output_directory, dir_name, "temp"+ext)
+			fraction = str(number / sum(chrom_depth_c.values()))
+
+			call = ['samtools', 'view', '-h', '--subsample', fraction, f"--{ext.lstrip('.')}", alignment_file]
+
+			with open(temp_file, 'wb') as outf:
+
+				p = Popen(call, stdout=outf)
+				p.wait()
+
+			shutil.move(temp_file, subsample_alignment_file)
+
+		print(f'Using {subsample_alignment_file} as alignment for annotation')
+
+		return(subsample_alignment_file)
+
+
+	alignment_file = get_subsample(subsample)
 
 	def test_by_samtools(c):
 		coords = f"{c[1]}:{c[2]}-{c[3]}"
@@ -524,7 +601,7 @@ def peak(**params):
 
 	## preparing output files
 
-	gff_file = f"{output_directory}/peak/loci.gff3"
+	gff_file = f"{output_directory}/{dir_name}/loci.gff3"
 
 	with open(gff_file, 'w') as outf:
 		print("##gff-version 3", file=outf)
@@ -533,40 +610,40 @@ def peak(**params):
 			print(f"##sequence-region   {chrom} 1 {chrom_length}", file=outf)
 
 
-	results_file = f"{output_directory}/peak/loci.txt"
+	results_file = f"{output_directory}/{dir_name}/loci.txt"
 	with open(results_file, 'w') as outf:
 		print("\t".join(assessClass().header), file=outf)
 
 
-	reads_file = f"{output_directory}/peak/reads.txt"
+	reads_file = f"{output_directory}/{dir_name}/reads.txt"
 	with open(reads_file, 'w') as outf:
 		print(TOP_READS_HEADER, file=outf)
 
 
 
-	region_file = f"{output_directory}/peak/regions.gff3"
+	region_file = f"{output_directory}/{dir_name}/regions.gff3"
 	with open(region_file, 'w') as outf:
 		print("##gff-version 3", file=outf)
 
 		for chrom, chrom_length in chromosomes:
 			print(f"##sequence-region   {chrom} 1 {chrom_length}", file=outf)
 
-	merge_file = f"{output_directory}/peak/merges.txt"
+	merge_file = f"{output_directory}/{dir_name}/merges.txt"
 	with open(merge_file, 'w') as outf:
 		outf.write('')
 
 
-	stats_file = f"{output_directory}/peak/stats.txt"
+	stats_file = f"{output_directory}/{dir_name}/stats.txt"
 	with open(stats_file, 'w') as outf:
 		print("chromosome\tregions\tloci\tchromosome_length\tproportion_genome_annotated\tmean_length\tmedian_length\treads\tproportion_libraries_annotated\tmean_abundance\tmedian_abundance", file=outf)
 
 
-	stats_file = f"{output_directory}/peak/stats_by_chrom.txt"
+	stats_file = f"{output_directory}/{dir_name}/stats_by_chrom.txt"
 	with open(stats_file, 'w') as outf:
 		print("chromosome\tregions\tloci\tchromosome_length\tproportion_genome_annotated\tmean_length\tmedian_length\treads\tproportion_libraries_annotated\tmean_abundance\tmedian_abundance", file=outf)
 
 
-	overall_file = f"{output_directory}/peak/stats_overall.txt"
+	overall_file = f"{output_directory}/{dir_name}/stats_overall.txt"
 	with open(overall_file, 'w') as outf:
 		outf.write('')
 

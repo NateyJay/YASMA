@@ -178,6 +178,7 @@ class inputClass():
 
 		self.file = Path(output_directory, "inputs.json")
 
+
 		self.inputs = {'project_name' : output_directory}
 
 		self.input_list = [
@@ -195,13 +196,13 @@ class inputClass():
 		for i in self.input_list:
 			self.inputs[i] = None
 
+
 		if isfile(self.file):
 			try:
 				self.read()
 			except json.decoder.JSONDecodeError:
 				pass
 
-		pprint(self.inputs)
 		self.parse(params)
 		self.write()
 	
@@ -223,16 +224,19 @@ class inputClass():
 
 
 	def encode_inputs(self):
-		od = str(self.output_directory.absolute())
+		abs_od = str(self.output_directory.absolute())
+		rel_od = str(self.output_directory)
 
 		for p in ["untrimmed_libraries", "trimmed_libraries"]:
 			if self.inputs[p]:
 				for i in range(len(self.inputs[p])):
-					self.inputs[p][i] = self.inputs[p][i].replace(od, "<OUTPUT_DIRECTORY>")
+					self.inputs[p][i] = self.inputs[p][i].replace(abs_od, "<OUTPUT_DIRECTORY>")
+					self.inputs[p][i] = self.inputs[p][i].replace(rel_od, "<OUTPUT_DIRECTORY>")
 
 		for p in ["alignment_file", 'genome_file', 'jbrowse_directory', 'gene_annotation_file']:
 			if self.inputs[p]:
-				self.inputs[p] = self.inputs[p].replace(od, "<OUTPUT_DIRECTORY>")
+				self.inputs[p] = self.inputs[p].replace(abs_od, "<OUTPUT_DIRECTORY>")
+				self.inputs[p] = self.inputs[p].replace(rel_od, "<OUTPUT_DIRECTORY>")
 
 
 
@@ -875,11 +879,15 @@ def samtools_depth(bam, annotation_readgroups, locus=False):
 
 
 
-def samtools_view(bam, dcr_range=False, non_range=False, locus=False, rgs=[], boundary_rule='loose'):
+def samtools_view(bam, dcr_range=False, non_range=False, locus=False, rgs=[], boundary_rule='loose', subsample=None):
 
-	if bam.endswith('.bam'):
+	if subsample and locus:
+		print("Error: locus and subsample are conflicting options for samtools view")
+		sys.exit()
+
+	if str(bam).endswith('.bam'):
 		index_file = f"{bam}.bai"
-	elif bam.endswith('.cram'):
+	elif str(bam).endswith('.cram'):
 		index_file = f"{bam}.crai"
 
 	if not isfile(index_file):
@@ -905,11 +913,16 @@ def samtools_view(bam, dcr_range=False, non_range=False, locus=False, rgs=[], bo
 	for rg in rgs:
 		call += ['-r', rg]
 
-	call += [bam]
+	if subsample:
+		call += ['--subsample', str(subsample)]
+
+	call += [str(bam)]
 
 
 	if locus:
 		call.append(locus)
+
+	# print(call)
 		
 	# print(call)
 	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
