@@ -110,6 +110,7 @@ def count(** params):
 	ignore_zeroes        = params['ignore_zeroes']
 
 
+	print(gff_files)
 
 	Path(output_directory+ "/counts/").mkdir(parents=True, exist_ok=True)
 
