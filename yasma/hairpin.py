@@ -6,7 +6,6 @@ from subprocess import PIPE, Popen, call
 from pathlib import Path
 from os.path import isfile, isdir
 from time import time, sleep
-from Levenshtein import distance
 from math import log10, sqrt
 
 
@@ -1036,6 +1035,8 @@ class hairpinClass():
 
 def hairpin(**params):
 	"""Evaluates annotated loci for hairpin or miRNA structures."""
+
+	from Levenshtein import distance
 
 	rc = requirementClass()
 	rc.add_samtools()

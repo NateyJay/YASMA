@@ -29,6 +29,8 @@ from .cli import cli
 
 
 
+
+
 def get_log_details(output_directory):
 	bpj_table = f"{output_directory}/align/project_stats.txt"
 	bpjf = open(bpj_table, 'w')
@@ -136,8 +138,6 @@ def align(**params):
 	'''Wrapper for alignment using ShortStack/bowtie.'''
 
 
-	pprint(params)
-
 	rc = requirementClass()
 	rc.add_samtools()
 	rc.add_bowtie()
@@ -158,11 +158,10 @@ def align(**params):
 
 
 
-
 	Path(output_directory+ "/align/").mkdir(parents=True, exist_ok=True)
 
-	temp_folder = output_directory + "/align/temp/"
-	align_folder = output_directory + '/align/'
+	temp_folder = Path(output_directory, "align/temp/")
+	align_folder = Path(output_directory, 'align/')
 
 	if isdir(temp_folder):
 		shutil.rmtree(temp_folder)
@@ -182,7 +181,7 @@ def align(**params):
 	p = Popen(args, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
 
-	error_terms = ['FAILED. Aborting']
+	error_terms = ['FAILED. Aborting', 'was not readable']
 	for line in p.stderr:
 		print(line.strip())
 
@@ -196,27 +195,34 @@ def align(**params):
 
 	files = os.listdir(temp_folder)
 
+	alignment_file     = Path(temp_folder, [f for f in files if f.endswith(compression)][0])
+	print('alignment_file:', alignment_file)
+	alignment_file_new = Path(output_directory, "align", f'alignment.{compression}')
+	print('       renamed:', alignment_file_new)
+
+
+	log_file = Path(temp_folder, "Log.txt")
+	print('log_file:', log_file)
+	log_file_new = Path(output_directory, 'align', 'log.txt')
+	print(' renamed:', log_file_new)
+
+
+	alignment_file.rename(alignment_file_new)
+	log_file.rename(log_file_new)
+
 	## Copying files to align directory
 
-	for file in files:
+	# for file in files:
 
-		shutil.move(Path(temp_folder, file), Path(align_folder, file))
+	# 	shutil.move(Path(temp_folder, file), Path(align_folder, file))
 
 
 	shutil.rmtree(temp_folder)
 
 
-	alignment_file = [f for f in files if f.endswith(compression)][0]
-	# print("found:", alignment_file)
-
-
-	os.rename(Path(align_folder, alignment_file), Path(align_folder, f'alignment.{compression}'))
-	os.rename(Path(align_folder, 'Log.txt'), Path(align_folder, 'log.txt'))
-
-
 	get_log_details(output_directory)
 
-	ic.inputs['alignment_file'] = str(Path(output_directory, 'align', f"alignment.{compression}").absolute())
+	ic.inputs['alignment_file'] = str(alignment_file.absolute())
 	ic.write()
 
 

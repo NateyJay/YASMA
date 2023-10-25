@@ -87,7 +87,7 @@ def context(**params):
 		call = ['bedtools', 'sort', '-i', gene_annotation_file]
 
 		print("input gff not sorted - sorting now with:")
-		print(" ".join(call))
+		print(" ".join(map(str,call)))
 
 		with open(temp_file, 'w') as outf:
 			p = Popen(call, stdout=outf)
@@ -97,10 +97,9 @@ def context(**params):
 
 
 	def make_subsets():
-		mRNA_file = gene_annotation_file.replace(".gff3", ".mRNA.gff3")
-		exon_file = gene_annotation_file.replace(".gff3", ".exon.gff3")
-		cds_file  = gene_annotation_file.replace(".gff3", ".cds.gff3")
-
+		mRNA_file = gene_annotation_file.with_suffix(".mRNA.gff3")
+		exon_file = gene_annotation_file.with_suffix(".exon.gff3")
+		cds_file  = gene_annotation_file.with_suffix(".cds.gff3")
 
 		if not isfile(mRNA_file) or not isfile(exon_file) or not isfile(cds_file):
 			sort()
@@ -141,7 +140,7 @@ def context(**params):
 
 		call= ['bedtools', 'closest', '-a', ann_file, '-b', file, '-d']
 
-		print(" ".join(call))
+		print(" ".join(map(str,call)))
 		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 		out, err = p.communicate()
 

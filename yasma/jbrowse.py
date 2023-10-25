@@ -134,7 +134,7 @@ class bigwigClass():
 	type=click.Path(),
 	help="Directory name for annotation output.")
 
-@optgroup.option("--gene_annotation_file", 
+@optgroup.option("-ga","--gene_annotation_file", 
 	# default=f"Annotation_{round(time())}", 
 	required=False,
 	default=None,
@@ -175,6 +175,11 @@ class bigwigClass():
 	default=False,
 	help="Force remake of coverage files")
 
+@optgroup.option("--recopy",
+	is_flag=True,
+	default=False,
+	help="Force recopy of all files to the jbrowse directory")
+
 @optgroup.option("--overwrite_config",
 	is_flag=True,
 	default=False,
@@ -197,7 +202,7 @@ def jbrowse(**params):
 	'''Tool to build coverage and config files for jbrowse2.'''
 
 	ic = inputClass(params)
-	ic.check(["alignment_file", "annotation_readgroups", "genome_file"])
+	ic.check(["alignment_file", "annotation_readgroups", "genome_file", "jbrowse_directory"])
 
 	output_directory       = str(ic.output_directory)
 	alignment_file         = ic.inputs["alignment_file"]
@@ -211,10 +216,12 @@ def jbrowse(**params):
 	force                  = params['force']
 	overwrite_config       = params['overwrite_config']
 	removes                = params['remove_name']
+	recopy                 = params['recopy']
+
 
 	if jbrowse_directory:
-		jbrowse_directory = jbrowse_directory.rstrip("/")
-		input_config = f"{jbrowse_directory}/config.json"
+		# jbrowse_directory = jbrowse_directory.rstrip("/")
+		input_config = Path(jbrowse_directory, "config.json")
 
 		if not isfile(input_config):
 			print("Warning: config.json in jbrowse_directory not found")
@@ -227,17 +234,21 @@ def jbrowse(**params):
 	else:
 		input_config = None
 
-	genome_name = genome_file.rstrip(".gz").rstrip(".fa").split("/")[-1]
+	# print(genome_file)
+	# print(genome_file.parent)
+	# print(genome_file.stem)
+	# genome_name = genome_file.rstrip(".gz").rstrip(".fa").split("/")[-1]
+	genome_name = genome_file.stem
 
-	cov_dir = output_directory+ f"/jbrowse/{genome_name}/{output_directory}_coverages"
-	ann_dir = output_directory+ f"/jbrowse/{genome_name}/{output_directory}_annotations"
-	deb_dir = output_directory+ f"/jbrowse/{genome_name}/{output_directory}_debug"
+	cov_dir = Path(output_directory, "jbrowse", genome_name, f"{output_directory}_coverages")
+	ann_dir = Path(output_directory, "jbrowse", genome_name, f"{output_directory}_annotations")
+	deb_dir = Path(output_directory, "jbrowse", genome_name, f"{output_directory}_debug")
 
 	for directory in [cov_dir, ann_dir, deb_dir]:
-		Path(directory).mkdir(parents=True, exist_ok=True)
+		directory.mkdir(parents=True, exist_ok=True)
 
 
-	chromosomes, bam_rgs = get_chromosomes(alignment_file, output_directory)
+	chromosomes, bam_rgs = get_chromosomes(alignment_file)
 	annotation_readgroups = check_rgs(annotation_readgroups, bam_rgs)
 
 	chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
@@ -401,9 +412,9 @@ def jbrowse(**params):
 
 	def backup_config():
 		now = datetime.now()
-		backup_dir = "/".join(input_config.split("/")[:-1]) + "/config_backups/" + now.strftime("%Y.%m.%d")
-		Path(backup_dir).mkdir(parents=True, exist_ok=True)
-		backup_file = backup_dir + "/config_" + str(round(time())) + ".json"
+		backup_dir = Path(jbrowse_directory, "config_backups", now.strftime("%Y.%m.%d"))
+		backup_dir.mkdir(parents=True, exist_ok=True)
+		backup_file = Path(backup_dir, "config_" + str(round(time())) + ".json")
 		copyfile(input_config, backup_file)
 
 		print(f"  Backing up config: {backup_file}")
@@ -460,7 +471,7 @@ def jbrowse(**params):
 
 	## Gene annotation
 	if gene_annotation_file:
-		name = gene_annotation_file.rstrip('.gff3').rstrip(".gff").split("/")[-1]
+		name = gene_annotation_file.stem #.rstrip('.gff3').rstrip(".gff").split("/")[-1]
 		if name not in names:
 			print(f"  adding track: {color.BOLD}{name}.gff3{color.END}")
 			at = make_annotation_track(
@@ -533,15 +544,16 @@ def jbrowse(**params):
 	print("Copying data to jbrowse folder...")
 
 	def copy_it(src, des):
-		if force or not isfile(des):
-			print(f"  {src.split('/')[-1]}")
+		if force or not isfile(des) or recopy:
+			print(f"  {src.name}")
 			copyfile(src, des)
 
-	copy_it(f"{output_directory}/peak/loci.gff3", f"{ann_dir}/loci.gff3")
-	copy_it(f"{output_directory}/peak/regions.gff3", f"{ann_dir}/regions.gff3")
-	copy_it(genome_file, f"{output_directory}/jbrowse/{genome_name}/{genome_name}.fa")
-	copy_it(genome_file+'.fai', f"{output_directory}/jbrowse/{genome_name}/{genome_name}.fa.fai")
-	copy_it(gene_annotation_file, f"{output_directory}/jbrowse/{genome_name}/{gene_annotation_file.split('/')[-1]}")
+
+	copy_it(Path(output_directory, "peak/loci.gff3"), Path(ann_dir, "loci.gff3"))
+	copy_it(Path(output_directory, "peak/regions.gff3"), Path(ann_dir, "regions.gff3"))
+	copy_it(genome_file, Path(output_directory, "jbrowse", genome_name, f"{genome_name}.fa"))
+	copy_it(Path(str(genome_file).replace(".fa", ".fa.fai")), Path(output_directory, "jbrowse", genome_name, f"{genome_name}.fa.fai"))
+	copy_it(gene_annotation_file, Path(output_directory, "jbrowse", genome_name, gene_annotation_file.name))
 
 
 	print()

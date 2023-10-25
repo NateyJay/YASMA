@@ -10,7 +10,7 @@ from pprint import pprint
 from subprocess import PIPE, Popen, call
 # from pathlib import Path
 
-from pathlib import Path
+from pathlib import Path, PurePath
 from os.path import isfile, isdir
 
 from time import time, sleep
@@ -74,7 +74,7 @@ class requirementClass():
 			p = Popen(['ShortStack', '-v'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 			out,err = p.communicate()
 			out = out.split("\n")
-			print(out)
+			# print(out)
 			found=True
 			version = out[0].split()[-1]
 
@@ -168,11 +168,18 @@ class inputClass():
 
 	def __init__(self, params):
 
+		try:
+			if params['override']:
+				self.override = True
+		except KeyError:
+			self.override = False
+
 		output_directory = params['output_directory']
 		output_directory = output_directory.rstrip("/")
 
 		self.output_directory = Path(output_directory)
 		self.output_directory.mkdir(parents=True, exist_ok=True)
+
 
 		project_name = self.output_directory.name
 
@@ -193,6 +200,15 @@ class inputClass():
 			]
 
 
+		self.paths = [
+			"untrimmed_libraries",
+			"trimmed_libraries",
+			"alignment_file",
+			'genome_file',
+			'jbrowse_directory',
+			'gene_annotation_file'
+			]
+
 		for i in self.input_list:
 			self.inputs[i] = None
 
@@ -201,6 +217,7 @@ class inputClass():
 			try:
 				self.read()
 			except json.decoder.JSONDecodeError:
+				print("DECODER ERROR!")
 				pass
 
 		self.parse(params)
@@ -224,35 +241,66 @@ class inputClass():
 
 
 	def encode_inputs(self):
-		abs_od = str(self.output_directory.absolute())
-		rel_od = str(self.output_directory)
+
+		od = self.output_directory
+
+		def encode_path(path):
+			
+			path = str(path.absolute())
+
+			if "/"+str(od)+"/" in path:
+				path = "<OD>/" + path.split(str(od)+"/")[-1]
+
+			return(path)
+
+
 
 		for p in ["untrimmed_libraries", "trimmed_libraries"]:
 			if self.inputs[p]:
 				for i in range(len(self.inputs[p])):
-					self.inputs[p][i] = self.inputs[p][i].replace(abs_od, "<OUTPUT_DIRECTORY>")
-					self.inputs[p][i] = self.inputs[p][i].replace(rel_od, "<OUTPUT_DIRECTORY>")
+					self.inputs[p][i] = encode_path(self.inputs[p][i])
 
 		for p in ["alignment_file", 'genome_file', 'jbrowse_directory', 'gene_annotation_file']:
 			if self.inputs[p]:
-				self.inputs[p] = self.inputs[p].replace(abs_od, "<OUTPUT_DIRECTORY>")
-				self.inputs[p] = self.inputs[p].replace(rel_od, "<OUTPUT_DIRECTORY>")
+				self.inputs[p] = encode_path(self.inputs[p])
+
 
 
 
 
 
 	def decode_inputs(self):
-		od = str(self.output_directory)
+		od = self.output_directory
+
+
+		def decode_path(path):
+			# print(path)
+			if "<OD>/" in path:
+				path = path.split("<OD>/")[-1]
+				path = Path(od, path)
+				# print(path)
+			elif "<OUTPUT_DIRECTORY>/" in path:
+				path = path.split("<OUTPUT_DIRECTORY>/")[-1]
+				path = Path(od, path)
+				# print(path)
+			else:
+				path = Path(path)
+
+
+
+			return(path)
 
 		for p in ["untrimmed_libraries", "trimmed_libraries"]:
 			if self.inputs[p]:
 				for i in range(len(self.inputs[p])):
-					self.inputs[p][i] = self.inputs[p][i].replace("<OUTPUT_DIRECTORY>", od)
+					self.inputs[p][i] = decode_path(self.inputs[p][i])
+
 
 		for p in ["alignment_file", 'genome_file', 'jbrowse_directory', 'gene_annotation_file']:
 			if self.inputs[p]:
-				self.inputs[p] = self.inputs[p].replace("<OUTPUT_DIRECTORY>", od)
+
+				self.inputs[p] = decode_path(self.inputs[p])
+
 
 
 
@@ -273,6 +321,9 @@ class inputClass():
 			except KeyError:
 				value = None
 
+			if option in self.paths and value:
+				value = Path(value)
+
 			self.add(option, value)
 
 
@@ -289,6 +340,12 @@ class inputClass():
 
 		elif not value:
 			pass
+
+		elif saved_value != value and self.override:
+			print(f"  Override!")
+			print(f"  Replace: ... '{self.inputs[option]}'")
+			print(f"  with: ...... '{value}'")
+			self.inputs[option] = value
 
 		elif saved_value != value:
 			print(f"  Warning: input for option '{color.BOLD}{option}{color.END}' does not match logged value")
@@ -367,15 +424,22 @@ class inputClass():
 
 	def check_chromosomes(self):
 
-		if self.inputs['genome_file'] and not isfile(self.inputs['genome_file']+".fai"):
-			print(" ".join(['samtools', 'faidx', self.inputs['genome_file']]))
-			p = Popen(['samtools', 'faidx', self.inputs['genome_file']], stdout=PIPE, stderr=PIPE)
-			p.wait()
-
 		genome_chromosomes = set()
 		if self.inputs['genome_file']:
+			genome_file = self.inputs['genome_file']
+			genome_index_file = genome_file.parent / (genome_file.name + ".fai")
 
-			with open(self.inputs['genome_file'] + ".fai", 'r') as f:
+			if not isfile(genome_file):
+				sys.exit(f"Error: genome_file not found {genome_file}")
+
+
+			if not isfile(genome_index_file):
+				call = ['samtools', 'faidx', str(genome_file)]
+				print(" ".join(call))
+				p = Popen(call, stdout=PIPE, stderr=PIPE)
+				p.wait()
+
+			with open(genome_index_file, 'r') as f:
 
 				for line in f:
 					genome_chromosomes.add(line.split()[0])
@@ -385,6 +449,9 @@ class inputClass():
 
 		gene_annotation_chromosomes = set()
 		if self.inputs['gene_annotation_file']:
+
+			if not isfile(self.inputs['gene_annotation_file']):
+				sys.exit(f"Error: gene_annotation_file not found {self.inputs['gene_annotation_file']}")
 
 			with open(self.inputs['gene_annotation_file']) as f:
 
@@ -398,6 +465,10 @@ class inputClass():
 
 		alignment_chromosomes = set()
 		if self.inputs['alignment_file']:
+
+			if not isfile(self.inputs['alignment_file']):
+				sys.exit(f"Error: alignment_file not found {self.inputs['alignment_file']}")
+
 			p = Popen(['samtools', 'view', '-H', self.inputs['alignment_file']],
 				stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
@@ -444,8 +515,8 @@ def validate_glob_path(ctx, param, value):
 	full_paths = []
 	for path in paths:
 		full_paths.append(str(Path(path).absolute()))
-		# print(path)
-		if not isfile(path):
+
+		if not isfile(path) and not isdir(path):
 			raise click.BadParameter(f"path not found: {path}")
 
 	full_paths = tuple(full_paths)
@@ -460,7 +531,7 @@ def validate_path(ctx, param, value):
 
 	path = value.strip()
 
-	if not isfile(path):
+	if not isfile(path) and not isdir(path):
 		raise click.BadParameter(f"path not found: {path}")
 
 	full_path = str(Path(path).absolute())
@@ -696,12 +767,13 @@ def get_lambda(alignment_file, chromosomes, window_length, output_directory):
 
 
 def get_global_depth(output_directory, alignment_file, force=False, aggregate_by=['rg','chrom','length']):
-	depth_file = f"./{output_directory}/global_depth.txt"
+	depth_file = f"{output_directory}/global_depth.txt"
 
 	header = ['rg','chrom','length','abundance']
 
+
 	if not isfile(depth_file) or stat(depth_file).st_size < 50 or force:
-		call = ['samtools', 'view', '-F', '4', alignment_file]
+		call = ['samtools', 'view', '-F', '4', str(alignment_file)]
 		print(" ".join(call))
 		c = Counter()
 
@@ -757,13 +829,15 @@ def get_global_depth(output_directory, alignment_file, force=False, aggregate_by
 		head_line = f.readline()
 		for line in f:
 			line = line.strip().split('\t')
+			# print(line)
 
 			if multiples:
 				key = tuple([line[i] for i in indicies])
 			else:
 				key = line[indicies[0]]
-
 			freq = int(line[-1])
+			# print(key, freq)
+
 			if freq:
 				out_c[key] += freq
 
@@ -885,6 +959,7 @@ def samtools_view(bam, dcr_range=False, non_range=False, locus=False, rgs=[], bo
 		print("Error: locus and subsample are conflicting options for samtools view")
 		sys.exit()
 
+
 	if str(bam).endswith('.bam'):
 		index_file = f"{bam}.bai"
 	elif str(bam).endswith('.cram'):
@@ -977,16 +1052,17 @@ def samtools_view(bam, dcr_range=False, non_range=False, locus=False, rgs=[], bo
 
 	p.wait()
 
-def get_chromosomes(file, output_directory=False):
+def get_chromosomes(file):
 	chromosomes = []
 	rgs = []
 	# call = f"samtools view -@ 4 -H {file}"
 
 	call = ['samtools','view','-H', file]
-	# print(call)
+	# print(" ".join(call))
 
 	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 	out, err = p.communicate()
+
 
 	for o in out.strip().split("\n"):
 		o = o.strip().split('\t')
@@ -1023,17 +1099,17 @@ def get_chromosomes(file, output_directory=False):
 
 
 
-def check_rgs(annotation_readgroups, bam_rgs):
+# def check_rgs(annotation_readgroups, bam_rgs):
 
-	if annotation_readgroups[0].lower() == 'all':
-		annotation_readgroups = bam_rgs
-	else:
-		for rg in annotation_readgroups:
-			if rg not in bam_rgs:
-				sys.exit(f"Error: provided readgroup '{rg}' not found within bamfile header:\n{bam_rgs}")
+# 	if annotation_readgroups[0].lower() == 'all':
+# 		annotation_readgroups = bam_rgs
+# 	else:
+# 		for rg in annotation_readgroups:
+# 			if rg not in bam_rgs:
+# 				sys.exit(f"Error: provided readgroup '{rg}' not found within bamfile header:\n{bam_rgs}")
 
-	annotation_readgroups = set(annotation_readgroups)
-	return(annotation_readgroups)
+# 	annotation_readgroups = set(annotation_readgroups)
+# 	return(annotation_readgroups)
 	# def get(self):
 
 
@@ -1366,9 +1442,11 @@ def complement(s):
 # 	return(chromosomes, rgs)
 
 
-
-
 def check_rgs(annotation_readgroups, bam_rgs):
+
+
+	print(bam_rgs)
+
 
 	if annotation_readgroups[0].lower() == 'all':
 		annotation_readgroups = bam_rgs

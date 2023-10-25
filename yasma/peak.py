@@ -1,6 +1,7 @@
 
 
 import sys
+import os
 
 import click
 from click_option_group import optgroup
@@ -395,10 +396,11 @@ class assessClass():
 
 
 
-@optgroup.group('\n Debugging options',
+@optgroup.group('\n Other options',
                 help='')
 
-@optgroup.option('--debug', default=False, help='Debug flag')
+@optgroup.option('--debug', is_flag=True, default=False, help='Debug flag')
+@optgroup.option('--override', is_flag=True, default=False, help='Overrides config file changes without prompting.')
 
 
 def peak(**params):
@@ -414,6 +416,7 @@ def peak(**params):
 	output_directory        = str(ic.output_directory)
 	alignment_file          = ic.inputs["alignment_file"]
 	annotation_readgroups   = ic.inputs['annotation_readgroups']
+	project_name            = ic.inputs['project_name']
 
 	kernel_window           = params['kernel_window']
 	coverage_method         = params['coverage_method']
@@ -426,11 +429,11 @@ def peak(**params):
 	clump_strand_similarity = params['clump_strand_similarity']
 	min_locus_length        = params['min_locus_length']
 	debug                   = params['debug']
-	name                    = params['name']
+	annotation_name         = params['name']
 	subsample               = params['subsample']
 
-	if name:
-		dir_name = f"peak_{name}"
+	if annotation_name:
+		dir_name = f"peak_{annotation_name}"
 	else:
 		dir_name = 'peak'
 
@@ -456,12 +459,11 @@ def peak(**params):
 
 	# half_window = int(window/2)
 
-	chromosomes, bam_rgs = get_chromosomes(alignment_file, output_directory)
+	chromosomes, bam_rgs = get_chromosomes(alignment_file)
+	# print(alignment_file)
 	annotation_readgroups = check_rgs(annotation_readgroups, bam_rgs)
 
 	# chromosomes = [c for c in chromosomes if c[0] == 'NC_037320.1']
-
-
 
 	chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
 
@@ -476,29 +478,30 @@ def peak(**params):
 	def get_subsample(s):
 
 		if not s:
-			return s
+			return alignment_file, sum(chrom_depth_c.values())
 
 		multipliers = {'M' : 1000000, "K" : 1000, "G" : 1000000000}
 
 		number = float(re.sub('[A-Za-z]', '', s))
 		prefix = re.sub('\d', '', s).upper()
 
-
 		if prefix != '':
 			number = round(number * multipliers[prefix])
 
-		if number < 10000:
+		if number > sum(chrom_depth_c.values()):
+			print("subsample larger than alignment. Ignoring command....")
+			sys.exit()
+			return(alignment_file, sum(chrom_depth_c.values()))
+
+		if number < 1000:
 			subsample_string = str(round(number))
-		elif number < 10000000:
+		elif number < 1000000:
 			subsample_string = str(round(number/1000)) + 'k'
 		else:
 			subsample_string = str(round(number/1000000)) + 'M'
 
 
-		if alignment_file.endswith(".cram"):
-			ext = '.cram'
-		elif alignment_file.endswith(".bam"):
-			ext = '.bam'
+		ext = alignment_file.suffix
 
 
 		subsample_alignment_file = Path(alignment_file)
@@ -506,28 +509,79 @@ def peak(**params):
 		subsample_alignment_file = subsample_alignment_file.with_name(new_name)
 
 
-		print(f"Subsampling to {subsample_string} reads")
-			
+		print(f"Subsampling to ~{subsample_string} reads")
+
+
+		# sample_i = sample(range(sum(chrom_depth_c.values())), number)
+
+		print(sum(chrom_depth_c.values()))
+		print(subsample_alignment_file)
+		print()
 		if not isfile(subsample_alignment_file):
 
-			temp_file = Path(output_directory, dir_name, "temp"+ext)
-			fraction = str(number / sum(chrom_depth_c.values()))
 
-			call = ['samtools', 'view', '-h', '--subsample', fraction, f"--{ext.lstrip('.')}", alignment_file]
 
-			with open(temp_file, 'wb') as outf:
+			sample_i = sample(range(sum(chrom_depth_c.values())), number)
+			sample_i = sorted(sample_i, reverse=True)
 
+			this_i = sample_i.pop()
+
+			temp_file = Path(output_directory, dir_name, "temp.sam")
+			# fraction = str(number / sum(chrom_depth_c.values()))
+
+			call = ['samtools', 'view', '-h', "-F", '4', alignment_file]
+			# print(call)
+
+			with open(temp_file, 'w') as outf:
+
+				p = Popen(call, stdout=PIPE, encoding=ENCODING)
+
+				while True:
+					l = p.stdout.readline()
+
+					if l.startswith("@"):
+						outf.write(l)
+					else:
+						break
+
+
+				for i,line in enumerate(p.stdout):
+
+
+					if i == this_i:
+						outf.write(line)
+
+						if not sample_i:
+							p.terminate()
+							break
+
+						this_i = sample_i.pop()
+
+						# print(len(sample_i), '        ', end = '\r')
+
+
+				p.wait()
+
+			# shutil.move(temp_file, subsample_alignment_file)
+			# sys.exit()
+
+			with open(subsample_alignment_file, 'wb') as outf:
+
+				call = ['samtools', 'view', '-h', '--cram', temp_file]
 				p = Popen(call, stdout=outf)
 				p.wait()
 
-			shutil.move(temp_file, subsample_alignment_file)
+			# print("removing", temp_file)
+			os.remove(temp_file)
 
 		print(f'Using {subsample_alignment_file} as alignment for annotation')
+		print()
 
-		return(subsample_alignment_file)
+		return(subsample_alignment_file, number)
 
 
-	alignment_file = get_subsample(subsample)
+	alignment_file, aligned_read_count = get_subsample(subsample)
+
 
 	def test_by_samtools(c):
 		coords = f"{c[1]}:{c[2]}-{c[3]}"
@@ -633,17 +687,13 @@ def peak(**params):
 		outf.write('')
 
 
-	stats_file = f"{output_directory}/{dir_name}/stats.txt"
-	with open(stats_file, 'w') as outf:
-		print("chromosome\tregions\tloci\tchromosome_length\tproportion_genome_annotated\tmean_length\tmedian_length\treads\tproportion_libraries_annotated\tmean_abundance\tmedian_abundance", file=outf)
-
 
 	stats_file = f"{output_directory}/{dir_name}/stats_by_chrom.txt"
 	with open(stats_file, 'w') as outf:
 		print("chromosome\tregions\tloci\tchromosome_length\tproportion_genome_annotated\tmean_length\tmedian_length\treads\tproportion_libraries_annotated\tmean_abundance\tmedian_abundance", file=outf)
 
 
-	overall_file = f"{output_directory}/{dir_name}/stats_overall.txt"
+	overall_file = f"{output_directory}/{dir_name}/stats.txt"
 	with open(overall_file, 'w') as outf:
 		outf.write('')
 
@@ -654,7 +704,7 @@ def peak(**params):
 	cl_i = 0
 
 
-	total_reads = sum(chrom_depth_c.values())
+	# total_reads = sum(chrom_depth_c.values())
 	read_equivalent = 1 / sum(chrom_depth_c.values()) * 1000000
 
 	# depth_wig = wiggleClass(f"{output_directory}/peak/Depths.wig", rpm_threshold, total_reads)
@@ -663,140 +713,196 @@ def peak(**params):
 
 	## iterating through chromosomes and reads
 
-	print("Annotating loci for each chromosome...")
+	# print("Annotating loci for each chromosome...")
+	# print()
+
+	# for chrom_count, chrom_and_length in enumerate(chromosomes):
+
+
+	print(f" {len(chromosomes)} chromosomes/scaffolds/contigs")
+	print(f" {sum([l for c,l in chromosomes]):,} bp total")
+	print(f" {sum(chrom_depth_c.values()):,} reads")
 	print()
 
-	for chrom_count, chrom_and_length in enumerate(chromosomes):
+	loci = []
+	# chrom, chrom_length = chrom_and_length
 
-		loci = []
-		chrom, chrom_length = chrom_and_length
+	# print()
+	# print(f"{chrom_count+1} / {len(chromosomes)}")
+	# print(f"chrom: {chrom}")
+	# print(f"       {chrom_length:,} bp")
+	# print(f"       {chrom_depth_c[chrom]:,} reads")
+
+
+	def get_peaks(bam, rgs):
+
+		depth_c = Counter()
+
+		perc = percentageClass(1, chrom_length)
+
+
+		c1 = ['samtools', 'view', '-h', '-F', '4']
+		for rg in rgs:
+			c1 += ['-r', rg]
+		c1 += [bam]#, chrom]
+
+		p1 = Popen(c1, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+
+		c2 = ['samtools', 'depth', '-']
+		p2 = Popen(c2, stdin=p1.stdout, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+
+
+		
+		print(f"   reading position depths... 0%   ", end='\r', flush=True)
+		for i,line in enumerate(p2.stdout):
+
+			chrom, pos, depth = line.strip().split('\t')
+
+
+			depth_c[(chrom, int(pos))] = int(depth)
+
+
+			perc_out = perc.get_percent(i)
+			if perc_out:
+				print(f"   reading position depths... {perc_out}%", end='\r', flush=True)
+
+		p2.wait()
 
 		print()
-		print(f"{chrom_count+1} / {len(chromosomes)}")
-		print(f"chrom: {chrom}")
-		print(f"       {chrom_length:,} bp")
-		print(f"       {chrom_depth_c[chrom]:,} reads")
 
-
-		def get_peaks(bam, rgs, chrom):
-
-			depth_c = Counter()
-
-			perc = percentageClass(1, chrom_length)
-
-
-			c1 = ['samtools', 'view', '-h', '-F', '4']
-			for rg in rgs:
-				c1 += ['-r', rg]
-			c1 += [bam, chrom]
-
-			p1 = Popen(c1, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
-
-			c2 = ['samtools', 'depth', '-a', '-']
-			p2 = Popen(c2, stdin=p1.stdout, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
-
-
-			
-			for i,line in enumerate(p2.stdout):
-
-				_, pos, depth = line.strip().split('\t')
-
-				depth_c[int(pos)] = int(depth)
-
-
-				perc_out = perc.get_percent(i)
-				if perc_out:
-					print(f"   reading position depths... {perc_out}%", end='\r', flush=True)
-
-			p2.wait()
-
-			print()
-
-			return(depth_c)
+		return(depth_c)
 
 
 
-		def get_kernel_peaks(bam, rgs, chrom):
+	def get_kernel_peaks(bam, rgs):
 
-			half_window = math.floor(kernel_window/2)
+		half_window = math.floor(kernel_window/2)
 
-			depth_c = Counter()
+		kernel_c = {}
+		depth_c = dict()
 
-			perc = percentageClass(1, chrom_depth_c[chrom])
-
-
-			reads = samtools_view(bam, rgs=rgs, locus=chrom)
-
-			for i, read in enumerate(reads):
-				_, length, _, pos, _, _, _, _ = read
-			# call = ['samtools', 'view', '-F', '4']
-			# for rg in rgs:
-			# 	call += ['-r', rg]
-			# call += [bam, chrom]
-
-			# p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
-
-			# for i,line in enumerate(p.stdout):
-			# 	line = line.strip().split("\t")
+		perc = percentageClass(1, sum(chrom_depth_c.values()))
 
 
-			# 	pos    = int(line[3])
-			# 	length = int(line[5].rstrip("M"))
-
-				pos += math.floor(length / 2)
-				depth_c[pos-half_window] += 1
-
-				perc_out = perc.get_percent(i)
-				if perc_out:
-					print(f"   reading position depths ..... {perc_out}%", end='\r', flush=True)
-
-			# p.wait()
-			print()
+		for chrom, chrom_length in chromosomes:
+			depth_c[chrom] = Counter()
+			kernel_c[chrom] = Counter()
 
 
-			## Performing kernel density smoothing based on mean or median or sum?
+		reads = samtools_view(bam, rgs=rgs)
 
-			kernel_c = Counter()
-			window_dq = deque()
+		print(f"   reading position depths ..... 0%", end='\r', flush=True)
 
-			perc = percentageClass(1, chrom_length)
+		i = 0
+		for i, read in enumerate(reads):
+			_, length, _, pos, chrom, _, _, _ = read
+		# call = ['samtools', 'view', '-F', '4']
+		# for rg in rgs:
+		# 	call += ['-r', rg]
+		# call += [bam, chrom]
+
+		# p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+
+		# for i,line in enumerate(p.stdout):
+		# 	line = line.strip().split("\t")
+
+
+		# 	pos    = int(line[3])
+		# 	length = int(line[5].rstrip("M"))
+
+
+			pos += math.floor(length / 2)
+
+			depth_c[chrom][pos-half_window] += 1
+
+			perc_out = perc.get_percent(i)
+			if perc_out:
+				print(f"   reading position depths ..... {perc_out}%\t{i:,} reads", end='\r', flush=True)
+
+		# p.wait()
+
+		# print(f"   reading position depths ..... 100% ({i} reads)", end='\r', flush=True)
+
+		# total_reads = i + 1
+
+
+		# pprint(chrom_depth_c)
+		# print(chrom)
+		# print(length(depth_c[chrom]))
+		# print(length(list(depth_c.items())))
+		# print()
+		# sys.exit()
+
+		print()
+
+
+		## Performing kernel density smoothing based on mean or median or sum?
+
+		window_dq = deque()
+
+		perc = percentageClass(1, sum([l for c,l in chromosomes]))
+		ii =0
+
+		for chrom, chrom_length in chromosomes:
+			kernel_c[chrom] = Counter()
+
+
 			for i in range(chrom_length):
+				ii += 1
 
-				window_dq.append(depth_c[i])
+				window_dq.append(depth_c[chrom][i])
 
-				kernel_c[i] = round(sum(window_dq),2)
+				summary_value = round(sum(window_dq),2)
+
+				if summary_value > 0:
+					kernel_c[chrom][i] = summary_value
 				
 
 
 
-				perc_out = perc.get_percent(i)
+				perc_out = perc.get_percent(ii)
 				if perc_out:
-					print(f"   calculating kernel density .. {perc_out}%", end='\r', flush=True)
+					print(f"   calculating kernel density .. {perc_out}% \t{round(ii/1000000, 1)}M nt ", end='\r', flush=True)
 
 
 				if len(window_dq) > kernel_window:
 					window_dq.popleft()
 
-			print()
 
-			return(kernel_c)
+		print()
+
+		return(kernel_c)
 
 
 
-		## Evaluating peaks to form loci
+	## Evaluating peaks to form loci
 
-		if coverage_method == "depth":
-			peak_c = get_peaks(
-				bam=alignment_file, 
-				rgs=annotation_readgroups, 
-				chrom=chrom)
+	if coverage_method == "depth":
+		peak_c = get_peaks(
+			bam=alignment_file, 
+			rgs=annotation_readgroups)
 
-		elif coverage_method == "kernel":
-			peak_c = get_kernel_peaks(
-				bam=alignment_file, 
-				rgs=annotation_readgroups, 
-				chrom=chrom)
+	elif coverage_method == "kernel":
+		peak_c = get_kernel_peaks(
+			bam=alignment_file, 
+			rgs=annotation_readgroups)
 
+	print()
+	print('prog\tchrom\t\treg\tloc\t\tassess')
+
+	for chrom_count, chrom_and_length in enumerate(chromosomes):
+
+
+		chrom, chrom_length = chrom_and_length
+
+		# print(f"{chrom_count+1} / {len(chromosomes)}")
+		# print(f"chrom: {chrom}")
+		# print(f"       {chrom_length:,} bp")
+		# print(f"       {chrom_depth_c[chrom]:,} reads")
+
+
+
+		status_line = f'{chrom_count+1}/{len(chromosomes)}\t'
 
 
 		claim_d = {}
@@ -816,7 +922,7 @@ def peak(**params):
 					break
 
 				positions.append(cursor)
-				depths.append(peak_c[cursor])
+				depths.append(peak_c[chrom][cursor])
 
 				if len(positions) > pad:
 					positions.popleft()
@@ -854,7 +960,7 @@ def peak(**params):
 					break
 
 				positions.append(cursor)
-				depths.append(peak_c[cursor])
+				depths.append(peak_c[chrom][cursor])
 
 				if len(positions) > creep_dist:
 					positions.popleft()
@@ -907,25 +1013,24 @@ def peak(**params):
 
 			return(lbound, rbound)
 
-		candidate_peak_count = len([v for v in peak_c.values() if v / total_reads * 1000000 > rpm_threshold])
+		candidate_peak_count = len([v for v in peak_c[chrom].values() if v / aligned_read_count * 1000000 > rpm_threshold])
 
 		perc = percentageClass(1, candidate_peak_count)
 
 		i = 0
-		for center, depth in peak_c.most_common():
+		for center, depth in peak_c[chrom].most_common():
 
 
 			perc_out = perc.get_percent(i)
 			if perc_out:
-				print(f"   forming peaks to regions .... {perc_out}%", end='\r', flush=True)
+				print(f"{chrom_count+1}/{len(chromosomes)}\t{chrom}\t{perc_out}%", end='\r', flush=True)
+				# print(f"   forming peaks to regions .... {perc_out}%", end='\r', flush=True)
 			i += 1
 
 
 			if center not in claim_d:
 
-				rpm = depth / total_reads * 1000000
-
-
+				rpm = depth / aligned_read_count * 1000000
 				depth_threshold = math.floor(depth * peak_threshold)
 
 
@@ -968,7 +1073,7 @@ def peak(**params):
 					# 	print(rbound - lbound, "nt")
 					# 	input()
 
-		print()
+		# print()
 
 
 
@@ -977,7 +1082,7 @@ def peak(**params):
 
 		## Sorting loci by position
 
-		print(f"   sorting and writing regions ......", flush=True)
+		# print(f"   sorting and writing regions ......", flush=True)
 
 		loci.sort(key=lambda x: x[2])
 
@@ -1051,7 +1156,8 @@ def peak(**params):
 		unclumped_loci_count = len(loci)
 
 
-		print(f"   clumping similar neighbors... {unclumped_loci_count} -> {len(loci)} loci    ", end='\r', flush=True)
+		print(f"{chrom_count+1}/{len(chromosomes)}\t{chrom}\t100%\t{unclumped_loci_count} -> {len(loci)}", end='\r', flush=True)
+		# print(f"   clumping similar neighbors... {unclumped_loci_count} -> {len(loci)} loci    ", end='\r', flush=True)
 
 		last_claim = 'start'
 
@@ -1160,6 +1266,28 @@ def peak(**params):
 
 				considered_loci = get_considered_loci(locus_i)
 
+
+
+
+			if not considered_loci:
+				break
+
+			# try:
+			# 	sam_lbound > loci[considered_loci[-1]][3]
+			# except:
+
+			# 	print()
+			# 	print("all loci:")
+			# 	print(loci)
+			# 	print()
+			# 	print("considered_loci:")
+			# 	print(considered_loci)
+			# 	print()
+			# 	print("response:")
+			# 	print(loci[considered_loci[-1]])
+			# 	print("Warning: unknown problem in locus merging...")
+			# 	sys.exit()
+			# 	break
 
 			if sam_lbound > loci[considered_loci[-1]][3]:
 				## if all good, moving forward
@@ -1328,7 +1456,8 @@ def peak(**params):
 											seq_d[to_loc] += seq_d[from_loc]
 											print(f"  packing -> {to_loc} with {sizecall_d[from_loc].depth} reads from {from_loc}", file=outf)
 										except KeyError:
-											sys.exit("error!")
+											print("Warning: unknown KeyError in locus packing...")
+											# sys.exit("error!")
 											# print(f"\nWarning: region {next_locus} may not have counts")
 
 											# del loci[locus_i]
@@ -1413,17 +1542,23 @@ def peak(**params):
 
 
 
-				print(f"   clumping similar neighbors... {unclumped_loci_count} -> {len(loci)} loci    ", end='\r', flush=True)
+				# print(f"   clumping similar neighbors... {unclumped_loci_count} -> {len(loci)} loci    ", end='\r', flush=True)
+
+				print(f"{chrom_count+1}/{len(chromosomes)}\t{chrom}\t100%\t{unclumped_loci_count} -> {len(loci)}      ", end='\r', flush=True)
 
 
-		print()
+		# print()
+		to_delete = []
 		for i,locus in enumerate(loci):
 			name = locus[0]
 
 			if name not in strand_d:
 				print("Serious problem - loci with no reads broke through:", name)
 
-				del loci[i]
+				to_delete.append(i)
+
+		for i in to_delete[::-1]:
+			del loci[i]
 
 
 
@@ -1441,7 +1576,9 @@ def peak(**params):
 
 			print_percentage = perc.get_percent(i)
 			if print_percentage:
-				print(f"   assessing loci .............. {print_percentage}%", end="\r", flush=True)
+
+				print(f"{chrom_count+1}/{len(chromosomes)}\t{chrom}\t100%\t{unclumped_loci_count} -> {len(loci)}\t{print_percentage}%", end='\r', flush=True)
+				# print(f"   assessing loci .............. {print_percentage}%", end="\r", flush=True)
 
 			name, chrom, start, stop = locus
 			coords = f"{chrom}:{start}-{stop}"
@@ -1484,11 +1621,14 @@ def peak(**params):
 
 				top_reads_save(read_c, reads_file, read_equivalent, name)
 
+		if loci:
+			print(f"{chrom_count+1}/{len(chromosomes)}\t{chrom}\t100%\t{unclumped_loci_count} -> {len(loci)}\t100%", end='\r', flush=True)
+
 		all_loci += loci
 		# sys.exit()
 
-		print()
-		print()
+		# print()
+		# print()
 
 
 		locus_lengths = [l[3]-l[2] for l in loci]
@@ -1506,10 +1646,10 @@ def peak(**params):
 		else:
 			proportion_chromosome_annotated = None
 
-		print(f"     length:")
-		print(f"       mean ---> {mean_length} bp")
-		print(f"       median -> {median_length} bp")
-		print(f"       proportion of chromosome annotated -> {proportion_chromosome_annotated}")
+		# print(f"     length:")
+		# print(f"       mean ---> {mean_length} bp")
+		# print(f"       median -> {median_length} bp")
+		# print(f"       proportion of chromosome annotated -> {proportion_chromosome_annotated}")
 
 		read_depths = [sum(strand_d[l[0]].values()) for l in loci]
 		try:
@@ -1525,11 +1665,11 @@ def peak(**params):
 		else:
 			proportion_libraries_annotated = None
 
-		if mean_depth:
-			print(f"     abundance:")
-			print(f"       mean ---> {mean_depth} reads ({round(mean_depth * read_equivalent, 2)} rpm)")
-			print(f"       median -> {median_depth} reads ({round(median_depth * read_equivalent, 2)} rpm)")
-			print(f"       proportion of reads annotated -> {proportion_libraries_annotated}")
+		# if mean_depth:
+		# 	print(f"     abundance:")
+		# 	print(f"       mean ---> {mean_depth} reads ({round(mean_depth * read_equivalent, 2)} rpm)")
+		# 	print(f"       median -> {median_depth} reads ({round(median_depth * read_equivalent, 2)} rpm)")
+		# 	print(f"       proportion of reads annotated -> {proportion_libraries_annotated}")
 			
 		# sys.exit()
 
@@ -1545,7 +1685,7 @@ def peak(**params):
 			out += [chrom_depth_c[chrom], proportion_libraries_annotated, mean_depth, median_depth]
 			print("\t".join(map(str, out)), file=outf)
 
-		print()
+		# print()
 
 
 		try:
@@ -1553,7 +1693,7 @@ def peak(**params):
 			overall_d['loci_count']    += len(loci)
 			overall_d['genome_length'] += chrom_length
 			overall_d['locus_lengths'] += locus_lengths
-			overall_d['total_depth']   += chrom_depth_c[chrom]
+			overall_d['total_depth']   = aligned_read_count
 			overall_d['read_depths']   += read_depths
 
 		except KeyError:
@@ -1561,9 +1701,11 @@ def peak(**params):
 			overall_d['loci_count']     = len(loci)
 			overall_d['genome_length']  = chrom_length
 			overall_d['locus_lengths']  = locus_lengths
-			overall_d['total_depth']    = chrom_depth_c[chrom]
+			overall_d['total_depth']    = aligned_read_count
 			overall_d['read_depths']    = read_depths
 
+
+		print()
 
 
 
@@ -1574,23 +1716,58 @@ def peak(**params):
 	with open(overall_file, 'a') as outf:
 
 
-		print('region_count ..................', overall_d['region_count'], file=outf)
-		print('loci_count ....................', overall_d['loci_count'], file=outf)
-		print()
+		print('project\tannotation_name\tregion_count\tloci_count\tgenome_length\tproportion_genome_annotated\tmean_length\tmedian_length\ttotal_depth\tproportion_library_annotated\tmean_depth\tmedian_depth', file=outf)
 
-		print('genome_length: ................', overall_d['genome_length'], 'bp', file=outf)
-		print('proportion_genome_annotated ...', 
-			round(sum(overall_d['locus_lengths'])/overall_d['genome_length'], 4), file=outf)
-		print('mean_length ...................', round(mean(overall_d['locus_lengths']),1), 'bp', file=outf)
-		print('median_length .................', median(overall_d['locus_lengths']), 'bp', file=outf)
-		print()
+		line = [
+			project_name,
+			annotation_name,
+			overall_d['region_count'], 
+			overall_d['loci_count'], 
+			overall_d['genome_length']
+		]
+
+		if overall_d['loci_count'] == 0:
+			line += ['NA', "NA", 'NA']
+		else:
+			line += [
+				round(sum(overall_d['locus_lengths'])/overall_d['genome_length'], 4),
+				round(mean(overall_d['locus_lengths']),1),
+				median(overall_d['locus_lengths'])
+			]
+
+		line += [
+			overall_d['total_depth']
+		]
+
+		if overall_d['loci_count'] == 0:
+			line += ['NA', "NA", 'NA']
+		else:
+			line += [
+				round(sum(overall_d['read_depths'])/overall_d['total_depth'], 4),
+				round(mean(overall_d['read_depths']),1),
+				median(overall_d['read_depths'])
+			]
+
+		print("\t".join(map(str, line)), file=outf)
 
 
-		print('total_depth ...................', overall_d['total_depth'], 'reads', file=outf)
-		print('proportion_library_annotated ..', 
-			round(sum(overall_d['read_depths'])/overall_d['total_depth'], 4), file=outf)
-		print('mean_depth ....................', round(mean(overall_d['read_depths']),1), 'reads', file=outf)
-		print('median_depth ..................', median(overall_d['read_depths']), 'reads', file=outf)
+		# print('region_count ..................', overall_d['region_count'], file=outf)
+		# print('loci_count ....................', overall_d['loci_count'], file=outf)
+		# print()
+
+		# print('genome_length: ................', overall_d['genome_length'], 'bp', file=outf)
+		# print('proportion_genome_annotated ...', 
+		# 	round(sum(overall_d['locus_lengths'])/overall_d['genome_length'], 4), file=outf)
+		# print('mean_length ...................', round(mean(overall_d['locus_lengths']),1), 'bp', file=outf)
+		# print('median_length .................', median(overall_d['locus_lengths']), 'bp', file=outf)
+		# print()
+
+
+		# print('total_depth ...................', overall_d['total_depth'], 'reads', file=outf)
+		# print('proportion_library_annotated ..', 
+		# 	round(sum(overall_d['read_depths'])/overall_d['total_depth'], 4), file=outf)
+		# print('mean_depth ....................', round(mean(overall_d['read_depths']),1), 'reads', file=outf)
+		# print('median_depth ..................', median(overall_d['read_depths']), 'reads', file=outf)
 	# print("converting coverage files to bigwig...")
 
 	# depth_wig.convert(output_directory=output_directory)
