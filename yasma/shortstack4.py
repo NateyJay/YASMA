@@ -129,7 +129,7 @@ def shortstack4(**params):
 				p = Popen(args, stdout=outf)
 				p.wait()
 
-		os.remove(alignment_file)
+		# os.remove(alignment_file)
 				
 		alignment_file = new_alignment_file
 
