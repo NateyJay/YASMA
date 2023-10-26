@@ -76,6 +76,7 @@ import re
 	default='bam',
 	type=click.Choice(['bam', 'cram']),
 	help="Compression used for output sampled alignments (bam or cram).")
+@optgroup.option('--override', is_flag=True, default=False, help='Overrides config file changes without prompting.')
 
 
 @optgroup.option('--force', is_flag=True, default=False, help='force resubsample')
@@ -100,6 +101,7 @@ def subsample(**params):
 	seed_value              = params['seed']
 	compression             = params['compression']
 	force                   = params['force']
+	override                = params['override']
 
 
 	seed(seed_value)
