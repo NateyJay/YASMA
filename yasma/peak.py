@@ -494,7 +494,7 @@ def peak(**params):
 
 		perform_subsample(subsample)
 
-		alignment_file = subsample_file
+		alignment_file = subsample.file
 
 
 
