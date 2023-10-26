@@ -78,6 +78,7 @@ import re
 	help="Compression used for output sampled alignments (bam or cram).")
 
 
+@optgroup.option('--force', is_flag=True, default=False, help='force resubsample')
 
 
 def subsample(**params):
@@ -98,6 +99,7 @@ def subsample(**params):
 	target_depth            = params['depth']
 	seed_value              = params['seed']
 	compression             = params['compression']
+	force                   = params['force']
 
 
 	seed(seed_value)
