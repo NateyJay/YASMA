@@ -124,5 +124,5 @@ def subsample(**params):
 
 	subsample = parse_subsample(target_depth, alignment_file, compression, sum(chrom_depth_c.values()))
 
-	perform_subsample(subsample)
+	perform_subsample(subsample, force=force)
 
