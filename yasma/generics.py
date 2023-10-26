@@ -63,7 +63,7 @@ class requirementClass():
 			p = Popen(['samtools'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 			out,err = p.communicate()
 			err = err.split("\n")
-			print(err)
+			# print(err)
 			found=True
 			version = err[2].split()[1]
 
