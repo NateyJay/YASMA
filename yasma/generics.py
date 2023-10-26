@@ -1565,7 +1565,7 @@ def perform_subsample(ssamp):
 
 		this_i = sample_i.pop()
 
-		temp_file = Path(ssamp.alignment_file.parent, "temp.sam")
+		temp_file = Path(ssamp.alignment_file.parent, f"temp_{time()}.sam")
 		# fraction = str(number / sum(chrom_depth_c.values()))
 
 		# print(call)
