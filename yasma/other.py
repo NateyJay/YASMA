@@ -43,7 +43,7 @@ from .cli import cli
 
 
 def normalize_alignment_name(**params):
-	'''Wrapper for trimming using cutadapt.'''
+	'''Fixes old alignment file names.'''
 
 
 	rc = requirementClass()
