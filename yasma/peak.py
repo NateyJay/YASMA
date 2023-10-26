@@ -148,16 +148,29 @@ class sizeClass():
 		ocall = set(other.sizecall)
 
 
-		if len(scall) == 3:
-			scall.add("N")
+		def expand_call(call):
+			if len(call) == 3:
+				call.add("N")
+				return(call)
 
-		if len(ocall) == 3:
-			ocall.add("N")
+			if "N" in call:
+				return(call)
+
+			call.add(min(call)-1)
+			call.add(max(call)+1)
+
+			return(call)
+
+
+		scall = expand_call(scall)
+		ocall = expand_call(ocall)
 
 
 		common = scall.intersection(ocall)
 
-		if len(common) > 0:
+		if len(common) > 1:
+			return True
+		elif "N" in common:
 			return True
 		else:
 			return False
@@ -387,7 +400,7 @@ class assessClass():
 	help="Distance in nucleotides for which sRNA peaks should be considered for 'clumping'. Clumped loci must have sufficient similarity in sRNA-size profile and strand-preference. Default 500 nt.")
 
 @optgroup.option("--clump_strand_similarity",
-	default=0.5,
+	default=0.7,
 	help="Similarity threshold of strand fraction for clumping two peaks. Difference in fraction must be smaller than threshold. Default 0.5.")
 
 @optgroup.option("--min_locus_length",
@@ -430,7 +443,7 @@ def peak(**params):
 	min_locus_length        = params['min_locus_length']
 	debug                   = params['debug']
 	annotation_name         = params['name']
-	subsample               = params['subsample']
+	target_depth            = params['subsample']
 
 	if annotation_name:
 		dir_name = f"peak_{annotation_name}"
@@ -460,6 +473,7 @@ def peak(**params):
 	# half_window = int(window/2)
 
 	chromosomes, bam_rgs = get_chromosomes(alignment_file)
+
 	# print(alignment_file)
 	annotation_readgroups = check_rgs(annotation_readgroups, bam_rgs)
 
@@ -475,112 +489,13 @@ def peak(**params):
 		del chrom_depth_c[key]
 
 
-	def get_subsample(s):
+	if target_depth:
+		subsample = parse_subsample(target_depth, alignment_file, "bam", sum(chrom_depth_c.values()))
 
-		if not s:
-			return alignment_file, sum(chrom_depth_c.values())
+		perform_subsample(subsample)
 
-		multipliers = {'M' : 1000000, "K" : 1000, "G" : 1000000000}
+		alignment_file = subsample_file
 
-		number = float(re.sub('[A-Za-z]', '', s))
-		prefix = re.sub('\d', '', s).upper()
-
-		if prefix != '':
-			number = round(number * multipliers[prefix])
-
-		if number > sum(chrom_depth_c.values()):
-			print("subsample larger than alignment. Ignoring command....")
-			sys.exit()
-			return(alignment_file, sum(chrom_depth_c.values()))
-
-		if number < 1000:
-			subsample_string = str(round(number))
-		elif number < 1000000:
-			subsample_string = str(round(number/1000)) + 'k'
-		else:
-			subsample_string = str(round(number/1000000)) + 'M'
-
-
-		ext = alignment_file.suffix
-
-
-		subsample_alignment_file = Path(alignment_file)
-		new_name = subsample_alignment_file.name.rstrip(ext) + "_" + subsample_string + ext
-		subsample_alignment_file = subsample_alignment_file.with_name(new_name)
-
-
-		print(f"Subsampling to ~{subsample_string} reads")
-
-
-		# sample_i = sample(range(sum(chrom_depth_c.values())), number)
-
-		print(sum(chrom_depth_c.values()))
-		print(subsample_alignment_file)
-		print()
-		if not isfile(subsample_alignment_file):
-
-
-
-			sample_i = sample(range(sum(chrom_depth_c.values())), number)
-			sample_i = sorted(sample_i, reverse=True)
-
-			this_i = sample_i.pop()
-
-			temp_file = Path(output_directory, dir_name, "temp.sam")
-			# fraction = str(number / sum(chrom_depth_c.values()))
-
-			call = ['samtools', 'view', '-h', "-F", '4', alignment_file]
-			# print(call)
-
-			with open(temp_file, 'w') as outf:
-
-				p = Popen(call, stdout=PIPE, encoding=ENCODING)
-
-				while True:
-					l = p.stdout.readline()
-
-					if l.startswith("@"):
-						outf.write(l)
-					else:
-						break
-
-
-				for i,line in enumerate(p.stdout):
-
-
-					if i == this_i:
-						outf.write(line)
-
-						if not sample_i:
-							p.terminate()
-							break
-
-						this_i = sample_i.pop()
-
-						# print(len(sample_i), '        ', end = '\r')
-
-
-				p.wait()
-
-			# shutil.move(temp_file, subsample_alignment_file)
-			# sys.exit()
-
-			with open(subsample_alignment_file, 'wb') as outf:
-
-				call = ['samtools', 'view', '-h', '--cram', temp_file]
-				p = Popen(call, stdout=outf)
-				p.wait()
-
-			# print("removing", temp_file)
-			os.remove(temp_file)
-
-		print(f'Using {subsample_alignment_file} as alignment for annotation')
-		print()
-
-		return(subsample_alignment_file, number)
-
-
-	alignment_file, aligned_read_count = get_subsample(subsample)
 
 
 	def test_by_samtools(c):
@@ -687,7 +602,6 @@ def peak(**params):
 		outf.write('')
 
 
-
 	stats_file = f"{output_directory}/{dir_name}/stats_by_chrom.txt"
 	with open(stats_file, 'w') as outf:
 		print("chromosome\tregions\tloci\tchromosome_length\tproportion_genome_annotated\tmean_length\tmedian_length\treads\tproportion_libraries_annotated\tmean_abundance\tmedian_abundance", file=outf)
@@ -707,17 +621,8 @@ def peak(**params):
 	# total_reads = sum(chrom_depth_c.values())
 	read_equivalent = 1 / sum(chrom_depth_c.values()) * 1000000
 
-	# depth_wig = wiggleClass(f"{output_directory}/peak/Depths.wig", rpm_threshold, total_reads)
-	# peak_wig = wiggleClass(f"{output_directory}/peak/Depths_peak.wig", rpm_threshold, total_reads)
-
 
 	## iterating through chromosomes and reads
-
-	# print("Annotating loci for each chromosome...")
-	# print()
-
-	# for chrom_count, chrom_and_length in enumerate(chromosomes):
-
 
 	print(f" {len(chromosomes)} chromosomes/scaffolds/contigs")
 	print(f" {sum([l for c,l in chromosomes]):,} bp total")
@@ -725,16 +630,11 @@ def peak(**params):
 	print()
 
 	loci = []
-	# chrom, chrom_length = chrom_and_length
-
-	# print()
-	# print(f"{chrom_count+1} / {len(chromosomes)}")
-	# print(f"chrom: {chrom}")
-	# print(f"       {chrom_length:,} bp")
-	# print(f"       {chrom_depth_c[chrom]:,} reads")
-
 
 	def get_peaks(bam, rgs):
+		""" Produces coverages for alignment using samtools depth. 
+		Returns a dict() of Counter() objects, where the dict keys are chromosomes, counter keys are chromosome positions, and counter values are depth at positions.
+		"""
 
 		depth_c = Counter()
 
@@ -774,7 +674,99 @@ def peak(**params):
 
 
 
+	# def dep_get_kernel_peaks(bam, rgs):
+	# 	""" Produces coverages for alignment based off a kernel density estimation. 
+
+	# 	Sum of all reads within the user defined kernel bandwith are used to generate a coverage. This is meant to normalize the effect of read length on coverage.
+
+	# 	Returns a dict() of Counter() objects, where the dict keys are chromosomes, counter keys are chromosome positions, and counter values are depth at positions.
+	# 	"""
+
+
+	# 	## Counting read depth by position.
+
+	# 	half_window = math.floor(kernel_window/2)
+
+	# 	kernel_c = {}
+	# 	depth_c = dict()
+
+	# 	perc = percentageClass(1, sum(chrom_depth_c.values()))
+
+
+	# 	for chrom, chrom_length in chromosomes:
+	# 		depth_c[chrom] = Counter()
+	# 		kernel_c[chrom] = Counter()
+
+
+	# 	reads = samtools_view(bam, rgs=rgs)
+
+	# 	print(f"   reading position depths ..... 0%", end='\r', flush=True)
+
+	# 	i = 0
+	# 	for i, read in enumerate(reads):
+	# 		_, length, _, pos, chrom, _, _, _ = read
+
+	# 		pos += math.floor(length / 2)
+
+	# 		depth_c[chrom][pos-half_window] += 1
+
+	# 		perc_out = perc.get_percent(i)
+	# 		if perc_out:
+	# 			print(f"   reading position depths ..... {perc_out}%\t{i:,} reads", end='\r', flush=True)
+
+
+	# 	print()
+
+
+	# 	## Performing kernel density smoothing based on mean or median or --> sum <--?
+
+	# 	window_dq = deque()
+
+	# 	perc = percentageClass(1, sum([l for c,l in chromosomes]))
+	# 	ii =0
+
+	# 	for chrom, chrom_length in chromosomes:
+	# 		kernel_c[chrom] = Counter()
+
+
+	# 		for i in range(chrom_length):
+	# 			ii += 1
+
+	# 			window_dq.append(depth_c[chrom][i])
+
+	# 			summary_value = round(sum(window_dq),2)
+
+	# 			if summary_value > 0:
+	# 				kernel_c[chrom][i] = summary_value
+				
+
+
+
+	# 			perc_out = perc.get_percent(ii)
+	# 			if perc_out:
+	# 				print(f"   calculating kernel density .. {perc_out}% \t{round(ii/1000000, 1)}M nt ", end='\r', flush=True)
+
+
+	# 			if len(window_dq) > kernel_window:
+	# 				window_dq.popleft()
+
+
+	# 	print()
+
+	# 	return(kernel_c)
+
+
+
 	def get_kernel_peaks(bam, rgs):
+		""" Produces coverages for alignment based off a kernel density estimation. 
+
+		Sum of all reads within the user defined kernel bandwith are used to generate a coverage. This is meant to normalize the effect of read length on coverage.
+
+		Returns a dict() of Counter() objects, where the dict keys are chromosomes, counter keys are chromosome positions, and counter values are depth at positions.
+		"""
+
+
+		## Counting read depth by position.
 
 		half_window = math.floor(kernel_window/2)
 
@@ -791,92 +783,67 @@ def peak(**params):
 
 		reads = samtools_view(bam, rgs=rgs)
 
-		print(f"   reading position depths ..... 0%", end='\r', flush=True)
+		print(f"   calculating kernel density .. 0%", end='\r', flush=True)
 
 		i = 0
 		for i, read in enumerate(reads):
 			_, length, _, pos, chrom, _, _, _ = read
-		# call = ['samtools', 'view', '-F', '4']
-		# for rg in rgs:
-		# 	call += ['-r', rg]
-		# call += [bam, chrom]
-
-		# p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
-
-		# for i,line in enumerate(p.stdout):
-		# 	line = line.strip().split("\t")
-
-
-		# 	pos    = int(line[3])
-		# 	length = int(line[5].rstrip("M"))
-
 
 			pos += math.floor(length / 2)
 
-			depth_c[chrom][pos-half_window] += 1
+			# for r in range(pos-half_window, pos+half_window+1):
+			# 	depth_c[chrom][r] += 1
+
+			depth_c[chrom].update(list(range(pos-half_window, pos+half_window+1)))
 
 			perc_out = perc.get_percent(i)
 			if perc_out:
-				print(f"   reading position depths ..... {perc_out}%\t{i:,} reads", end='\r', flush=True)
+				print(f"   calculating kernel density .. {perc_out}%\t{i:,} reads", end='\r', flush=True)
 
-		# p.wait()
-
-		# print(f"   reading position depths ..... 100% ({i} reads)", end='\r', flush=True)
-
-		# total_reads = i + 1
-
-
-		# pprint(chrom_depth_c)
-		# print(chrom)
-		# print(length(depth_c[chrom]))
-		# print(length(list(depth_c.items())))
-		# print()
-		# sys.exit()
 
 		print()
 
 
-		## Performing kernel density smoothing based on mean or median or sum?
+		# ## Performing kernel density smoothing based on mean or median or --> sum <--?
 
-		window_dq = deque()
+		# window_dq = deque()
 
-		perc = percentageClass(1, sum([l for c,l in chromosomes]))
-		ii =0
+		# perc = percentageClass(1, sum([l for c,l in chromosomes]))
+		# ii =0
 
-		for chrom, chrom_length in chromosomes:
-			kernel_c[chrom] = Counter()
+		# for chrom, chrom_length in chromosomes:
+		# 	kernel_c[chrom] = Counter()
 
 
-			for i in range(chrom_length):
-				ii += 1
+		# 	for i in range(chrom_length):
+		# 		ii += 1
 
-				window_dq.append(depth_c[chrom][i])
+		# 		window_dq.append(depth_c[chrom][i])
 
-				summary_value = round(sum(window_dq),2)
+		# 		summary_value = round(sum(window_dq),2)
 
-				if summary_value > 0:
-					kernel_c[chrom][i] = summary_value
+		# 		if summary_value > 0:
+		# 			kernel_c[chrom][i] = summary_value
 				
 
 
 
-				perc_out = perc.get_percent(ii)
-				if perc_out:
-					print(f"   calculating kernel density .. {perc_out}% \t{round(ii/1000000, 1)}M nt ", end='\r', flush=True)
+		# 		perc_out = perc.get_percent(ii)
+		# 		if perc_out:
+		# 			print(f"   calculating kernel density .. {perc_out}% \t{round(ii/1000000, 1)}M nt ", end='\r', flush=True)
 
 
-				if len(window_dq) > kernel_window:
-					window_dq.popleft()
+		# 		if len(window_dq) > kernel_window:
+		# 			window_dq.popleft()
 
 
-		print()
+		# print()
 
-		return(kernel_c)
+		return(depth_c)
+	## Getting positional coverage accross the alignment
 
 
-
-	## Evaluating peaks to form loci
-
+	start = time()
 	if coverage_method == "depth":
 		peak_c = get_peaks(
 			bam=alignment_file, 
@@ -886,6 +853,9 @@ def peak(**params):
 		peak_c = get_kernel_peaks(
 			bam=alignment_file, 
 			rgs=annotation_readgroups)
+
+	elapsed = time() - start
+	print(f"   {round(elapsed,2)}s elapsed")
 
 	print()
 	print('prog\tchrom\t\treg\tloc\t\tassess')
@@ -910,6 +880,13 @@ def peak(**params):
 
 
 		def boolean_creep(direction, cursor, depth_threshold):
+			"""
+			Defines peak boundaries, based on a minimum threshold in a given direction.
+
+			Peak prominence is tested over a user defined window (pad). When all positions in the window drop below the threshold, the edge is defined.
+
+			Returns this coordinate.
+			"""
 
 			positions = deque()
 			depths    = deque()
@@ -939,6 +916,13 @@ def peak(**params):
 			return(boundary)
 
 		def creep(direction, cursor, depth_threshold):
+			"""
+			Defines peak boundaries, based on a minimum threshold in a given direction.
+
+			Peak prominence is tested over a user-defined window (creep_dist). When the average all positions in the window drop below the threshold, an outer edge is defined. Next user-defined pad (pad) is added.
+
+			Returns this coordinate.
+			"""
 
 			# print()
 			# print(f"  --creep {direction}--")
@@ -975,23 +959,28 @@ def peak(**params):
 				return(cursor)
 
 
-			while True:
-				# print("positions", positions)
-				# print("depths", depths)
-				positions.pop()
-				depths.pop()
+			# while True:
+			# 	# print("positions", positions)
+			# 	# print("depths", depths)
+			# 	positions.pop()
+			# 	# depths.pop()
 				
-				window_median = median(depths)
+			# 	if depths.pop() > depth_threshold or len(positions) == 1:
+			# 		break
 
-				# print(window_median)
 
-				if window_median > depth_threshold or len(depths) == 1:
-					break
+				# window_median = median(depths)
+
+				# # print(window_median)
+
+				# if window_median > depth_threshold or len(depths) == 1:
+				# 	break
 
 			# print(cursor)
 
 
-			boundary = math.ceil(median(positions)) + (direction * pad)
+			# boundary = math.ceil(median(positions)) + (direction * pad)
+			boundary = positions[-1] + (direction * pad)
 
 			return(boundary)
 
@@ -1085,6 +1074,9 @@ def peak(**params):
 		# print(f"   sorting and writing regions ......", flush=True)
 
 		loci.sort(key=lambda x: x[2])
+
+
+
 
 
 
@@ -1514,7 +1506,7 @@ def peak(**params):
 								break
 
 
-						## updating considered loci in light of merging
+						## updating considered loci after merging
 						considered_loci = get_considered_loci(locus_i) 
 
 						if none_merged:

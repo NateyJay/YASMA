@@ -3,6 +3,7 @@
 import sys
 import click
 from os import stat
+import os
 from pprint import pprint
 
 # import click
@@ -23,12 +24,14 @@ from statistics import median, mean
 # from Levenshtein import distance
 
 # from timeit import timeit
+import re
 
 from math import log10
 
 import pyBigWig
 
 import json
+from random import sample
 
 
 
@@ -171,6 +174,8 @@ class inputClass():
 		try:
 			if params['override']:
 				self.override = True
+			else:
+				self.override = False
 		except KeyError:
 			self.override = False
 
@@ -1492,7 +1497,119 @@ def inf_counter():
 
 
 
+def parse_subsample(target_depth, af, output_compression, total_aligned_reads):
+	"""
+	Parses input to come up with file names, including checking if the subsample is larger than the alignment itself.
+	"""
 
+	multipliers = {'M' : 1000000, "K" : 1000, "G" : 1000000000}
+
+	number = float(re.sub('[A-Za-z]', '', target_depth))
+	prefix = re.sub('\d', '', target_depth).upper()
+
+	if prefix != '':
+		number = round(number * multipliers[prefix])
+
+	if number > total_aligned_reads:
+		print("subsample larger than alignment. Ignoring command....")
+		sys.exit()
+		return(alignment_file, False, total_aligned_reads)
+
+	if number < 1000:
+		subsample_string = str(round(number))
+	elif number < 1000000:
+		subsample_string = str(round(number/1000)) + 'k'
+	else:
+		subsample_string = str(round(number/1000000)) + 'M'
+
+	print(af.parent)
+	print(af.stem)
+
+	subsample_file = Path(af.parent, af.name+"_"+subsample_string+"."+output_compression)
+
+	class subsampleClass():
+		pass
+	ssamp = subsampleClass
+	ssamp.file   = subsample_file
+	ssamp.string = subsample_string
+	ssamp.target = number
+	ssamp.alignment_file = af
+	ssamp.total_aligned_reads = total_aligned_reads
+
+
+	return(ssamp)
+
+
+
+
+def perform_subsample(ssamp):
+
+	print(f"Subsampling to {ssamp.string} reads")
+
+
+	# sample_i = sample(range(sum(chrom_depth_c.values())), number)
+
+	print(f"{ssamp.total_aligned_reads:,} -> {ssamp.target:,}")
+	print(ssamp.file)
+	print()
+
+	if isfile(ssamp.file):
+		print(f"{ssamp.file} found. Skipping...")
+		return
+
+	else:
+
+		sample_i = sample(range(ssamp.total_aligned_reads), ssamp.target)
+		sample_i = sorted(sample_i, reverse=True)
+
+		this_i = sample_i.pop()
+
+		temp_file = Path(ssamp.alignment_file.parent, "temp.sam")
+		# fraction = str(number / sum(chrom_depth_c.values()))
+
+		# print(call)
+
+		with open(temp_file, 'w') as outf:
+
+
+			call = ['samtools', 'view', "-H", ssamp.alignment_file]
+			p = Popen(call, stdout=outf, encoding=ENCODING)
+			p.wait()
+
+			call = ['samtools', 'view', "-F", '4', ssamp.alignment_file]
+			p = Popen(call, stdout=PIPE, encoding=ENCODING)
+
+			for i,line in enumerate(p.stdout):
+
+
+				if i == this_i:
+					outf.write(line)
+
+					if not sample_i:
+						p.terminate()
+						break
+
+					this_i = sample_i.pop()
+
+					# print(len(sample_i), '        ', end = '\r')
+
+
+			p.wait()
+
+		# shutil.move(temp_file, subsample_alignment_file)
+		# sys.exit()
+
+		with open(ssamp.file, 'wb') as outf:
+
+			call = ['samtools', 'view', '-h', '--bam', temp_file]
+			p = Popen(call, stdout=outf)
+			p.wait()
+
+		# print("removing", temp_file)
+		os.remove(temp_file)
+
+	print(f'Using {ssamp.file} as alignment for annotation')
+	print()
 
 
 

@@ -39,7 +39,7 @@ from .cli import cli
 				help='')
 
 
-@optgroup.option('-tl', "--trimmed_libraries", 
+@optgroup.option('-a', "--trimmed_libraries", 
 	required=False, 
 	type=click.UNPROCESSED, callback=validate_glob_path,
 	multiple=True,
@@ -61,24 +61,14 @@ from .cli import cli
 	help="Directory name for annotation output.")
 
 
-@optgroup.group('\n  Bowtie options',
-				help='')
+@optgroup.option('--subsample',
+	help="Allows the user to subsample alignments for the annotation to a defined depth. Accepts an integer number of reads, which can be modified with a 10^3 prefix (ex. 10M).")
 
-@optgroup.option('-c', '--cores',
-	default=4,
-	help='Number of cores to use for alignment with bowtie.')
-
-
-@optgroup.option('--compression',
-	default='cram',
-	type=click.Choice(['cram', 'bam']),
-	help="Compression algorithm used for resulting alignment. Cram is more space efficient, but Bam is more robust/portable.")
-
-
+@optgroup.option('--override', is_flag=True, default=False, help='Overrides config file changes without prompting.')
 
 
 def shortstack4(**params):
-	'''Wrapper for alignment using ShortStack/bowtie.'''
+	'''Wrapper for annotation using ShortStack4.'''
 
 
 	rc = requirementClass()
@@ -96,15 +86,33 @@ def shortstack4(**params):
 	alignment_file          = ic.inputs['alignment_file']
 	genome_file             = ic.inputs['genome_file']
 
-	cores                   = params['cores']
-	compression             = params['compression']
+	target_depth               = params['subsample']
+
+
+	chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
+
+	aligned_read_count = sum(chrom_depth_c.values())
+
+	if target_depth:
+		subsample = parse_subsample(target_depth, alignment_file, "bam", sum(chrom_depth_c.values()))
+
+		perform_subsample(subsample)
+
+		alignment_file = subsample.file
+
+
+		dir_name = f'shortstack4_{subsample.string}'
+	else:
+		dir_name = f'shortstack4'
 
 
 
-	Path(output_directory+ "/shortstack4/").mkdir(parents=True, exist_ok=True)
+
+
+	Path(output_directory, dir_name).mkdir(parents=True, exist_ok=True)
 
 	temp_folder = Path(output_directory, "shortstack4/temp/")
-	align_folder = Path(output_directory, 'shortstack4/')
+	annotation_folder = Path(output_directory, 'shortstack4/')
 
 
 	if isdir(temp_folder):
@@ -120,8 +128,15 @@ def shortstack4(**params):
 				args = ['samtools', 'view', '-b', '-h', alignment_file]
 				p = Popen(args, stdout=outf)
 				p.wait()
+
+		os.remove(alignment_file)
 				
 		alignment_file = new_alignment_file
+
+
+
+		ic.inputs['alignment_file'] =  alignment_file
+		ic.write()
 
 
 	args = ["ShortStack4", '--bamfile', alignment_file, "--genomefile", genome_file, "--outdir", temp_folder]
@@ -135,7 +150,7 @@ def shortstack4(**params):
 
 
 	for file in os.listdir(temp_folder):
-		Path(temp_folder, file).rename(Path(align_folder, file))
+		Path(temp_folder, file).rename(Path(annotation_folder, file))
 
 	shutil.rmtree(temp_folder)
 

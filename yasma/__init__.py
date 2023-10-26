@@ -13,7 +13,8 @@ from .other import *
 from .size_profile import *
 from .shortstack3 import *
 from .shortstack4 import *
-from .edge_detection import *
+# from .edge_detection import *
+from .subsample import *
 
 
 ## Functionality to add:
