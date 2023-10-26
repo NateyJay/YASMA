@@ -488,14 +488,18 @@ def peak(**params):
 
 		del chrom_depth_c[key]
 
+	aligned_read_count = sum(chrom_depth_c.values())
+
 
 	if target_depth:
-		subsample = parse_subsample(target_depth, alignment_file, "bam", sum(chrom_depth_c.values()))
+		subsample = parse_subsample(target_depth, alignment_file, "bam", aligned_read_count)
 
 		perform_subsample(subsample)
 
 		alignment_file = subsample.file
 
+
+		aligned_read_count = subsample.target
 
 
 	def test_by_samtools(c):
