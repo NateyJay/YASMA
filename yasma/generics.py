@@ -60,11 +60,12 @@ class requirementClass():
 
 	def add_samtools(self):
 		try:
-			p = Popen(['samtools', 'version'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+			p = Popen(['samtools'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 			out,err = p.communicate()
-			out = out.split("\n")
+			err = err.split("\n")
+			print(err)
 			found=True
-			version = out[0].split()[-1]
+			version = err[2].split()[1]
 
 		except FileNotFoundError:
 			found=False
