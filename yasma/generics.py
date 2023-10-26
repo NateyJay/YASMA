@@ -1543,7 +1543,7 @@ def parse_subsample(target_depth, af, output_compression, total_aligned_reads):
 
 
 
-def perform_subsample(ssamp):
+def perform_subsample(ssamp, force=False):
 
 	print(f"Subsampling to {ssamp.string} reads")
 
@@ -1554,7 +1554,7 @@ def perform_subsample(ssamp):
 	print(ssamp.file)
 	print()
 
-	if isfile(ssamp.file):
+	if isfile(ssamp.file) and not force:
 		print(f"{ssamp.file} found. Skipping...")
 		return
 
