@@ -127,7 +127,7 @@ def get_log_details(output_directory):
 
 
 @optgroup.option('--compression',
-	default='cram',
+	default='bam',
 	type=click.Choice(['cram', 'bam']),
 	help="Compression algorithm used for resulting alignment. Cram is more space efficient, but Bam is more robust/portable.")
 
