@@ -97,6 +97,67 @@ def normalize_alignment_name(**params):
 
 
 
+@cli.command(group='Utilities', help_priority=5)
+
+
+
+@optgroup.group('\n  Basic options',
+				help='')
+
+
+@optgroup.option("-o", "--output_directory", 
+	# default=f"Annotation_{round(time())}", 
+	required=True,
+	type=click.Path(),
+	help="Directory name for annotation output.")
+
+@optgroup.option("-a", "--alignment_file", 
+	required=False, 
+	type=click.UNPROCESSED, callback=validate_path,
+	help='Alignment file input (bam or cram).')
+
+
+
+def cram_to_bam(**params):
+	'''Changes crams to bam alignments.'''
+
+
+	rc = requirementClass()
+	rc.add_samtools()
+	rc.check()
+
+
+	ic = inputClass(params)
+
+
+
+
+	output_directory        = ic.output_directory
+	alignment_file          = ic.inputs['alignment_file']
+
+
+
+	print(alignment_file)
+	# print(alignment_file.suffix)
+
+	if alignment_file.suffix == '.cram':
+		bam_file = alignment_file.with_suffix('.bam')
+		print(f"  -> {bam_file}")
+		# print(bam_file)
+		# input()
+
+		with open(bam_file, 'wb') as outf:
+			call = ['samtools','view','-h','-b',alignment_file]
+			p = Popen(call, stdout=outf)
+			p.wait()
+
+
+		os.remove(alignment_file)
+
+		# sys.exit()
+		ic.inputs['alignment_file'] = bam_file.absolute()
+		ic.write()
+
 
 
 
