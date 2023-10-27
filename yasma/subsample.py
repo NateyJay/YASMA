@@ -108,6 +108,7 @@ def subsample(**params):
 
 	chromosomes, bam_rgs = get_chromosomes(alignment_file)
 
+
 	# print(alignment_file)
 	annotation_readgroups = check_rgs(annotation_readgroups, bam_rgs)
 
