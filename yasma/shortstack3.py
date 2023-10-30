@@ -27,6 +27,7 @@ from .cli import cli
 
 # from time import time
 
+from datetime import datetime
 
 
 
@@ -108,6 +109,9 @@ def shortstack3(**params):
 
 	Path(output_directory, dir_name).mkdir(parents=True, exist_ok=True)
 
+	log_file = f"{output_directory}/{dir_name}/yasma_log.txt"
+	sys.stdout = Logger(log_file)
+
 	temp_folder  = Path(output_directory, dir_name, "temp")
 	annotation_folder = Path(output_directory, dir_name)
 
@@ -139,10 +143,17 @@ def shortstack3(**params):
 	p.wait()
 
 
+	os.rename(Path(temp_folder, 'log.txt'), Path(temp_folder, 'shortstack_log.txt'))
+
 	for file in os.listdir(temp_folder):
 		Path(temp_folder, file).rename(Path(annotation_folder, file))
 
 	shutil.rmtree(temp_folder)
+
+	now = datetime.now()
+
+	date_time = now.strftime("%Y/%m/%d, %H:%M:%S")
+	print("Run completed:",date_time)	
 
 
 
