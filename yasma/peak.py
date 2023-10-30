@@ -28,6 +28,7 @@ import re
 
 
 
+from datetime import datetime
 
 
 class sizeClass():
@@ -1768,6 +1769,12 @@ def peak(**params):
 
 	# depth_wig.convert(output_directory=output_directory)
 	# peak_wig.convert(output_directory=output_directory)
+
+	now = datetime.now()
+
+
+	date_time = now.strftime("%Y/%m/%d, %H:%M:%S")
+	print("Run completed:",date_time)	
 
 
 
