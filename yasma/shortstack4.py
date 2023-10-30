@@ -29,6 +29,7 @@ from .cli import cli
 
 
 
+from datetime import datetime
 
 
 @cli.command(group='Wrappers', help_priority=5)
@@ -78,6 +79,7 @@ def shortstack4(**params):
 	# rc.add_rnafold()
 	rc.check()
 
+	# pprint(params)
 	ic = inputClass(params)
 	ic.check(['alignment_file', 'genome_file'])
 
@@ -111,6 +113,9 @@ def shortstack4(**params):
 
 	Path(output_directory, dir_name).mkdir(parents=True, exist_ok=True)
 
+	log_file = f"{output_directory}/{dir_name}/yasma_log.txt"
+	sys.stdout = Logger(log_file)
+
 	temp_folder = Path(output_directory, "shortstack4/temp/")
 	annotation_folder = Path(output_directory, 'shortstack4/')
 
@@ -119,27 +124,29 @@ def shortstack4(**params):
 		shutil.rmtree(temp_folder)
 
 	if alignment_file.suffix == '.cram':
+		print('.cram file provided. Only bam is accepted for SS4.')
+		sys.exit()
+
 		print('.cram file provided... converting to .bam...')
+		# new_alignment_file = alignment_file.with_suffix(".bam")
 
-		new_alignment_file = alignment_file.with_suffix(".bam")
+		# if not isfile(new_alignment_file):
+		# 	with open(new_alignment_file, 'wb') as outf:
+		# 		args = ['samtools', 'view', '-b', '-h', alignment_file]
+		# 		p = Popen(args, stdout=outf)
+		# 		p.wait()
 
-		if not isfile(new_alignment_file):
-			with open(new_alignment_file, 'wb') as outf:
-				args = ['samtools', 'view', '-b', '-h', alignment_file]
-				p = Popen(args, stdout=outf)
-				p.wait()
-
-		# os.remove(alignment_file)
+		# # os.remove(alignment_file)
 				
-		alignment_file = new_alignment_file
+		# alignment_file = new_alignment_file
 
 
 
-		ic.inputs['alignment_file'] =  alignment_file
-		ic.write()
+		# ic.inputs['alignment_file'] =  alignment_file
+		# ic.write()
 
 
-	args = ["ShortStack4", '--bamfile', alignment_file, "--genomefile", genome_file, "--outdir", temp_folder]
+	args = ["ShortStack4", '--bamfile', alignment_file, "--genomefile", genome_file, "--outdir", temp_folder , '--threads', '4']
 
 	args = list(map(str, args))
 
@@ -148,12 +155,19 @@ def shortstack4(**params):
 	p = Popen(args)#, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 	p.wait()
 
+	# os.rename(Path(temp_folder, 'log.txt'), Path(temp_folder, 'shortstack_log.txt'))
 
 	for file in os.listdir(temp_folder):
 		Path(temp_folder, file).rename(Path(annotation_folder, file))
 
 	shutil.rmtree(temp_folder)
 
+
+	now = datetime.now()
+
+
+	date_time = now.strftime("%Y/%m/%d, %H:%M:%S")
+	print("Run completed:",date_time)	
 
 
 
