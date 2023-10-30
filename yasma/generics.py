@@ -328,7 +328,15 @@ class inputClass():
 				value = None
 
 			if option in self.paths and value:
-				value = Path(value)
+
+				if isinstance(value, list):
+					for i in range(len(value)):
+						value[i] = Path(value[i])
+
+
+				else:
+					value = Path(value)
+
 
 			self.add(option, value)
 
