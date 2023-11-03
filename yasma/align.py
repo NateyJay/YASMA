@@ -23,6 +23,8 @@ import re
 from .generics import *
 from .cli import cli
 
+from time import time
+
 # from statistics import mean, median, StatisticsError
 
 # from time import time
@@ -158,15 +160,19 @@ def align(**params):
 
 
 
-	Path(output_directory+ "/align/").mkdir(parents=True, exist_ok=True)
 
-	temp_folder = Path(output_directory, "align/temp/")
-	align_folder = Path(output_directory, 'align/')
+	temp_folder = Path(output_directory, "align", f"temp_{time()}")
+	align_folder = Path(output_directory, 'align')
+	align_folder.mkdir(parents=True, exist_ok=True)
 
 	if isdir(temp_folder):
 		shutil.rmtree(temp_folder)
 
-	trimmed_libraries = [t.replace(" ", "\ ") for t in trimmed_libraries]
+	# for t in trimmed_libraries:
+	# 	print(t)
+	# sys.exit()
+
+	# trimmed_libraries = [t.replace(" ", "\ ") for t in trimmed_libraries]
 
 	args = ["ShortStack", "--readfile"] + trimmed_libraries + ["--genomefile", genome_file, "--bowtie_cores", cores, "--align_only", "--cram", "--mmap", 'u', "--sort_mem", "200M", "--outdir", temp_folder]
 
@@ -189,7 +195,6 @@ def align(**params):
 			if e in line:
 				sys.exit("Error detected in ShortStack run!")
 	p.wait()
-
 
 
 
