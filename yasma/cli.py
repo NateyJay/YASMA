@@ -80,7 +80,6 @@ class customClickClass(click.Group):
 
 		glob_options = set(["-tl", '--trimmed_libraries', "-ul", '--untrimmed_libraries'])
 
-		# print(args)
 		last_is_glob = False
 		new_args = []
 		for arg in args:
