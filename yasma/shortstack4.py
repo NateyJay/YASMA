@@ -111,13 +111,13 @@ def shortstack4(**params):
 
 
 
-	Path(output_directory, dir_name).mkdir(parents=True, exist_ok=True)
+	temp_folder = Path(output_directory, dir_name, 'temp')
+	annotation_folder = Path(output_directory, dir_name)
+	annotation_folder.mkdir(parents=True, exist_ok=True)
 
 	log_file = f"{output_directory}/{dir_name}/yasma_log.txt"
 	sys.stdout = Logger(log_file)
 
-	temp_folder = Path(output_directory, "shortstack4/temp/")
-	annotation_folder = Path(output_directory, 'shortstack4/')
 
 
 	if isdir(temp_folder):
@@ -156,6 +156,7 @@ def shortstack4(**params):
 	p.wait()
 
 	# os.rename(Path(temp_folder, 'log.txt'), Path(temp_folder, 'shortstack_log.txt'))
+
 
 	for file in os.listdir(temp_folder):
 		Path(temp_folder, file).rename(Path(annotation_folder, file))
