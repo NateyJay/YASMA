@@ -160,7 +160,6 @@ def align(**params):
 
 
 
-
 	temp_folder = Path(output_directory, "align", f"temp_{time()}")
 	align_folder = Path(output_directory, 'align')
 	align_folder.mkdir(parents=True, exist_ok=True)
@@ -174,15 +173,17 @@ def align(**params):
 
 	# trimmed_libraries = [t.replace(" ", "\ ") for t in trimmed_libraries]
 
-	args = ["ShortStack", "--readfile"] + trimmed_libraries + ["--genomefile", genome_file, "--bowtie_cores", cores, "--align_only", "--cram", "--mmap", 'u', "--sort_mem", "200M", "--outdir", temp_folder]
+	args = ["ShortStack", "--readfile"] + trimmed_libraries + ["--genomefile", genome_file, "--bowtie_cores", cores, "--align_only", "--mmap", 'u', "--sort_mem", "200M", "--outdir", temp_folder]
 
 	if compression == 'cram':
 		args += ['--cram']
 
 
+
 	args = list(map(str, args))
 
 	print(" ".join(args))
+	sys.exit()
 
 	p = Popen(args, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
