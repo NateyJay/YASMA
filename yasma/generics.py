@@ -1534,7 +1534,7 @@ def parse_subsample(target_depth, af, output_compression, total_aligned_reads):
 	print(af.parent)
 	print(af.stem)
 
-	subsample_file = Path(af.parent, af.name+"_"+subsample_string+"."+output_compression)
+	subsample_file = Path(af.parent, af.stem+"_"+subsample_string+"."+output_compression)
 
 	class subsampleClass():
 		pass
