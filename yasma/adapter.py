@@ -70,7 +70,8 @@ def adapter(**params):
 	kmer_size = 8
 
 
-	Path(output_directory, "adapter").mkdir(parents=True, exist_ok=True)
+	adapter_dir = Path(output_directory, "adapter")
+	adapter_dir.mkdir(parents=True, exist_ok=True)
 	
 
 	log_file = Path(output_directory,"adapter/log.txt")
@@ -306,21 +307,25 @@ def adapter(**params):
 
 		print()
 		print()
-		print(read_file)
+		# print(read_file)
 		print("################")
 
-		if read_file.endswith(".gz"):
+		print(read_file)
+
+		if read_file.suffix == ".gz":
 			import gzip
 			f = gzip.open(read_file)
 		else:
 			f = open(read_file)
 
-		if read_file.strip(".gz").endswith((".fa", ".fasta")):
+
+
+		if ".fa" in read_file.suffixes or ".fasta" in read_file.suffixes:
 			line_base = 2
-		elif read_file.strip(".gz").endswith((".fq", ".fastq")):
+		elif ".fq" in read_file.suffixes or ".fastq" in read_file.suffixes:
 			line_base = 4
 		else:
-			# print(f"file type not recognized: {read_file}")
+			print(f"file type not recognized: {read_file}")
 			sys.exit()
 
 		seqs = process_file(f, line_base, n)
@@ -435,6 +440,10 @@ def adapter(**params):
 			adapters.append(best)
 
 
+	print(untrimmed_libraries)
+
+	if "PRE-TRIMMED" in adapters:
+		ic.inputs['trimmed_libraries'] = untrimmed_libraries.copy()
 
 
 	pprint(adapters)
