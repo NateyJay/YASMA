@@ -137,7 +137,7 @@ def trim(**params):
 
 		p.wait()
 
-		trimmed_libraries.append(str(Path(out_file).absolute()))
+		trimmed_libraries.append(Path(out_file))
 
 
 
