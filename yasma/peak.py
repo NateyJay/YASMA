@@ -301,8 +301,8 @@ class assessClass():
 		else:
 			feature_type = f"RNA_{sizecall}"
 
-		if start < 0:
-			start = 0
+		if start < 1:
+			start = 1
 		gff_line = [
 			chrom, 'yasma_peak',feature_type, start, stop, '.', strand, '.',
 			f'ID={name};sizecall={sizecall};depth={depth};rpm={rpm};fracTop={frac_top};majorRNA={major_rna}'
