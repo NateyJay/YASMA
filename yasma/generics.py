@@ -1679,6 +1679,8 @@ def perform_subsample(ssamp, force=False, keep_all=False):
 
 
 def module_title(module, version):
+	print()
+	print()
 	print(f"{color.BOLD}Module:{color.END} {module}")
 	print(f"{color.BOLD}Version:{color.END} {version}")
 	print()
