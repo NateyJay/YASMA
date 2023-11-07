@@ -724,9 +724,6 @@ def peak(**params):
 
 			pos += math.floor(length / 2)
 
-			# for r in range(pos-half_window, pos+half_window+1):
-			# 	depth_c[chrom][r] += 1
-
 			depth_c[chrom].update(list(range(pos-half_window, pos+half_window+1)))
 
 			perc_out = perc.get_percent(i)
@@ -756,6 +753,7 @@ def peak(**params):
 
 	elapsed = time() - start
 	print(f"   {round(elapsed,2)}s elapsed")
+
 
 	print()
 	print('prog\tchrom\t\treg\tloc\t\tassess')
