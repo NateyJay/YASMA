@@ -64,11 +64,10 @@ import re
 
 
 
-
 @optgroup.group('\n  Other options',
                 help='')
 @optgroup.option('--seed',
-	default=42,
+	default=0,
 	type=int,
 	help="Seed used for sampling.")
 
@@ -80,6 +79,17 @@ import re
 
 
 @optgroup.option('--force', is_flag=True, default=False, help='force resubsample')
+
+@optgroup.option('--init_dir', is_flag=True, default=False, 
+	help='Initiate a new directory for alignments. This overrides the normal behavior to perform subsets in the source folder for an alignment.')
+
+
+# def replace_parent(path, old_pattern, new_pattern):
+
+# 	for p in path.parents:
+# 		if str(p) == old_pattern:
+
+
 
 
 def subsample(**params):
@@ -98,13 +108,12 @@ def subsample(**params):
 	project_name            = ic.inputs['project_name']
 
 	target_depth            = params['depth']
-	seed_value              = params['seed']
 	compression             = params['compression']
 	force                   = params['force']
 	override                = params['override']
+	init_dir                = params['init_dir']
 
 
-	seed(seed_value)
 
 	chromosomes, bam_rgs = get_chromosomes(alignment_file)
 
@@ -125,7 +134,14 @@ def subsample(**params):
 
 
 
-	subsample = parse_subsample(target_depth, alignment_file, compression, sum(chrom_depth_c.values()))
+	subsample = parse_subsample(target_depth, alignment_file, compression, sum(chrom_depth_c.values()), seed=params['seed'])
+
+
+	if init_dir:
+		Path(output_directory, 'align').mkdir(parents=True, exist_ok=True)
+		for i, file in enumerate(subsample.files):
+			subsample.files[i] = Path(output_directory, 'align', file.name)
+
 
 	perform_subsample(subsample, force=force)
 

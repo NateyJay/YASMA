@@ -61,9 +61,21 @@ from datetime import datetime
 	type=click.Path(),
 	help="Directory name for annotation output.")
 
+@optgroup.option("-n", "--name", 
+	# default=f"Annotation_{round(time())}", 
+	default=None,
+	required=False,
+	type=str,
+	help="Optional name alignment. Useful if comparing annotations.")
+
 
 @optgroup.option('--subsample',
 	help="Allows the user to subsample alignments for the annotation to a defined depth. Accepts an integer number of reads, which can be modified with a 10^3 prefix (ex. 10M).")
+
+@optgroup.option('--subsample_seed',
+	type=int,
+	default=42,
+	help="Seed value used for subsampling (default: 42)")
 
 @optgroup.option('--override', is_flag=True, default=False, help='Overrides config file changes without prompting.')
 
@@ -88,7 +100,10 @@ def shortstack4(**params):
 	alignment_file          = ic.inputs['alignment_file']
 	genome_file             = ic.inputs['genome_file']
 
-	target_depth               = params['subsample']
+	target_depth            = params['subsample']
+	seed                    = params['subsample_seed']
+	name                    = params['name']
+
 
 
 	chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
@@ -96,18 +111,19 @@ def shortstack4(**params):
 	aligned_read_count = sum(chrom_depth_c.values())
 
 	if target_depth:
-		subsample = parse_subsample(target_depth, alignment_file, "bam", sum(chrom_depth_c.values()))
+		subsample = parse_subsample(target_depth, alignment_file, "bam", sum(chrom_depth_c.values()), seed=seed)
 
 		perform_subsample(subsample)
 
 		alignment_file = subsample.file
 
 
-		dir_name = f'shortstack4_{subsample.string}'
+		dir_name = f'shortstack4_{subsample.string}{subsample.seed_string}'
 	else:
 		dir_name = f'shortstack4'
 
-
+	if name:
+		dir_name = f'shortstack4_{name}'
 
 
 

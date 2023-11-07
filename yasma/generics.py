@@ -31,7 +31,10 @@ from math import log10
 import pyBigWig
 
 import json
-from random import sample
+from random import sample, seed, shuffle
+
+import git
+
 
 
 
@@ -184,7 +187,12 @@ class inputClass():
 		output_directory = output_directory.rstrip("/")
 
 		self.output_directory = Path(output_directory)
-		self.output_directory.mkdir(parents=True, exist_ok=True)
+
+		if self.output_directory == Path("."):
+			self.output_directory = Path().cwd()
+
+		else:
+			self.output_directory.mkdir(parents=True, exist_ok=True)
 
 
 		project_name = self.output_directory.name
@@ -249,16 +257,17 @@ class inputClass():
 	def encode_inputs(self):
 
 		od = self.output_directory
+		print("OD:", od)
 
 		def encode_path(path):
-			
+
+
 			path = str(path.absolute())
 
 			if "/"+str(od)+"/" in path:
 				path = "<OD>/" + path.split(str(od)+"/")[-1]
 
 			return(path)
-
 
 
 		for p in ["untrimmed_libraries", "trimmed_libraries"]:
@@ -1506,10 +1515,15 @@ def inf_counter():
 
 
 
-def parse_subsample(target_depth, af, output_compression, total_aligned_reads):
+def parse_subsample(target_depth, af, output_compression, total_aligned_reads, seed=0):
 	"""
 	Parses input to come up with file names, including checking if the subsample is larger than the alignment itself.
 	"""
+
+	# if seed == 42:
+	# 	seed_string = ''
+	# else:
+	seed_string = f"s{seed}"
 
 	multipliers = {'M' : 1000000, "K" : 1000, "G" : 1000000000}
 
@@ -1518,6 +1532,7 @@ def parse_subsample(target_depth, af, output_compression, total_aligned_reads):
 
 	if prefix != '':
 		number = round(number * multipliers[prefix])
+
 
 	if number > total_aligned_reads:
 		print("subsample larger than alignment. Ignoring command....")
@@ -1531,19 +1546,32 @@ def parse_subsample(target_depth, af, output_compression, total_aligned_reads):
 	else:
 		subsample_string = str(round(number/1000000)) + 'M'
 
-	print(af.parent)
-	print(af.stem)
+	# print(af.parent)
+	# print(af.stem)
 
-	subsample_file = Path(af.parent, af.stem+"_"+subsample_string+"."+output_compression)
+	subsample_file = Path(af.parent, af.stem+"_"+subsample_string+seed_string+"."+output_compression)
+
+
+	# print(number)
+	# print(total_aligned_reads)
+	nn = floor(total_aligned_reads / number)
+	# print(nn)
+	subsample_files = [Path(af.parent, f"{af.stem}_{subsample_string}_{n+1}of{nn}_{seed_string}.{output_compression}") for n in range(nn)]
+
+	# print(subsample_files)
+	# sys.exit()
 
 	class subsampleClass():
 		pass
 	ssamp = subsampleClass
-	ssamp.file   = subsample_file
+	# ssamp.file   = subsample_file
+	ssamp.files  = subsample_files
 	ssamp.string = subsample_string
 	ssamp.target = number
 	ssamp.alignment_file = af
 	ssamp.total_aligned_reads = total_aligned_reads
+	ssamp.seed = seed
+	ssamp.seed_string = seed_string
 
 
 	return(ssamp)
@@ -1551,74 +1579,108 @@ def parse_subsample(target_depth, af, output_compression, total_aligned_reads):
 
 
 
-def perform_subsample(ssamp, force=False):
+def perform_subsample(ssamp, force=False, keep_all=False):
 
 	print(f"Subsampling to {ssamp.string} reads")
+
+	seed(ssamp.seed)
 
 
 	# sample_i = sample(range(sum(chrom_depth_c.values())), number)
 
 	print(f"{ssamp.total_aligned_reads:,} -> {ssamp.target:,}")
-	print(ssamp.file)
+	print(ssamp.files)
 	print()
 
-	if isfile(ssamp.file) and not force:
-		print(f"{ssamp.file} found. Skipping...")
+	if isfile(ssamp.files[0]) and not force:
+		print(f"{ssamp.files[0]} found. Skipping...")
 		return
 
 	else:
+		nn = len(ssamp.files)
 
-		sample_i = sample(range(ssamp.total_aligned_reads), ssamp.target)
+		print('  sampling...')
+		sample_i = sample(range(ssamp.total_aligned_reads), ssamp.target * nn)
+		print('  sorting...')
 		sample_i = sorted(sample_i, reverse=True)
 
+
+		print(f"  splitting into ({nn}) discrete sub-alignments...")
+		sample_n = []
+		for n in range(len(ssamp.files)):
+			sample_n += [n] * ssamp.target
+		shuffle(sample_n)
+
+
 		this_i = sample_i.pop()
+		this_n = sample_n.pop()
 
-		temp_file = Path(ssamp.alignment_file.parent, f"temp_{time()}.sam")
-		# fraction = str(number / sum(chrom_depth_c.values()))
+		temp_files = []
+		for n in range(nn):
+			temp_files.append(Path(ssamp.alignment_file.parent, f"temp_{n+1}of{nn}_{time()}.sam"))
 
-		# print(call)
-
-		with open(temp_file, 'w') as outf:
-
+		open_files = []
+		for f in temp_files:
+			outf = open(f, 'w') 
+			open_files.append(outf)
 
 			call = ['samtools', 'view', "-H", ssamp.alignment_file]
 			p = Popen(call, stdout=outf, encoding=ENCODING)
 			p.wait()
+		# fraction = str(number / sum(chrom_depth_c.values()))
 
-			call = ['samtools', 'view', "-F", '4', ssamp.alignment_file]
-			p = Popen(call, stdout=PIPE, encoding=ENCODING)
-
-			for i,line in enumerate(p.stdout):
+		# print(call)
 
 
-				if i == this_i:
-					outf.write(line)
-
-					if not sample_i:
-						p.terminate()
-						break
-
-					this_i = sample_i.pop()
-
-					# print(len(sample_i), '        ', end = '\r')
 
 
-			p.wait()
+		call = ['samtools', 'view', "-F", '4', ssamp.alignment_file]
+		p = Popen(call, stdout=PIPE, encoding=ENCODING)
 
-		# shutil.move(temp_file, subsample_alignment_file)
-		# sys.exit()
+		for i,line in enumerate(p.stdout):
 
-		with open(ssamp.file, 'wb') as outf:
 
-			call = ['samtools', 'view', '-h', '--bam', temp_file]
+			if i == this_i:
+				open_files[this_n].write(line)
+
+				if not sample_i:
+					p.terminate()
+					break
+
+				this_i = sample_i.pop()
+				this_n = sample_n.pop()
+
+				# print(len(sample_i), '        ', end = '\r')
+
+
+		p.wait()
+
+		for n in range(nn):
+			open_files[n].close()
+
+
+	# shutil.move(temp_file, subsample_alignment_file)
+	# sys.exit()
+
+	for i,file in enumerate(ssamp.files):
+
+		with open(file, 'wb') as outf:
+
+			call = ['samtools', 'view', '-h', '--bam', temp_files[i]]
 			p = Popen(call, stdout=outf)
 			p.wait()
 
 		# print("removing", temp_file)
-		os.remove(temp_file)
+		os.remove(temp_files[i])
 
-	print(f'Using {ssamp.file} as alignment for annotation')
+	print(f'Using {ssamp.files} as alignment for annotation')
 	print()
 
+
+
+def module_title(module, version):
+	print(f"{color.BOLD}Module:{color.END} {module}")
+	print(f"{color.BOLD}Version:{color.END} {version}")
+	print()
 
 
