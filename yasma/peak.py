@@ -363,6 +363,11 @@ class assessClass():
 @optgroup.option('--subsample',
 	help="Allows the user to subsample alignments for the annotation to a defined depth. Accepts an integer number of reads, which can be modified with a 10^3 prefix (ex. 10M).")
 
+@optgroup.option('--subsample_seed',
+	type=int,
+	default=0,
+	help="Seed value used for subsampling (default: 0)")
+
 
 
 
@@ -447,6 +452,7 @@ def peak(**params):
 	debug                   = params['debug']
 	annotation_name         = params['name']
 	target_depth            = params['subsample']
+	seed                    = params['subsample_seed']
 
 	if annotation_name:
 		dir_name = f"peak_{annotation_name}"
@@ -494,12 +500,13 @@ def peak(**params):
 	aligned_read_count = sum(chrom_depth_c.values())
 
 
+
 	if target_depth:
-		subsample = parse_subsample(target_depth, alignment_file, "bam", aligned_read_count)
+		subsample = parse_subsample(target_depth, alignment_file, "bam", aligned_read_count, seed=seed)
 
 		perform_subsample(subsample)
 
-		alignment_file = subsample.file
+		alignment_file = subsample.files[0]
 
 
 		aligned_read_count = subsample.target
