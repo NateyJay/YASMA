@@ -183,7 +183,6 @@ def align(**params):
 	args = list(map(str, args))
 
 	print(" ".join(args))
-	sys.exit()
 
 	p = Popen(args, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
@@ -228,7 +227,7 @@ def align(**params):
 
 	get_log_details(output_directory)
 
-	ic.inputs['alignment_file'] = str(alignment_file.absolute())
+	ic.inputs['alignment_file'] = alignment_file.absolute()
 	ic.write()
 
 
