@@ -688,87 +688,6 @@ def peak(**params):
 
 
 
-	# def dep_get_kernel_peaks(bam, rgs):
-	# 	""" Produces coverages for alignment based off a kernel density estimation. 
-
-	# 	Sum of all reads within the user defined kernel bandwith are used to generate a coverage. This is meant to normalize the effect of read length on coverage.
-
-	# 	Returns a dict() of Counter() objects, where the dict keys are chromosomes, counter keys are chromosome positions, and counter values are depth at positions.
-	# 	"""
-
-
-	# 	## Counting read depth by position.
-
-	# 	half_window = math.floor(kernel_window/2)
-
-	# 	kernel_c = {}
-	# 	depth_c = dict()
-
-	# 	perc = percentageClass(1, sum(chrom_depth_c.values()))
-
-
-	# 	for chrom, chrom_length in chromosomes:
-	# 		depth_c[chrom] = Counter()
-	# 		kernel_c[chrom] = Counter()
-
-
-	# 	reads = samtools_view(bam, rgs=rgs)
-
-	# 	print(f"   reading position depths ..... 0%", end='\r', flush=True)
-
-	# 	i = 0
-	# 	for i, read in enumerate(reads):
-	# 		_, length, _, pos, chrom, _, _, _ = read
-
-	# 		pos += math.floor(length / 2)
-
-	# 		depth_c[chrom][pos-half_window] += 1
-
-	# 		perc_out = perc.get_percent(i)
-	# 		if perc_out:
-	# 			print(f"   reading position depths ..... {perc_out}%\t{i:,} reads", end='\r', flush=True)
-
-
-	# 	print()
-
-
-	# 	## Performing kernel density smoothing based on mean or median or --> sum <--?
-
-	# 	window_dq = deque()
-
-	# 	perc = percentageClass(1, sum([l for c,l in chromosomes]))
-	# 	ii =0
-
-	# 	for chrom, chrom_length in chromosomes:
-	# 		kernel_c[chrom] = Counter()
-
-
-	# 		for i in range(chrom_length):
-	# 			ii += 1
-
-	# 			window_dq.append(depth_c[chrom][i])
-
-	# 			summary_value = round(sum(window_dq),2)
-
-	# 			if summary_value > 0:
-	# 				kernel_c[chrom][i] = summary_value
-				
-
-
-
-	# 			perc_out = perc.get_percent(ii)
-	# 			if perc_out:
-	# 				print(f"   calculating kernel density .. {perc_out}% \t{round(ii/1000000, 1)}M nt ", end='\r', flush=True)
-
-
-	# 			if len(window_dq) > kernel_window:
-	# 				window_dq.popleft()
-
-
-	# 	print()
-
-	# 	return(kernel_c)
-
 
 
 	def get_kernel_peaks(bam, rgs):
@@ -818,44 +737,11 @@ def peak(**params):
 		print()
 
 
-		# ## Performing kernel density smoothing based on mean or median or --> sum <--?
-
-		# window_dq = deque()
-
-		# perc = percentageClass(1, sum([l for c,l in chromosomes]))
-		# ii =0
-
-		# for chrom, chrom_length in chromosomes:
-		# 	kernel_c[chrom] = Counter()
-
-
-		# 	for i in range(chrom_length):
-		# 		ii += 1
-
-		# 		window_dq.append(depth_c[chrom][i])
-
-		# 		summary_value = round(sum(window_dq),2)
-
-		# 		if summary_value > 0:
-		# 			kernel_c[chrom][i] = summary_value
-				
-
-
-
-		# 		perc_out = perc.get_percent(ii)
-		# 		if perc_out:
-		# 			print(f"   calculating kernel density .. {perc_out}% \t{round(ii/1000000, 1)}M nt ", end='\r', flush=True)
-
-
-		# 		if len(window_dq) > kernel_window:
-		# 			window_dq.popleft()
-
-
-		# print()
 
 		return(depth_c)
-	## Getting positional coverage accross the alignment
 
+
+	## Getting positional coverage accross the alignment
 
 	start = time()
 	if coverage_method == "depth":
@@ -1085,7 +971,6 @@ def peak(**params):
 
 		## Sorting loci by position
 
-		# print(f"   sorting and writing regions ......", flush=True)
 
 		loci.sort(key=lambda x: x[2])
 
