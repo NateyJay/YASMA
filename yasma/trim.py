@@ -25,6 +25,9 @@ from .cli import cli
 
 
 
+
+
+
 @cli.command(group='Processing', help_priority=2)
 
 
@@ -113,10 +116,16 @@ def trim(**params):
 
 		path = PurePath(file)
 
-		out_file = file.replace(".fastq", ".fq")
-		out_file = out_file.replace('.fq', '.t.fq.gz')
-		out_file = out_file.split("/")[-1]
-		out_file = f"{output_directory}/trim/" + out_file
+
+
+		suffixes = file.suffixes
+		for i,s in enumerate(suffixes):
+			if s.endswith(('.fastq', '.fq')):
+				suffixes[i] = '.t.fq'
+			elif s.endswith(('.fasta', '.fa')):
+				suffixes[i] = '.t.fa'
+
+		out_file = Path(output_directory, 'trim', file.stem.split('.')[0] + "".join(suffixes))
 
 		call = ["cutadapt", "-a", adapter, "--minimum-length", str(min_length), "--maximum-length", str(max_length), "-O", "4", "--max-n", "0", "-o", out_file, file]
 
