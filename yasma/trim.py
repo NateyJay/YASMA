@@ -101,7 +101,7 @@ def trim(**params):
 
 
 	if adapter == "PRE-TRIMMED":
-		ic.inputs['trimmed_libraries'] = untrimmed_libraries
+		ic.inputs['trimmed_libraries'] = untrimmed_libraries.copy()
 		ic.write()
 		sys.exit("Libraries PRE-TRIMMED... Skipping trim.")
 
