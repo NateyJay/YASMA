@@ -790,7 +790,8 @@ def get_lambda(alignment_file, chromosomes, window_length, output_directory):
 
 
 def get_global_depth(output_directory, alignment_file, force=False, aggregate_by=['rg','chrom','length']):
-	depth_file = f"{output_directory}/global_depth.txt"
+	depth_file = Path(output_directory,'align', alignment_file).with_suffix(".depth.txt")
+
 
 	header = ['rg','chrom','length','abundance']
 
