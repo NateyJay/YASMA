@@ -454,6 +454,8 @@ def peak(**params):
 	target_depth            = params['subsample']
 	seed                    = params['subsample_seed']
 
+	pprint(params)
+
 	if annotation_name:
 		dir_name = f"peak_{annotation_name}"
 	else:
@@ -498,6 +500,7 @@ def peak(**params):
 		del chrom_depth_c[key]
 
 	aligned_read_count = sum(chrom_depth_c.values())
+
 
 
 
