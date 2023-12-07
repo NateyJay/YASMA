@@ -4,7 +4,6 @@ from .context import *
 from .hairpin import *
 from .readgroups import *
 from .adapter import *
-from .peak import *
 from .jbrowse import *
 from .inputs import *
 from .trim import *
@@ -13,8 +12,8 @@ from .other import *
 from .size_profile import *
 from .shortstack3 import *
 from .shortstack4 import *
-# from .edge_detection import *
 from .subsample import *
+from .tradeoff import *
 
 
 ## Functionality to add:
