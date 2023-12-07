@@ -32,7 +32,7 @@ from .cli import cli
 from datetime import datetime
 
 
-@cli.command(group='Wrappers', help_priority=5)
+@cli.command(group='Ann. wrappers', help_priority=5)
 
 
 
