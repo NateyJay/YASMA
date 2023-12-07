@@ -307,7 +307,7 @@ class assessClass():
 		if start < 1:
 			start = 1
 		gff_line = [
-			chrom, 'yasma_peak',feature_type, start, stop, '.', strand, '.',
+			chrom, 'yasma_locus',feature_type, start, stop, '.', strand, '.',
 			f'ID={name};sizecall={sizecall};depth={depth};rpm={rpm};fracTop={frac_top};majorRNA={major_rna}'
 		]
 
@@ -1170,7 +1170,7 @@ def tradeoff(**params):
 
 	## preparing output files
 
-	gff_file = f"{output_directory}/{dir_name}/regions.gff3"
+	gff_file = f"{output_directory}/{dir_name}/loci.gff3"
 
 	with open(gff_file, 'w') as outf:
 		print("##gff-version 3", file=outf)
@@ -1179,7 +1179,7 @@ def tradeoff(**params):
 			print(f"##sequence-region   {chrom} 1 {chrom_length}", file=outf)
 
 
-	results_file = f"{output_directory}/{dir_name}/regions.txt"
+	results_file = f"{output_directory}/{dir_name}/loci.txt"
 	with open(results_file, 'w') as outf:
 		print("\t".join(assessClass().header), file=outf)
 
@@ -1301,6 +1301,7 @@ def tradeoff(**params):
 
 
 
+	print()
 	print()
 	print(' finding regions...')
 	all_regions = get_regions(kernel_c, depth_threshold, chromosomes)
@@ -1951,14 +1952,23 @@ def tradeoff(**params):
 
 			last_stop = stop
 
-			if results_line:
-				with open(results_file, 'a') as outf:
-					print("\t".join(map(str, results_line)), file=outf)
+			with open(results_file, 'a') as outf:
+				print("\t".join(map(str, results_line)), file=outf)
 
-				with open(gff_file, 'a') as outf:
-					print("\t".join(map(str, gff_line)), file=outf)
+			with open(gff_file, 'a') as outf:
+				print("\t".join(map(str, gff_line)), file=outf)
 
-				top_reads_save(read_c, reads_file, read_equivalent, name)
+			top_reads_save(read_c, reads_file, read_equivalent, name)
+
+			# print(results_line)
+			# print(gff_line)
+
+			# print(locus)
+			# pprint(read_c)
+			# pprint(strand_c)
+			# print(sizecall)
+			# sys.exit()
+
 
 		if regions:
 			print_progress_string(chrom_count, len(chromosomes), chrom, unclumped_regions_count, len(regions), print_percentage)
@@ -2049,8 +2059,8 @@ def tradeoff(**params):
 
 
 	print()
-	print(f"{total_region_space:,} bp ({round(total_region_space/genome_length*100,1)}%) total region space ")
-	print(f"{total_annotated_reads:,} ({round(total_annotated_reads/aligned_read_count *100,1)}%) total reads in regions")
+	# print(f"{total_region_space:,} bp ({round(total_region_space/genome_length*100,1)}%) total region space ")
+	# print(f"{total_annotated_reads:,} ({round(total_annotated_reads/aligned_read_count *100,1)}%) total reads in regions")
 	print()
 	print()
 
