@@ -204,7 +204,7 @@ def jbrowse(**params):
 	ic = inputClass(params)
 	ic.check(["alignment_file", "annotation_readgroups", "genome_file", "jbrowse_directory"])
 
-	output_directory       = str(ic.output_directory)
+	output_directory       = ic.output_directory
 	alignment_file         = ic.inputs["alignment_file"]
 	annotation_readgroups  = ic.inputs['annotation_readgroups']
 	genome_file            = ic.inputs['genome_file']
@@ -240,9 +240,10 @@ def jbrowse(**params):
 	# genome_name = genome_file.rstrip(".gz").rstrip(".fa").split("/")[-1]
 	genome_name = genome_file.stem
 
-	cov_dir = Path(output_directory, "jbrowse", genome_name, f"{output_directory}_coverages")
-	ann_dir = Path(output_directory, "jbrowse", genome_name, f"{output_directory}_annotations")
-	deb_dir = Path(output_directory, "jbrowse", genome_name, f"{output_directory}_debug")
+	cov_dir = Path(output_directory, "jbrowse", genome_name, f"{output_directory.name}_coverages")
+	ann_dir = Path(output_directory, "jbrowse", genome_name, f"{output_directory.name}_annotations")
+	deb_dir = Path(output_directory, "jbrowse", genome_name, f"{output_directory.name}_debug")
+
 
 	for directory in [cov_dir, ann_dir, deb_dir]:
 		directory.mkdir(parents=True, exist_ok=True)
@@ -529,8 +530,7 @@ def jbrowse(**params):
 
 		# print(name)
 
-
-	config_file = f'{output_directory}/jbrowse/config.json'
+	config_file = Path(output_directory, 'jbrowse','config.json')
 	with open(config_file, 'w') as outf:
 		outf.write(json.dumps(config_d, indent=2))
 
@@ -545,15 +545,18 @@ def jbrowse(**params):
 
 	def copy_it(src, des):
 		if force or not isfile(des) or recopy:
-			print(f"  {src.name}")
-			copyfile(src, des)
-
+			if not isfile(src):
+				print(f"Warning: source {src} could not be found and copied to jbrowse directory.")
+			else:
+				print(f"  {src.name}")
+				copyfile(src, des)
 
 	copy_it(Path(output_directory, "peak/loci.gff3"), Path(ann_dir, "loci.gff3"))
 	copy_it(Path(output_directory, "peak/regions.gff3"), Path(ann_dir, "regions.gff3"))
 	copy_it(genome_file, Path(output_directory, "jbrowse", genome_name, f"{genome_name}.fa"))
 	copy_it(Path(str(genome_file).replace(".fa", ".fa.fai")), Path(output_directory, "jbrowse", genome_name, f"{genome_name}.fa.fai"))
-	copy_it(gene_annotation_file, Path(output_directory, "jbrowse", genome_name, gene_annotation_file.name))
+	if gene_annotation_file:
+		copy_it(gene_annotation_file, Path(output_directory, "jbrowse", genome_name, gene_annotation_file.name))
 
 
 	print()
