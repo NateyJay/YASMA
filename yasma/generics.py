@@ -187,6 +187,7 @@ class inputClass():
 		output_directory = output_directory.rstrip("/")
 
 		self.output_directory = Path(output_directory)
+		
 
 		if self.output_directory == Path("."):
 			self.output_directory = Path().cwd()
@@ -666,6 +667,8 @@ class percentageClass():
 		self.points = [floor(p * increment / 100 * total) for p in range(int(100/increment))]
 		self.points.append(total-1)
 
+		self.running = 0
+
 		# print(self.points)
 		# print(total)
 		# sys.exit()
@@ -677,6 +680,11 @@ class percentageClass():
 			perc = False
 
 		return(perc)
+
+	def update(self, i=1):
+		self.running += i
+
+		return(self.get_percent(self.running))
 
 
 
@@ -975,6 +983,88 @@ def samtools_depth(bam, annotation_readgroups, locus=False):
 
 
 
+def counters_to_bigwig(counter_d, chromosomes, file, verbose=True):
+	if verbose:
+		print(file)
+	bw = pyBigWig.open(str(file), 'w')
+	bw.addHeader(chromosomes)
+
+	for chrom, chrom_length in chromosomes:
+
+		positions = list(counter_d[chrom].keys())
+
+		positions = [p for p in positions if 0 < p <= chrom_length]
+
+		last_p = 0
+		last_v = round(float(counter_d[chrom][0]),4)
+
+		starts = [last_p]
+		ends   = []
+		values = [last_v]
+
+		for p in positions:
+			v = round(float(counter_d[chrom][p]), 4)
+			# print(p, v)
+
+			if p == 0:
+				values[0] = v
+
+			elif p != last_p + 1 and last_p > 0:
+				## for sure a zero gap
+				ends.append(last_p)
+
+				starts.append(last_p)
+				ends.append(p)
+				values.append(0.0)
+
+				starts.append(p)
+				values.append(v)
+
+
+			else:
+				if v != last_v:
+					ends.append(p)
+
+					starts.append(p)
+					values.append(v)
+
+			last_p = p
+			last_v = v
+
+
+
+		ends.append(chrom_length)
+		chroms = [chrom]*len(starts)
+
+		# chroms.pop(0)
+		# starts.pop(0)
+		# ends.pop(0)
+		# values.pop(0)
+
+
+		# chroms.pop()
+		# starts.pop()
+		# ends.pop()
+		# values.pop()
+
+
+		# for i in range(len(starts)):
+		# 	print(i, chroms[i], starts[i], ends[i], values[i], sep='\t')
+
+
+		# print('chroms', len(chroms), sep='\t')
+		# print('starts', len(starts), sep='\t')
+		# print('ends', len(ends), sep='\t')
+		# print('values', len(values), sep='\t')
+
+		bw.addEntries(chroms, starts, ends=ends, values=values, validate=False)
+		# bw.addEntries(chroms[:100], starts[:100], ends=ends[:100], values=values[:100], validate=False)
+		# bw.addEntries(['NC_003070.9','NC_003070.9'],
+		# 	[1,2], [2,4], [2.0,3.3])
+				
+		# bw.addEntries(["chr1", "chr1", "chr1"], [100, 0, 125], ends=[120, 5, 126], values=[0.0, 1.0, 200.0], validate=False)
+	bw.close()
+
 
 
 def samtools_view(bam, dcr_range=False, non_range=False, locus=False, rgs=[], boundary_rule='loose', subsample=None):
@@ -1018,10 +1108,11 @@ def samtools_view(bam, dcr_range=False, non_range=False, locus=False, rgs=[], bo
 	call += [str(bam)]
 
 
+
 	if locus:
 		call.append(locus)
 
-	# print(call)
+	# print(" ".join(map(str,call)))
 		
 	# print(call)
 	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
@@ -1469,7 +1560,7 @@ def complement(s):
 def check_rgs(annotation_readgroups, bam_rgs):
 
 
-	print(bam_rgs)
+	# print(bam_rgs)
 
 
 	if annotation_readgroups[0].lower() == 'all':
