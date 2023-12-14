@@ -31,7 +31,7 @@ from tqdm import tqdm
 
 
 from datetime import datetime
-
+# from pympler import asizeof
 
 
 
@@ -623,7 +623,13 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 			print("\t".join(map(str, t)), peak, sep='\t', file=outf)
 			if total_genomic_space > genome_length:
 				sys.exit("problem!!")
-
+	
+	# print()
+	# print(f'   pos_d: {asizeof.asizeof(pos_d):,}')
+	# print(f' depth_c: {asizeof.asizeof(depth_c):,}')
+	# print(f'kernel_c: {asizeof.asizeof(kernel_c):,}')
+	# print(f'strand_d: {asizeof.asizeof(strand_d):,}')
+	# print(f'  size_d: {asizeof.asizeof(size_d):,}')
 
 
 	return(pos_d, depth_c, kernel_c, out, strand_d, size_d)
@@ -1189,55 +1195,46 @@ def tradeoff(**params):
 
 		for p in range(start, stop+1):
 			try:
-				# print(pos_d[chrom][p][1])
-				# print(pos_d[chrom][p][2])
 				strands.update(pos_d[chrom][p][1])
 				sizes.update(pos_d[chrom][p][2])
 			except:
 				pass
 
 
-		# for read in reads:
-		# 	strand, size, _, _, _, _, _, name = read
-
-		# 	sizes.update([size])
-		# 	strands.update(strand)
-
-		if sum(strands.values()) == 0:
-			print(region)
-			print(sizes)
-			print(strands)
-			sys.exit()
 
 		frac_top = strands['+'] / sum(strands.values())
 
 		cov_window = params['coverage_window']
 
-		boundaries = [start, stop]
+		region_size = stop - start
 
 
 		# print()
 
-		for i,direction in enumerate([-1,1]):
+		def expand_window(window_l, window_r, direction, increment=50, max_increments=False):
 
-			window_l, window_r = [[start, start+cov_window],[stop-cov_window, stop]][i]
+			window_size = abs(window_l - window_r)
 
+			if direction == -1:
+				i = 0
+			else:
+				i = 1
 
-
+			increment_count =0
 			while True:
 
-				window_l += 50 * direction
-				window_r += 50 * direction
+				increment_count += 1
+				if max_increments and increment_count > max_increments:
+					break
 
-
+				window_l += increment * direction
+				window_r += increment * direction
 
 				w_strands = Counter()
 				w_sizes   = sizeClass()
 
-				# print(window_l, window_r)
 				for w in range(window_l, window_r):
 					try:
-						# print(w, pos_d[chrom][w][1], pos_d[chrom][w][2])
 						w_strands.update(pos_d[chrom][w][1])
 						w_sizes.update(pos_d[chrom][w][2])
 					except:
@@ -1278,7 +1275,7 @@ def tradeoff(**params):
 					# sys.exit()
 					break
 					
-				if sum(w_strands.values()) < sum(strands.values()) * 0.05:
+				if sum(w_strands.values())/window_size < sum(strands.values())/region_size * 0.05:
 					# print('depth break', end='\t')
 					break
 
@@ -1291,17 +1288,29 @@ def tradeoff(**params):
 					break
 
 
+			if direction == -1:
+				return(window_l)
+			else:				
+				return(window_r)
 
 
+		for direction in enumerate([-1,1]):
 
 
+			window_l = expand_window(start, start+cov_window, -1, increment=50)
+			window_r = expand_window(stop-cov_window, stop, 1, increment=50)
 
-			boundaries[i] = [window_l, window_r][i] #- int(cov_window/2) * direction
+
+			window_l = expand_window(window_l+cov_window, window_l+cov_window-50, -1, increment=15)
+			window_r = expand_window(window_r-cov_window, window_r-cov_window+50, 1,  increment=15)
+
 
 			for w in range(window_l, window_r+1):
 				claim_d[chrom][w] = locus_name
+
+
 		
-		return(boundaries[0], boundaries[1], claim_d)
+		return(window_l, window_r, claim_d)
 
 
 	claim_d = {}
@@ -1472,6 +1481,7 @@ def tradeoff(**params):
 			else:
 				i += 1
 			return(i)
+
 
 
 
