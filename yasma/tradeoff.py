@@ -707,7 +707,7 @@ def trim_locus(locus, peak_c, params):
 				help='')
 
 @optgroup.option('--coverage_window',
-	default=40,
+	default=250,
 	help='This is the bandwidth for accumulating read alignments into coverage. This differs from common methods like samtools depth to avoid bias for longer reads. Default 40 nt.')
 
 @optgroup.option('--subsample',
