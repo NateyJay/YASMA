@@ -540,8 +540,9 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 			if perc_out:
 				print(f"    calculating kernel max ....... {perc_out}%\t {chrom} : {pos:,}           ", end='\r', flush=True)
 
-	pprint(depth_c)
+	# pprint(depth_c)
 
+	print(" writing to bigwig file...")
 	counters_to_bigwig(kernel_c, chromosomes, Path(out_dir, "kernel.bw"), verbose=False)
 
 	# print()
@@ -622,10 +623,10 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 			if total_genomic_space > genome_length:
 				sys.exit("problem!!")
 	
-	print()
-	print(f'   pos_d: {asizeof.asizeof(pos_d):,}')
-	print(f' depth_c: {asizeof.asizeof(depth_c):,}')
-	print(f'kernel_c: {asizeof.asizeof(kernel_c):,}')
+	# print()
+	# print(f'   pos_d: {asizeof.asizeof(pos_d):,}')
+	# print(f' depth_c: {asizeof.asizeof(depth_c):,}')
+	# print(f'kernel_c: {asizeof.asizeof(kernel_c):,}')
 
 
 
