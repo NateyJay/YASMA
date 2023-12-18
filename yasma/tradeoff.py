@@ -31,7 +31,7 @@ from tqdm import tqdm
 
 
 from datetime import datetime
-# from pympler import asizeof
+from pympler import asizeof
 
 
 
@@ -419,8 +419,6 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 	# pos_c    = dict()
 	depth_c  = dict()
 	kernel_c = dict()
-	strand_d = dict()
-	size_d   = dict()
 	pos_d    = dict()
 
 	genome_length = sum([c[1] for c in chromosomes])
@@ -432,8 +430,6 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 		# pos_c[chrom]       = Counter()
 		depth_c[chrom]     = Counter()
 		kernel_c[chrom]    = Counter()
-		strand_d[chrom]    = dict()
-		size_d[chrom]      = dict()
 		pos_d[chrom]       = dict()
 
 
@@ -519,6 +515,7 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 
 
 			depth = depth_c[chrom][pos]
+			del depth_c[chrom][pos]
 			kernel.append(depth)
 
 
@@ -543,6 +540,7 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 			if perc_out:
 				print(f"    calculating kernel max ....... {perc_out}%\t {chrom} : {pos:,}           ", end='\r', flush=True)
 
+	pprint(depth_c)
 
 	counters_to_bigwig(kernel_c, chromosomes, Path(out_dir, "kernel.bw"), verbose=False)
 
@@ -624,15 +622,14 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 			if total_genomic_space > genome_length:
 				sys.exit("problem!!")
 	
-	# print()
-	# print(f'   pos_d: {asizeof.asizeof(pos_d):,}')
-	# print(f' depth_c: {asizeof.asizeof(depth_c):,}')
-	# print(f'kernel_c: {asizeof.asizeof(kernel_c):,}')
-	# print(f'strand_d: {asizeof.asizeof(strand_d):,}')
-	# print(f'  size_d: {asizeof.asizeof(size_d):,}')
+	print()
+	print(f'   pos_d: {asizeof.asizeof(pos_d):,}')
+	print(f' depth_c: {asizeof.asizeof(depth_c):,}')
+	print(f'kernel_c: {asizeof.asizeof(kernel_c):,}')
 
 
-	return(pos_d, depth_c, kernel_c, out, strand_d, size_d)
+
+	return(pos_d, kernel_c, out)
 
 
 
@@ -1018,7 +1015,7 @@ def tradeoff(**params):
 
 	start = time()
 
-	pos_d, peak_c, kernel_c, threshold_stats, strand_d, size_d = get_kernel_coverage(
+	pos_d, kernel_c, threshold_stats = get_kernel_coverage(
 		bam=alignment_file, 
 		rgs=annotation_readgroups, 
 		params=params, 
@@ -1129,18 +1126,6 @@ def tradeoff(**params):
 				pass
 
 
-		## Using samtools - an important sanity check but very slow...
-		# locus_reads = 0
-		# reads = samtools_view(alignment_file, locus=f"{chrom}:{start}-{stop}", rgs=annotation_readgroups)
-		# for read in reads:
-		# 	total_annotated_reads += 1
-		# 	locus_reads += 1
-
-
-		# if locus_reads < depth_threshold:
-		# 	print(l, f'not sufficiently deep ({locus_reads} reads)')
-		# 	# print(f"  expected depth {expected_depth} reads")
-		# 	sys.exit()
 
 	print(f"    {total_annotated_reads:,} ({round(total_annotated_reads/aligned_read_count *100,1)}%) total reads in regions")
 	print(f"        expected: {round(100*threshold_stats['read_score'],1)}%")
@@ -1175,7 +1160,7 @@ def tradeoff(**params):
 
 	now = datetime.now()
 
-	del peak_c
+	# del peak_c
 	# del pos_c
 	del kernel_c
 
@@ -1381,8 +1366,10 @@ def tradeoff(**params):
 	diff = round(total_revised_reads/aligned_read_count *100,1) - round(total_annotated_reads/aligned_read_count *100,1)
 	print(f"      +{round(diff,2)}% over unrevised regions")
 
-
+	max_chrom_word_length = max([len(c) for c,l in chromosomes])
 	def print_progress_string(i, n, chrom, input_loci, output_loci, assess=False):
+
+		chrom = chrom + (max_chrom_word_length - len(chrom)) * " "
 		if not assess:
 			assess = ''
 		else:
@@ -1390,7 +1377,7 @@ def tradeoff(**params):
 		print(f"{i+1}/{n}\t{chrom}\t{unclumped_regions_count}\t{len(regions)}{assess}", end='\r', flush=True)
 
 	print()
-	print('prog\tchrom\treg\tloc\tassess')
+	print('prog', "chrom"+(max_chrom_word_length-5)*" ",'regions\tloci\tassess', sep='\t')
 
 	total_region_space = 0
 	regions_name_i = 0
