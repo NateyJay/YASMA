@@ -1828,7 +1828,7 @@ def perform_subsample(ssamp, force=False, subsample_keep_max=1):
 
 	p.wait()
 
-	for n in range(nn):
+	for n in range(max_n):
 		open_files[n].close()
 
 
