@@ -34,7 +34,16 @@ from datetime import datetime
 from pympler import asizeof
 
 
+class elapsedClass():
+	def __init__(self):
 
+		self.start_time = datetime.now()
+
+	def __str__(self):
+		current_time = datetime.now()
+		elapsed = current_time - self.start_time
+
+		return f" elapsed: {elapsed}"
 
 
 
@@ -418,7 +427,6 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 
 	# pos_c    = dict()
 	depth_c  = dict()
-	kernel_c = dict()
 	pos_d    = dict()
 
 	genome_length = sum([c[1] for c in chromosomes])
@@ -429,12 +437,12 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 	for chrom, chrom_length in chromosomes:
 		# pos_c[chrom]       = Counter()
 		depth_c[chrom]     = Counter()
-		kernel_c[chrom]    = Counter()
+		# kernel_c[chrom]    = Counter()
 		pos_d[chrom]       = dict()
 
 
 
-
+	# ec = elapsedClass()
 	iterables = []
 	for c,l in chromosomes:
 		iterables.append(samtools_view(bam, rgs=rgs, locus=c))
@@ -472,78 +480,246 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 		# except KeyError:
 		# 	size_d[chrom][pos] = [length]
 
-		perc_out = perc.get_percent(i)
+		perc_out = perc.update()
 		if perc_out:
-			print(f"    encoding reads ............... {perc_out}%\t {i:,} reads", end='\r', flush=True)
+			print(f"    encoding reads ............... {perc_out}%\t {i+1:,} reads", end='\r', flush=True)
 
 		# bin_c[int((chrom_index[chrom] + pos) / params['kernel_window'])] += 1
-
-
 	print()
-	print(f"    calculating coverage ......... 0%", end='\r', flush=True)
-	perc = percentageClass(1, sum([len(c.values()) for c in pos_d.values()]))
-	i=0
-	for chrom in pos_d.keys():
-		for pos, item in pos_d[chrom].items():
-			depth, _, _ = item
-			i += 1
-			for p in range(pos-half_cov_window, pos+half_cov_window+1):
-				depth_c[chrom][p] += depth
-
-			perc_out = perc.get_percent(i)
-			if perc_out:
-				print(f"    calculating coverage ......... {perc_out}%\t {i:,} positions", end='\r', flush=True)
-
-	counters_to_bigwig(depth_c, chromosomes, Path(out_dir, "coverage.bw"), verbose=False)
+	# print(ec)
 
 
-	gen_c = Counter()
-	read_c = Counter()
 
-	print()
-	perc = percentageClass(1, genome_length)
-	print(f"    calculating kernel max ....... 0%", end='\r', flush=True)
 
-	for chrom, chrom_length in chromosomes:
+	def inline_method():
+		ec = elapsedClass()
+		kernel_c = dict()
+		for chrom, chrom_length in chromosomes:
+			kernel_c[chrom]    = Counter()
 
-		kernel = deque([0]*cov_window)
+		kernel   = deque([0]* cov_window)
+		coverage = deque([0]* cov_window)
+		rolling_sum = 0
 		rolling_max = 0
 
-		for pos in range(chrom_length):
 
-			kernel_pos = pos-half_cov_window
-
-
-			depth = depth_c[chrom][pos]
-			del depth_c[chrom][pos]
-			kernel.append(depth)
+		# print()
 
 
+		gen_c = Counter()
+		read_c = Counter()
 
-			outgoing_avg = kernel.popleft()
+
+		class trackClass():
+			def __init__(self, bw_file, chromosomes):
+				self.bw = pyBigWig.open(str(bw_file), 'w')
+				self.bw.addHeader(chromosomes)
+
+				self.last_start      = 0
+				self.interval_length = 1
+				self.last_chrom = chromosomes[0][0]
+
+			def write(self):
+				stop = self.last_start + self.interval_length
+				self.bw.addEntries(
+								[self.last_chrom], 
+								[self.last_start], 
+								ends= [stop], 
+								values= [float(self.last_val)]
+								)
 
 
-			if outgoing_avg == rolling_max:
-				rolling_max = max(kernel)
-			elif depth > rolling_max:
-				rolling_max = depth
+			def add(self, chrom, pos, val):
 
-			kernel_c[chrom][kernel_pos] = rolling_max
+				if chrom != self.last_chrom:
+					self.write()
+					self.last_start      = 0
+					self.interval_length = 1
 
-			gen_c[rolling_max] += 1
-			try:
-				read_c[rolling_max] += pos_d[chrom][kernel_pos][0]
-			except KeyError:
-				pass
+				elif pos > self.last_start:
 
-			perc_out = perc.update()
-			if perc_out:
-				print(f"    calculating kernel max ....... {perc_out}%\t {chrom} : {pos:,}           ", end='\r', flush=True)
+					if val != self.last_val:
+						self.write()
+						self.last_start = pos
+						self.interval_length = 1
 
-	# pprint(depth_c)
+					else:
+						self.interval_length += 1
 
-	print(" writing to bigwig file...")
-	counters_to_bigwig(kernel_c, chromosomes, Path(out_dir, "kernel.bw"), verbose=False)
+
+				self.last_val   = val
+				self.last_chrom = chrom
+
+			def close(self):
+				self.write()
+				self.bw.close()
+
+
+
+		cov_track = trackClass(Path(out_dir, "coverage.bw"), chromosomes)
+		ker_track = trackClass(Path(out_dir, "kernel.bw"), chromosomes)
+
+		perc = percentageClass(1, sum([l for c,l in chromosomes]))
+		for chrom, chrom_length in chromosomes:
+
+			last_val = -1
+			start_p  = -1
+
+
+			coverage_pos = -1 * int(cov_window/2)
+			kernel_pos   = -1 * cov_window
+
+			for pos in range(chrom_length+cov_window):
+
+				## calculating coverage
+
+				try:
+					depth = pos_d[chrom][pos][0]
+				except KeyError:
+					depth = 0
+				
+				coverage.append(depth)
+				rolling_sum += depth
+				rolling_sum -= coverage.popleft()
+
+				cov_track.add(chrom, coverage_pos, rolling_sum)
+
+
+				## max-smoothing coverage
+
+				kernel.append(rolling_sum)
+				outgoing_sum = kernel.popleft()
+
+
+				if outgoing_sum == rolling_max:
+					rolling_max = max(kernel)
+				elif rolling_sum > rolling_max:
+					rolling_max = rolling_sum
+
+				ker_track.add(chrom, kernel_pos, rolling_max)
+
+
+
+				if 0 <= kernel_pos <= chrom_length:
+
+					gen_c[rolling_max] += 1
+					try:
+						read_c[rolling_max] += pos_d[chrom][kernel_pos][0]
+					except KeyError:
+						pass
+
+
+
+				perc_out = perc.update()
+				if perc_out:
+					chrom_i = [c for c,l in chromosomes].index(chrom) + 1
+					chrom_n = len(chromosomes)
+					print(f"    computing coverage ........... {perc_out}%\t {chrom_i}/{chrom_n} {chrom} : {pos:,}    ", end='\r', flush=True)
+
+				coverage_pos += 1
+				kernel_pos   += 1
+
+
+		cov_track.close()
+		ker_track.close()
+
+		print()
+		print(ec)
+		print()
+
+		return(gen_c, read_c)
+
+
+	def counter_method():
+
+		kernel_c = dict()
+		for chrom, chrom_length in chromosomes:
+			kernel_c[chrom]    = Counter()
+
+
+		##counter method
+
+		print()
+		print(f"    calculating coverage ......... 0%", end='\r', flush=True)
+		perc = percentageClass(1, sum([len(c.values()) for c in pos_d.values()]))
+		i=0
+		for chrom in pos_d.keys():
+			for pos, item in pos_d[chrom].items():
+				depth, _, _ = item
+				i += 1
+				for p in range(pos-half_cov_window, pos+half_cov_window+1):
+					depth_c[chrom][p] += depth
+
+				perc_out = perc.get_percent(i)
+				if perc_out:
+					print(f"    calculating coverage ......... {perc_out}%\t {i:,} positions", end='\r', flush=True)
+
+		counters_to_bigwig(depth_c, chromosomes, Path(out_dir, "coverage.bw"), verbose=False)
+
+
+		# bw = pyBigWig.open(str(Path(out_dir, "coverage.bw")))
+
+		# for chrom, chrom_length in chromosomes:
+		# 	print(chrom)
+		# 	for p in range(chrom_length):
+		# 		try:
+		# 			depth = bw.stats(chrom, p, p+cov_window, type="max")
+		# 		except RuntimeError:
+		# 			pass
+		# 		# print(depth)
+		# 		# depth = depth[0]
+
+
+		gen_c = Counter()
+		read_c = Counter()
+
+		print()
+		perc = percentageClass(1, genome_length)
+		print(f"    calculating kernel max ....... 0%", end='\r', flush=True)
+
+		for chrom, chrom_length in chromosomes:
+
+			kernel = deque([0]*cov_window)
+			rolling_max = 0
+
+			for pos in range(chrom_length):
+
+				kernel_pos = pos-half_cov_window
+
+
+				depth = depth_c[chrom][pos]
+				del depth_c[chrom][pos]
+				kernel.append(depth)
+
+
+
+				outgoing_avg = kernel.popleft()
+
+
+				if outgoing_avg == rolling_max:
+					rolling_max = max(kernel)
+				elif depth > rolling_max:
+					rolling_max = depth
+
+				kernel_c[chrom][kernel_pos] = rolling_max
+
+				gen_c[rolling_max] += 1
+				try:
+					read_c[rolling_max] += pos_d[chrom][kernel_pos][0]
+				except KeyError:
+					pass
+
+				perc_out = perc.update()
+				if perc_out:
+					print(f"    calculating kernel max ....... {perc_out}%\t {chrom} : {pos:,}           ", end='\r', flush=True)
+
+		# pprint(depth_c)
+
+		print(" writing to bigwig file...")
+		counters_to_bigwig(kernel_c, chromosomes, Path(out_dir, "kernel.bw"), verbose=False)
+
+		return(gen_c, read_c)
+
 
 	# print()
 	# print(f"    tallying thresholds .......... 0%", end='\r', flush=True)
@@ -565,104 +741,95 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 	# 		if perc_out:
 	# 			print(f"    tallying thresholds .......... {perc_out}%           ", end='\r', flush=True)
 
-	found_depths = list(gen_c.keys())
-	found_depths.sort()
+	# gen_c, read_c = inline_method()
 
-	averages = []
-	table    = []
+	def tally(gen_c, read_c):
+		found_depths = list(gen_c.keys())
+		found_depths.sort()
 
-	total_genomic_space = genome_length
-	total_read_space    = sum(read_c.values())
+		averages = []
+		table    = []
 
-	for depth_threshold in found_depths:
+		total_genomic_space = genome_length
+		total_read_space    = sum(read_c.values())
 
-		total_genomic_space -= gen_c[depth_threshold]
-		total_read_space    -= read_c[depth_threshold]
+		for depth_threshold in found_depths:
 
-		gen_score = total_genomic_space/genome_length
-		read_score = total_read_space/aligned_read_count
-		avg_score = ((1-gen_score) + read_score) /2
+			total_genomic_space -= gen_c[depth_threshold]
+			total_read_space    -= read_c[depth_threshold]
 
-		# if not out and avg_score < last_avg:
-		# 	peak = "1"
-		# 	out = {
-		# 		'depth_threshold' : depth_threshold,
-		# 		'gen_score' : gen_score,
-		# 		'read_score' : read_score,
-		# 		'avg_score' : avg_score
-		# 	}
+			# print(depth_threshold, total_genomic_space, sep='\t')
 
-		# else:
-		# 	peak = '0'
-		# last_avg = avg_score
+			gen_score = total_genomic_space/genome_length
+			read_score = total_read_space/aligned_read_count
+			avg_score = ((1-gen_score) + read_score) /2
 
-		averages.append(avg_score)
+			# if not out and avg_score < last_avg:
+			# 	peak = "1"
+			# 	out = {
+			# 		'depth_threshold' : depth_threshold,
+			# 		'gen_score' : gen_score,
+			# 		'read_score' : read_score,
+			# 		'avg_score' : avg_score
+			# 	}
 
-		table.append([depth_threshold, total_genomic_space, round(gen_score,4),
-			total_read_space, round(total_read_space/aligned_read_count,4),
-			round(avg_score, 4)])
+			# else:
+			# 	peak = '0'
+			# last_avg = avg_score
 
-	peak_index = averages.index(max(averages))
+			averages.append(avg_score)
 
-	with open(Path(out_dir, 'thresholds.txt'), 'w') as outf:
-		print('depth\tannotated_space\tp_genome\tannotated_reads\tp_reads\taverage_score\tpeak', file=outf)
-		for i,t in enumerate(table):
+			table.append([depth_threshold, total_genomic_space, round(gen_score,4),
+				total_read_space, round(total_read_space/aligned_read_count,4),
+				round(avg_score, 4)])
 
-			if i == peak_index:
-				peak = 1
-				out = {
-					'depth_threshold' : t[0],
-					'gen_score' : t[2],
-					'read_score' : t[4],
-					'avg_score' : t[5]
-					}
-			else:
-				peak = 0
+		peak_index = averages.index(max(averages))
 
-			print("\t".join(map(str, t)), peak, sep='\t', file=outf)
-			if total_genomic_space > genome_length:
-				sys.exit("problem!!")
+		with open(Path(out_dir, 'thresholds.txt'), 'w') as outf:
+			print('depth\tannotated_space\tp_genome\tannotated_reads\tp_reads\taverage_score\tpeak', file=outf)
+			for i,t in enumerate(table):
+
+				if i == peak_index:
+					peak = 1
+					out = {
+						'depth_threshold' : t[0],
+						'gen_score' : t[2],
+						'read_score' : t[4],
+						'avg_score' : t[5]
+						}
+				else:
+					peak = 0
+
+				print("\t".join(map(str, t)), peak, sep='\t', file=outf)
+				if total_genomic_space > genome_length:
+					sys.exit("problem!!")
+
+		# pprint(out)
+		return(out)
 	
 	# print()
 	# print(f'   pos_d: {asizeof.asizeof(pos_d):,}')
 	# print(f' depth_c: {asizeof.asizeof(depth_c):,}')
 	# print(f'kernel_c: {asizeof.asizeof(kernel_c):,}')
 
+	gen_c, read_c = inline_method()
+	out = tally(gen_c, read_c)
+	# print(out)
 
 
-	return(pos_d, kernel_c, out)
+	# gen_c, read_c = counter_method()
+	# out = tally(gen_c, read_c)
+	# print(out)
+	# sys.exit()
+
+
+
+	return(pos_d, out)
 
 
 
 
 
-
-
-def trim_locus(locus, peak_c, params):
-
-	trim_window = int(params['kernel_window'] / 2)
-	eval_window = 50
-
-	name, chrom, left, right = locus
-
-	new_left  = border_sd(peak_c, left, right, trim_window, eval_window, 1)
-	new_right = border_sd(peak_c, right, left, trim_window, eval_window, -1)
-
-# 	print(f"""
-
-#   {new_left - left:,}
-#   |   {new_right - new_left:,}
-#   |   |   {right - new_right:,} 
-#   |   |   |
-# .............
-# |   |   |   |
-# |   |   |   {right:,}
-# |   |   {new_right:,}
-# |   {new_left:,}
-# {left:,}
-# 		""")
-
-	return(new_left, new_right)
 
 
 
@@ -708,6 +875,8 @@ def trim_locus(locus, peak_c, params):
 	default=250,
 	help='This is the bandwidth for accumulating read alignments into coverage. This differs from common methods like samtools depth to avoid bias for longer reads. Default 40 nt.')
 
+
+
 @optgroup.option('--subsample',
 	help="Allows the user to subsample alignments for the annotation to a defined depth. Accepts an integer number of reads, which can be modified with a 10^3 prefix (ex. 10M).")
 
@@ -715,6 +884,18 @@ def trim_locus(locus, peak_c, params):
 	type=int,
 	default=0,
 	help="Seed value used for subsampling (default: 0)")
+
+@optgroup.option('--subsample_n',
+	type=int,
+	default=0,
+	help="The index of which split group from the subsets you want to use for the annotation. For example, a 105M deep alignment will be split into 5 distinct sets when subset by 20M (residual 5M are ignored). This option which pick which to use (base-0)")
+
+
+@optgroup.option('--subsample_keep_max',
+	type=int,
+	default=0,
+	help="The maximum number of subset alignments that will be written to the disk. Numbers higher than 1 are really only useful for performance comparisons. This value will automatically be raised to a minimum of the subsample_n+1.")
+
 
 
 
@@ -827,6 +1008,11 @@ def tradeoff(**params):
 	sys.stdout = Logger(log_file)
 
 
+	start_time = datetime.now()
+	date_time = start_time.strftime("%Y/%m/%d, %H:%M:%S")
+	print()
+	print("Start time:",date_time)	
+
 	params['tool'] = 'tradeoff'
 	parameters_file = Path(output_directory, dir_name, "params.json")
 	with open(parameters_file, 'w') as outf:
@@ -882,12 +1068,23 @@ def tradeoff(**params):
 
 
 	if target_depth:
-		subsample = parse_subsample(target_depth, alignment_file, "bam", aligned_read_count, seed=seed)
+		subsample = parse_subsample(target_depth, alignment_file, "bam", aligned_read_count, seed=seed,
+			n=params['subsample_n'])
 
-		perform_subsample(subsample)
+		alignment_file = perform_subsample(subsample, subsample_keep_max=params['subsample_keep_max'])
 
-		alignment_file = subsample.files[0]
+		chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
 
+		keys = list(chrom_depth_c.keys())
+		for key in keys:
+			if key[0] in annotation_readgroups:
+				chrom_depth_c[key[1]] += chrom_depth_c[key]
+
+			del chrom_depth_c[key]
+
+		for key in list(chrom_depth_c.keys()):
+			if key not in [c for c,l in chromosomes]:
+				del chrom_depth_c[key]
 
 		aligned_read_count = subsample.target
 
@@ -965,7 +1162,7 @@ def tradeoff(**params):
 		print(TOP_READS_HEADER, file=outf)
 
 
-	merge_file = Path(output_directory, dir_name, 'loci.txt')
+	merge_file = Path(output_directory, dir_name, 'merges.txt')
 	with open(merge_file, 'w') as outf:
 		outf.write('')
 
@@ -1016,7 +1213,7 @@ def tradeoff(**params):
 
 	start = time()
 
-	pos_d, kernel_c, threshold_stats = get_kernel_coverage(
+	pos_d, threshold_stats = get_kernel_coverage(
 		bam=alignment_file, 
 		rgs=annotation_readgroups, 
 		params=params, 
@@ -1039,7 +1236,8 @@ def tradeoff(**params):
 	print(f"    exp. read proportion: .... {read_score}")
 
 
-	def get_regions(kernel_c, depth_threshold, chromosomes):
+	def get_regions_dep(kernel_c, depth_threshold, chromosomes):
+
 		regions = []
 		reg_i = 0
 		for chrom, chrom_length in chromosomes:
@@ -1061,7 +1259,8 @@ def tradeoff(**params):
 
 				elif p > last_p + 1:
 					reg_i += 1
-					regions.append([f"region_{reg_i}", chrom, start, last_p])
+					if start < last_p:
+						regions.append([f"region_{reg_i}", chrom, start, last_p])
 					start = p
 
 
@@ -1074,9 +1273,89 @@ def tradeoff(**params):
 				if last_p > chrom_length - params['coverage_window']:
 					last_p = chrom_length
 				reg_i += 1
-				regions.append([f"region_{reg_i}", chrom, start, last_p])
+				if start < last_p:
+					regions.append([f"region_{reg_i}", chrom, start, last_p])
 
 
+
+
+		return(regions)
+
+	def get_regions_dep2(depth_threshold, chromosomes):
+
+		regions = []
+
+		reg_i = 0
+		bw = pyBigWig.open(str(Path(output_directory, dir_name, "kernel.bw")))
+		# print(bw.isBigWig())
+		# print(bw.chroms())
+		# print(bw.header())
+
+		for chrom, chrom_length in chromosomes:
+			# print(chrom)
+
+			reg_start = False
+			reg_stop  = False
+
+			for inv_start, inv_stop, depth in bw.intervals(chrom, 0, chrom_length):
+
+				if depth >= depth_threshold:
+
+					if inv_start != reg_stop:
+
+						if reg_start:
+							reg_i += 1
+							region = [f"region_{reg_i}", chrom, reg_start, reg_stop]
+							# print(region)
+							regions.append(region)
+
+						reg_start = inv_start
+					reg_stop  = inv_stop
+				# last_stop = inv_stop
+
+
+
+		bw.close()
+
+
+		return(regions)
+
+
+	def get_regions(depth_threshold, chromosomes):
+
+		regions = []
+
+		reg_i = 0
+		bw = pyBigWig.open(str(Path(output_directory, dir_name, "kernel.bw")))
+		# print(bw.isBigWig())
+		# print(bw.chroms())
+		# print(bw.header())
+
+		for chrom, chrom_length in chromosomes:
+			# print(chrom)
+
+			in_region = False
+
+			for inv_start, inv_stop, depth in bw.intervals(chrom, 0, chrom_length):
+				if depth >= depth_threshold:
+					if not in_region:
+						reg_start = inv_start
+					reg_stop  = inv_stop
+
+					in_region = True
+
+				else:
+					if in_region:
+						reg_i += 1
+						region = [f"region_{reg_i}", chrom, reg_start, reg_stop]
+						regions.append(region)
+
+					in_region = False
+
+
+
+
+		bw.close()
 
 
 		return(regions)
@@ -1085,7 +1364,7 @@ def tradeoff(**params):
 
 	print()
 	print(' finding regions...')
-	all_regions = get_regions(kernel_c, depth_threshold, chromosomes)
+	all_regions = get_regions(depth_threshold, chromosomes)
 
 	# pprint(regions)
 
@@ -1099,19 +1378,18 @@ def tradeoff(**params):
 	print(f"    {len(all_regions):,} regions")
 	print()
 
-	# pprint(regions)
 	def get_region_space(regions):
 		tot = 0
 		for name, chrom, start, stop in all_regions:
 			length = stop - start
 
 			tot += length
+			# print(start, stop, length, tot, sep='\t')
 		return tot
 
 	total_region_space = get_region_space(all_regions)
 	print(f"    {total_region_space:,} ({round(total_region_space/genome_length *100,1)}%) genome in regions")
 	print(f"        expected: {round(100*threshold_stats['gen_score'],1)}%")
-
 
 
 
@@ -1163,7 +1441,7 @@ def tradeoff(**params):
 
 	# del peak_c
 	# del pos_c
-	del kernel_c
+	# del kernel_c
 
 
 	def expand_region(claim_d, region):
@@ -1187,8 +1465,12 @@ def tradeoff(**params):
 				pass
 
 
+		try:
+			frac_top = strands['+'] / sum(strands.values())
+		except ZeroDivisionError:
+			print(region)
 
-		frac_top = strands['+'] / sum(strands.values())
+			sys.exit()
 
 		cov_window = params['coverage_window']
 
@@ -1280,19 +1562,26 @@ def tradeoff(**params):
 				return(window_r)
 
 
-		for direction in enumerate([-1,1]):
+		# for direction in enumerate([-1,1]):
 
 
-			window_l = expand_window(start, start+cov_window, -1, increment=50)
-			window_r = expand_window(stop-cov_window, stop, 1, increment=50)
+		next_window_l = expand_window(start, start+cov_window, -1, increment=50)
+		next_window_r = expand_window(stop-cov_window, stop, 1, increment=50)
 
+		if next_window_l < next_window_r:
+			window_l, window_r = next_window_l, next_window_r
 
-			window_l = expand_window(window_l+cov_window, window_l+cov_window-50, -1, increment=15)
-			window_r = expand_window(window_r-cov_window, window_r-cov_window+50, 1,  increment=15)
+		# print(window_l, window_r, end='\t\t')
 
+		next_window_l = expand_window(window_l+cov_window, window_l+cov_window-50, -1, increment=15)
+		next_window_r = expand_window(window_r-cov_window, window_r-cov_window+50, 1,  increment=15)
+		# print(window_l, window_r)
 
-			for w in range(window_l, window_r+1):
-				claim_d[chrom][w] = locus_name
+		if next_window_l < next_window_r:
+			window_l, window_r = next_window_l, next_window_r
+
+		for w in range(window_l, window_r+1):
+			claim_d[chrom][w] = locus_name
 
 
 		
@@ -1324,6 +1613,12 @@ def tradeoff(**params):
 			name, chrom, start, stop = region
 
 			new_start, new_stop, claim_d = expand_region(claim_d, region)
+
+			if new_start > new_stop:
+				print(region)
+				print(new_start, new_stop)
+				print("expand failed!! stop before start")
+				sys.exit()
 
 			revised_genomic_space += new_stop - new_start
 
@@ -2103,11 +2398,12 @@ def tradeoff(**params):
 	# depth_wig.convert(output_directory=output_directory)
 	# peak_wig.convert(output_directory=output_directory)
 
-	now = datetime.now()
+	end_time = datetime.now()
 
 
-	date_time = now.strftime("%Y/%m/%d, %H:%M:%S")
-	print("Run completed:",date_time)	
+	date_time = end_time.strftime("%Y/%m/%d, %H:%M:%S")
+	elapsed = end_time - start_time
+	print(f"Run completed: {date_time}  ({elapsed} elapsed)")	
 
 
 
