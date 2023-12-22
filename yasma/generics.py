@@ -1835,16 +1835,17 @@ def perform_subsample(ssamp, force=False, subsample_keep_max=1):
 	# shutil.move(temp_file, subsample_alignment_file)
 	# sys.exit()
 
-	for i,file in enumerate(ssamp.files):
+	for n in range(max_n):
+		file = ssamp.files[n]
 
 		with open(file, 'wb') as outf:
 
-			call = ['samtools', 'view', '-h', '--bam', temp_files[i]]
+			call = ['samtools', 'view', '-h', '--bam', temp_files[n]]
 			p = Popen(call, stdout=outf)
 			p.wait()
 
 		# print("removing", temp_file)
-		os.remove(temp_files[i])
+		os.remove(temp_files[n])
 
 	# print(f'Using {ssamp.files} as alignment for annotation')
 	print()
