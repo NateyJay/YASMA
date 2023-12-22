@@ -1815,9 +1815,10 @@ def perform_subsample(ssamp, force=False, subsample_keep_max=1):
 		if i == this_i:
 			open_files[this_n].write(line)
 
-			if not sample_i:
+			if not sample_n:
 				p.terminate()
 				break
+
 
 			this_i = sample_i.pop()
 			this_n = sample_n.pop()
