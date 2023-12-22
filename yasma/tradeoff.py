@@ -31,7 +31,7 @@ from tqdm import tqdm
 
 
 from datetime import datetime
-from pympler import asizeof
+# from pympler import asizeof
 
 
 class elapsedClass():
