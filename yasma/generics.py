@@ -1292,6 +1292,18 @@ class color:
 	UNDERLINE = '\033[4m'
 	END = '\033[0m'
 
+class color:
+	PURPLE = ''
+	CYAN = ''
+	DARKCYAN = ''
+	BLUE = ''
+	GREEN = ''
+	YELLOW = ''
+	RED = ''
+	BOLD = ''
+	UNDERLINE = ''
+	END = ''
+
 
 class bigwigClass():
 	'''A class to handle producing rpm bigwig files from a counter object c[pos] = depth'''
