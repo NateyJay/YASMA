@@ -33,7 +33,7 @@ import pyBigWig
 import json
 from random import sample, seed, shuffle
 
-import git
+# import git
 
 
 
@@ -798,20 +798,20 @@ def get_lambda(alignment_file, chromosomes, window_length, output_directory):
 
 
 def get_global_depth(output_directory, alignment_file, force=False, aggregate_by=['rg','chrom','length']):
-	depth_file = Path(output_directory,'align', alignment_file).with_suffix(".depth.txt")
 
+	depth_file = alignment_file.with_suffix(".depth.txt")
 
 	header = ['rg','chrom','length','abundance']
 
 
 	if not isfile(depth_file) or stat(depth_file).st_size < 50 or force:
 		call = ['samtools', 'view', '-F', '4', str(alignment_file)]
-		print(" ".join(call))
+		# print(" ".join(call))
 		c = Counter()
 
 		p = Popen(call, stdout=PIPE, encoding=ENCODING)
 
-		print(f"{depth_file} not found.")
+		print(f"  {depth_file} not found.")
 		print("Reading alignment to find global depth dimensions...")
 		print('  "." = 1M reads')
 
@@ -1658,7 +1658,7 @@ def inf_counter():
 
 
 
-def parse_subsample(target_depth, af, output_compression, total_aligned_reads, seed=0):
+def parse_subsample(target_depth, af, output_compression, total_aligned_reads, seed=0, n=0):
 	"""
 	Parses input to come up with file names, including checking if the subsample is larger than the alignment itself.
 	"""
@@ -1699,7 +1699,7 @@ def parse_subsample(target_depth, af, output_compression, total_aligned_reads, s
 	# print(total_aligned_reads)
 	nn = floor(total_aligned_reads / number)
 	# print(nn)
-	subsample_files = [Path(af.parent, f"{af.stem}_{subsample_string}_{n+1}of{nn}_{seed_string}.{output_compression}") for n in range(nn)]
+	subsample_files = [Path(af.parent, f"{af.stem}_{subsample_string}_n{n}_{seed_string}.{output_compression}") for n in range(nn)]
 
 	# print(subsample_files)
 	# sys.exit()
@@ -1715,6 +1715,7 @@ def parse_subsample(target_depth, af, output_compression, total_aligned_reads, s
 	ssamp.total_aligned_reads = total_aligned_reads
 	ssamp.seed = seed
 	ssamp.seed_string = seed_string
+	ssamp.n = n
 
 
 	return(ssamp)
@@ -1722,84 +1723,99 @@ def parse_subsample(target_depth, af, output_compression, total_aligned_reads, s
 
 
 
-def perform_subsample(ssamp, force=False, keep_all=False):
+def perform_subsample(ssamp, force=False, subsample_keep_max=1):
 
 	print(f"Subsampling to {ssamp.string} reads")
 
-	seed(ssamp.seed)
+
+
 
 
 	# sample_i = sample(range(sum(chrom_depth_c.values())), number)
 
 	print(f"{ssamp.total_aligned_reads:,} -> {ssamp.target:,}")
-	print(ssamp.files)
+	# print(ssamp.files)
 	print()
 
-	if isfile(ssamp.files[0]) and not force:
-		print(f"{ssamp.files[0]} found. Skipping...")
-		return
+	nn = len(ssamp.files)
 
+	if subsample_keep_max < nn:
+		max_n = subsample_keep_max
 	else:
-		nn = len(ssamp.files)
-
-		print('  sampling...')
-		sample_i = sample(range(ssamp.total_aligned_reads), ssamp.target * nn)
-		print('  sorting...')
-		sample_i = sorted(sample_i, reverse=True)
+		max_n = nn
 
 
-		print(f"  splitting into ({nn}) discrete sub-alignments...")
-		sample_n = []
-		for n in range(len(ssamp.files)):
-			sample_n += [n] * ssamp.target
-		shuffle(sample_n)
-
-
-		this_i = sample_i.pop()
-		this_n = sample_n.pop()
-
-		temp_files = []
-		for n in range(nn):
-			temp_files.append(Path(ssamp.alignment_file.parent, f"temp_{n+1}of{nn}_{time()}.sam"))
-
-		open_files = []
-		for f in temp_files:
-			outf = open(f, 'w') 
-			open_files.append(outf)
-
-			call = ['samtools', 'view', "-H", ssamp.alignment_file]
-			p = Popen(call, stdout=outf, encoding=ENCODING)
-			p.wait()
-		# fraction = str(number / sum(chrom_depth_c.values()))
-
-		# print(call)
+	all_found = True
+	for n in range(max_n):
+		if not isfile(ssamp.files[n]):
+			all_found = False
+			
+	if all_found:
+		print("subset alignments found! skipping...")
+		return ssamp.files[ssamp.n]
 
 
 
+	
 
-		call = ['samtools', 'view', "-F", '4', ssamp.alignment_file]
-		p = Popen(call, stdout=PIPE, encoding=ENCODING)
-
-		for i,line in enumerate(p.stdout):
-
-
-			if i == this_i:
-				open_files[this_n].write(line)
-
-				if not sample_i:
-					p.terminate()
-					break
-
-				this_i = sample_i.pop()
-				this_n = sample_n.pop()
-
-				# print(len(sample_i), '        ', end = '\r')
+	print('  sampling...')
+	sample_i = sample(range(ssamp.total_aligned_reads), ssamp.target * nn)
+	print('  sorting...')
+	sample_i = sorted(sample_i, reverse=True)
 
 
+	print(f"  splitting into ({nn}) discrete sub-alignments...")
+	sample_n = []
+	for n in range(max_n):
+		sample_n += [n] * ssamp.target
+	shuffle(sample_n)
+
+
+	this_i = sample_i.pop()
+	this_n = sample_n.pop()
+
+	temp_files = []
+	for n in range(max_n):
+		temp_files.append(Path(ssamp.alignment_file.parent, f"temp_n{n}_s{ssamp.seed}_{time()}.sam"))
+
+	open_files = []
+	for f in temp_files:
+		outf = open(f, 'w') 
+		open_files.append(outf)
+
+		call = ['samtools', 'view', "-H", ssamp.alignment_file]
+		p = Popen(call, stdout=outf, encoding=ENCODING)
 		p.wait()
+	# fraction = str(number / sum(chrom_depth_c.values()))
 
-		for n in range(nn):
-			open_files[n].close()
+	# print(call)
+
+
+
+
+	call = ['samtools', 'view', "-F", '4', ssamp.alignment_file]
+	p = Popen(call, stdout=PIPE, encoding=ENCODING)
+
+	for i,line in enumerate(p.stdout):
+
+
+		if i == this_i:
+			open_files[this_n].write(line)
+
+			if not sample_i:
+				p.terminate()
+				break
+
+			this_i = sample_i.pop()
+			this_n = sample_n.pop()
+
+			# print(len(sample_i), '        ', end = '\r')
+
+
+	p.wait()
+
+	for n in range(nn):
+		open_files[n].close()
 
 
 	# shutil.move(temp_file, subsample_alignment_file)
@@ -1816,8 +1832,11 @@ def perform_subsample(ssamp, force=False, keep_all=False):
 		# print("removing", temp_file)
 		os.remove(temp_files[i])
 
-	print(f'Using {ssamp.files} as alignment for annotation')
+	# print(f'Using {ssamp.files} as alignment for annotation')
 	print()
+
+
+	return(ssamp.files[ssamp.n])
 
 
 
