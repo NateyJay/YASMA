@@ -190,6 +190,7 @@ class bigwigClass():
 	multiple=True,
 	help="Names of entries which should be removed from the config. These are synonymous with the output_directories of the runs used. Use this with caution!")
 
+@optgroup.option('--override', is_flag=True, default=False, help='Overrides config file changes without prompting.')
 
 # @optgroup.option('--delete', 
 # 	is_flag=True,
@@ -247,6 +248,14 @@ def jbrowse(**params):
 
 	for directory in [cov_dir, ann_dir, deb_dir]:
 		directory.mkdir(parents=True, exist_ok=True)
+
+
+
+
+	od_name = output_directory.name
+
+
+
 
 
 	chromosomes, bam_rgs = get_chromosomes(alignment_file)
@@ -356,12 +365,12 @@ def jbrowse(**params):
 
 	def make_bigwig_track():
 
-		track_id = f"{output_directory}_Coverage"
+		track_id = f"{od_name}_Coverage"
 
 		d = {
 			"type": "MultiQuantitativeTrack",
 			"trackId": track_id,
-			"name": f"{output_directory}_Coverage",
+			"name": f"{od_name}_Coverage",
 			"assemblyNames": [
 				genome_name
 				],
@@ -373,7 +382,7 @@ def jbrowse(**params):
 				[
 					{
 						"type": "MultiLinearWiggleDisplay",
-						"displayId": f"{output_directory}_coverage",
+						"displayId": f"{od_name}_coverage",
 						"defaultRendering": "multiline",
 						"renderers": {
 							"MultiXYPlotRenderer": {
@@ -402,7 +411,7 @@ def jbrowse(**params):
 								"bigWigLocation": {
 									"name": f"{key}.bigwig",
 									"locationType": "UriLocation",
-									"uri": f"{genome_name}/{output_directory}_coverages/{key}.bigwig"
+									"uri": f"{genome_name}/{od_name}_coverages/{key}.bigwig"
 									},
 								"color": color_d[size]
 							}
@@ -433,9 +442,6 @@ def jbrowse(**params):
 		return(data)
 
 	config_d = read_config(input_config, overwrite_config)
-
-
-
 
 
 
@@ -474,31 +480,40 @@ def jbrowse(**params):
 	if gene_annotation_file:
 		name = gene_annotation_file.stem #.rstrip('.gff3').rstrip(".gff").split("/")[-1]
 		if name not in names:
-			print(f"  adding track: {color.BOLD}{name}.gff3{color.END}")
+			print(f"  adding track: {color.BOLD}{name}.gff{color.END}")
 			at = make_annotation_track(
 				name=name,
-				uri=f"{genome_name}/{name}.gff3")
+				uri=f"{genome_name}/{name}.gff")
 			config_d['tracks'].append(at)
 
 	## sRNA loci
-	if f"{output_directory}_Loci" not in names:
-		print(f"  adding track: {color.BOLD}{output_directory}_Loci{color.END}")
+	if f"{od_name}_Loci" not in names:
+		print(f"  adding track: {color.BOLD}{od_name}_Loci{color.END}")
 		at = make_annotation_track(
-			name=f'{output_directory}_Loci', 
-			uri=f"{genome_name}/{output_directory}_annotations/loci.gff3")
+			name=f'{od_name}_Loci', 
+			uri=f"{genome_name}/{od_name}_annotations/loci.gff3")
 		config_d['tracks'].append(at)
 
 	## sRNA regions
-	if f"{output_directory}_Regions" not in names:
-		print(f"  adding track: {color.BOLD}{output_directory}_Regions{color.END}")
+	if f"{od_name}_Regions" not in names:
+		print(f"  adding track: {color.BOLD}{od_name}_Regions{color.END}")
 		at = make_annotation_track(
-			name=f'{output_directory}_Regions', 
-			uri=f"{genome_name}/{output_directory}_annotations/regions.gff3")
+			name=f'{od_name}_Regions', 
+			uri=f"{genome_name}/{od_name}_annotations/regions.gff3")
 		config_d['tracks'].append(at)
 
+
+	if f"{od_name}_Revised_Regions" not in names:
+		print(f"  adding track: {color.BOLD}{od_name}_Revised_Regions{color.END}")
+		at = make_annotation_track(
+			name=f'{od_name}_Revised_Regions', 
+			uri=f"{genome_name}/{od_name}_annotations/revised_regions.gff3")
+		config_d['tracks'].append(at)
+
+
 	## Coverages
-	if f"{output_directory}_Coverage" not in names:
-		print(f"  adding track: {color.BOLD}{output_directory}_Coverage{color.END}")
+	if f"{od_name}_Coverage" not in names:
+		print(f"  adding track: {color.BOLD}{od_name}_Coverage{color.END}")
 		config_d['tracks'].append(make_bigwig_track())
 
 
@@ -551,8 +566,9 @@ def jbrowse(**params):
 				print(f"  {src.name}")
 				copyfile(src, des)
 
-	copy_it(Path(output_directory, "peak/loci.gff3"), Path(ann_dir, "loci.gff3"))
-	copy_it(Path(output_directory, "peak/regions.gff3"), Path(ann_dir, "regions.gff3"))
+	copy_it(Path(output_directory, "tradeoff/loci.gff3"), Path(ann_dir, "loci.gff3"))
+	copy_it(Path(output_directory, "tradeoff/regions.gff3"), Path(ann_dir, "regions.gff3"))
+	copy_it(Path(output_directory, "tradeoff/revised_regions.gff3"), Path(ann_dir, "revised_regions.gff3"))
 	copy_it(genome_file, Path(output_directory, "jbrowse", genome_name, f"{genome_name}.fa"))
 	copy_it(Path(str(genome_file).replace(".fa", ".fa.fai")), Path(output_directory, "jbrowse", genome_name, f"{genome_name}.fa.fai"))
 	if gene_annotation_file:
