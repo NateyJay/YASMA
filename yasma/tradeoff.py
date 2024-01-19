@@ -451,6 +451,7 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 
 	print(f"    encoding reads ............... 0%", end='\r', flush=True)
 	perc = percentageClass(1, sum(chrom_depth_c.values()))
+	perc.update()
 
 	aligned_read_count = 0
 	for i, read in enumerate(reads):
@@ -1070,6 +1071,9 @@ def tradeoff(**params):
 	if target_depth:
 		subsample = parse_subsample(target_depth, alignment_file, "bam", aligned_read_count, seed=seed,
 			n=params['subsample_n'])
+
+		if params['subsample_keep_max'] <= params['subsample_n']:
+			params['subsample_keep_max'] = params['subsample_n'] + 1
 
 		alignment_file = perform_subsample(subsample, subsample_keep_max=params['subsample_keep_max'])
 

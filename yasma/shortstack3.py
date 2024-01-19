@@ -70,8 +70,19 @@ from datetime import datetime
 
 @optgroup.option('--subsample_seed',
 	type=int,
-	default=42,
+	default=0,
 	help="Seed value used for subsampling (default: 42)")
+
+@optgroup.option('--subsample_n',
+	type=int,
+	default=0,
+	help="The index of which split group from the subsets you want to use for the annotation. For example, a 105M deep alignment will be split into 5 distinct sets when subset by 20M (residual 5M are ignored). This option which pick which to use (base-0)")
+
+
+@optgroup.option('--subsample_keep_max',
+	type=int,
+	default=0,
+	help="The maximum number of subset alignments that will be written to the disk. Numbers higher than 1 are really only useful for performance comparisons. This value will automatically be raised to a minimum of the subsample_n+1.")
 
 @optgroup.option('--override', is_flag=True, default=False, help='Overrides config file changes without prompting.')
 
@@ -108,11 +119,11 @@ def shortstack3(**params):
 	aligned_read_count = sum(chrom_depth_c.values())
 
 	if target_depth:
-		subsample = parse_subsample(target_depth, alignment_file, "bam", sum(chrom_depth_c.values()), seed=seed)
+		subsample = parse_subsample(target_depth, alignment_file, "bam", sum(chrom_depth_c.values()), seed=seed,
+			n=params['subsample_n'])
 
-		perform_subsample(subsample)
+		alignment_file = perform_subsample(subsample, subsample_keep_max=params['subsample_keep_max'])
 
-		alignment_file = subsample.file
 
 
 		dir_name = f'shortstack3_{subsample.string}{subsample.seed_string}'
