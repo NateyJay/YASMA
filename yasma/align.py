@@ -227,7 +227,7 @@ def align(**params):
 
 	get_log_details(output_directory)
 
-	ic.inputs['alignment_file'] = alignment_file.absolute()
+	ic.inputs['alignment_file'] = alignment_file_new.absolute()
 	ic.write()
 
 
