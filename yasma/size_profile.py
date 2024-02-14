@@ -110,7 +110,7 @@ def size_profile(**params):
 			for size in range(15, 36):
 				depth = c[(size, rg)]
 				prop = round(depth / chrom_depth_c[rg], 3)
-				print(output_directory, rg, size, depth, prop, sep='\t', file=outf)
+				print(output_directory.name, rg, size, depth, prop, sep='\t', file=outf)
 
 
 

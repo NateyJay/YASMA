@@ -51,6 +51,7 @@ def get_log_details(output_directory):
 	# print("looking for:", path_to_log)
 	# print("  -> ", isfile(path_to_log))
 	
+	project = output_directory.name
 	
 
 
@@ -70,7 +71,7 @@ def get_log_details(output_directory):
 				
 
 				# Print the values to the "01out-srr_alignments"
-				print(output_directory, srr, unique, multi, non, sep='\t', file=srrf)
+				print(project, srr, unique, multi, non, sep='\t', file=srrf)
 
 			elif "XY:Z:" in line:
 				vals = []
@@ -84,7 +85,7 @@ def get_log_details(output_directory):
 				vals = "\t".join(vals)
 
 				# Print the values to the "01out-bioproject_alignments"
-				print(output_directory, vals, sep='\t', file=bpjf)
+				print(project, vals, sep='\t', file=bpjf)
 
 
 
