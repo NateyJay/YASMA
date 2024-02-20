@@ -507,8 +507,11 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 		# print()
 
 
-		gen_c = Counter()
-		read_c = Counter()
+
+		gen_c = Counter() # a counter of kernel depths at positions in the genome 
+		## sum(gen_c) = genome_length
+		read_c = Counter() # a counter of the max kernel depth across the span of a read.
+		## sum(read_c) = total_aligned readcount
 
 
 		class trackClass():
@@ -744,6 +747,43 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 
 	# gen_c, read_c = inline_method()
 
+
+	def tally_new(gen_c, read_c):
+
+		total_genomic_space = sum(gen_c.values())
+		total_read_space = sum(read_c.values())
+
+		annotated_space = total_genomic_space
+		annotated_reads = total_read_space
+
+
+		found_depths = list(gen_c.keys())
+		found_depths.sort()
+
+
+
+		for t in found_depths:
+
+			p_gen  = annotated_space / total_genomic_space
+			p_read = annotated_reads / total_read_space
+
+			avg = mean([1-p_gen, p_read])
+
+
+			print(t, gen_c[t], annotated_space, round(p_gen*100,2), read_c[t], annotated_reads, round(p_read*100,2), round(avg*100,2), sep='\t')
+
+			annotated_reads -= read_c[t]
+			annotated_space -= gen_c[t]
+
+			# if t > 200:
+			# 	sys.exit()
+
+		print(sum([gen_c[t] for t in found_depths]), "<- genomic positions")
+		print(sum([read_c[t] for t in found_depths]), '<- reads')
+
+		sys.exit()
+
+
 	def tally(gen_c, read_c):
 		found_depths = list(gen_c.keys())
 		found_depths.sort()
@@ -752,6 +792,7 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 		table    = []
 
 		total_genomic_space = genome_length
+
 		total_read_space    = sum(read_c.values())
 
 		for depth_threshold in found_depths:
@@ -764,6 +805,7 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 			gen_score = total_genomic_space/genome_length
 			read_score = total_read_space/aligned_read_count
 			avg_score = ((1-gen_score) + read_score) /2
+			geom_score = math.sqrt(((1-gen_score) * read_score))
 
 			# if not out and avg_score < last_avg:
 			# 	peak = "1"
@@ -778,16 +820,16 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 			# 	peak = '0'
 			# last_avg = avg_score
 
-			averages.append(avg_score)
+			averages.append(round(avg_score, params['tradeoff_round']))
 
 			table.append([depth_threshold, total_genomic_space, round(gen_score,4),
 				total_read_space, round(total_read_space/aligned_read_count,4),
-				round(avg_score, 4)])
+				round(avg_score, 4), round(geom_score, 4)])
 
 		peak_index = averages.index(max(averages))
 
 		with open(Path(out_dir, 'thresholds.txt'), 'w') as outf:
-			print('depth\tannotated_space\tp_genome\tannotated_reads\tp_reads\taverage_score\tpeak', file=outf)
+			print('depth\tannotated_space\tp_genome\tannotated_reads\tp_reads\taverage_score\tgeom_score\tpeak', file=outf)
 			for i,t in enumerate(table):
 
 				if i == peak_index:
@@ -814,6 +856,7 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 	# print(f'kernel_c: {asizeof.asizeof(kernel_c):,}')
 
 	gen_c, read_c = inline_method()
+	# tally_new(gen_c, read_c)
 	out = tally(gen_c, read_c)
 	# print(out)
 
@@ -894,7 +937,7 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 
 @optgroup.option('--subsample_keep_max',
 	type=int,
-	default=0,
+	default=1,
 	help="The maximum number of subset alignments that will be written to the disk. Numbers higher than 1 are really only useful for performance comparisons. This value will automatically be raised to a minimum of the subsample_n+1.")
 
 
@@ -923,6 +966,9 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 	help='')
 
 @optgroup.option('--trim_regions', is_flag=True, default=False, help='Flag to include trimming of regions')
+
+
+@optgroup.option('--tradeoff_round', default=3, help='Significance rounding for tradeoff average. Defaults to 3 digits (e.g. 0.977 or 97.7%)')
 
 
 
@@ -970,11 +1016,6 @@ def tradeoff(**params):
 	annotation_readgroups   = ic.inputs['annotation_readgroups']
 	project_name            = ic.inputs['project_name']
 
-	# coverage_window         = params['coverage_window']
-	# kernel_window           = params['kernel_window']
-	# peak_threshold          = params['peak_threshold']
-	# rpm_threshold           = params['rpm_threshold']
-	# pad                     = params['pad']
 	clump_dist              = params['clump_dist']
 	clump_strand_similarity = params['clump_strand_similarity']
 	min_locus_length        = params['min_locus_length']
@@ -1034,9 +1075,9 @@ def tradeoff(**params):
 
 	if params['test_mode']:
 		# chromosomes = chromosomes[3:5]
-		# chromosomes = chromosomes[6:10]
+		chromosomes = chromosomes[20:30]
 		# chromosomes = chromosomes[2:5]
-		chromosomes = chromosomes[:2]
+		# chromosomes = chromosomes[:2]
 		# chromosomes = chromosomes[:1]
 
 	genome_length = sum([l for c,l in chromosomes])
@@ -1068,29 +1109,12 @@ def tradeoff(**params):
 
 
 
-	if target_depth:
-		subsample = parse_subsample(target_depth, alignment_file, "bam", aligned_read_count, seed=seed,
-			n=params['subsample_n'])
+	if params['subsample']:
 
-		if params['subsample_keep_max'] <= params['subsample_n']:
-			params['subsample_keep_max'] = params['subsample_n'] + 1
-
-		alignment_file = perform_subsample(subsample, subsample_keep_max=params['subsample_keep_max'])
-
+		alignment_file = subsample(aligned_read_count, alignment_file, params)
 		chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
+		aligned_read_count = sum(chrom_depth_c.values())
 
-		keys = list(chrom_depth_c.keys())
-		for key in keys:
-			if key[0] in annotation_readgroups:
-				chrom_depth_c[key[1]] += chrom_depth_c[key]
-
-			del chrom_depth_c[key]
-
-		for key in list(chrom_depth_c.keys()):
-			if key not in [c for c,l in chromosomes]:
-				del chrom_depth_c[key]
-
-		aligned_read_count = subsample.target
 
 
 	def get_frac_top(c):
@@ -1240,96 +1264,25 @@ def tradeoff(**params):
 	print(f"    exp. read proportion: .... {read_score}")
 
 
-	def get_regions_dep(kernel_c, depth_threshold, chromosomes):
-
-		regions = []
-		reg_i = 0
-		for chrom, chrom_length in chromosomes:
-			# print(chrom)
-
-			positions = []
-			for p,d in kernel_c[chrom].most_common():
-				if d < depth_threshold:
-					break
-				positions.append(p)
-
-			positions.sort()
-
-			last_p = None
-			for p in positions:
-
-				if not last_p:
-					start = p
-
-				elif p > last_p + 1:
-					reg_i += 1
-					if start < last_p:
-						regions.append([f"region_{reg_i}", chrom, start, last_p])
-					start = p
-
-
-				last_p = p
-
-
-
-			if last_p:
-
-				if last_p > chrom_length - params['coverage_window']:
-					last_p = chrom_length
-				reg_i += 1
-				if start < last_p:
-					regions.append([f"region_{reg_i}", chrom, start, last_p])
-
-
-
-
-		return(regions)
-
-	def get_regions_dep2(depth_threshold, chromosomes):
-
-		regions = []
-
-		reg_i = 0
-		bw = pyBigWig.open(str(Path(output_directory, dir_name, "kernel.bw")))
-		# print(bw.isBigWig())
-		# print(bw.chroms())
-		# print(bw.header())
-
-		for chrom, chrom_length in chromosomes:
-			# print(chrom)
-
-			reg_start = False
-			reg_stop  = False
-
-			for inv_start, inv_stop, depth in bw.intervals(chrom, 0, chrom_length):
-
-				if depth >= depth_threshold:
-
-					if inv_start != reg_stop:
-
-						if reg_start:
-							reg_i += 1
-							region = [f"region_{reg_i}", chrom, reg_start, reg_stop]
-							# print(region)
-							regions.append(region)
-
-						reg_start = inv_start
-					reg_stop  = inv_stop
-				# last_stop = inv_stop
-
-
-
-		bw.close()
-
-
-		return(regions)
 
 
 	def get_regions(depth_threshold, chromosomes):
 
+
 		regions = []
 
+		def check_and_cash_region(in_region, reg_i, chrom, reg_start, reg_stop):
+			if in_region:
+				reg_i += 1
+				region = [f"region_{reg_i}", chrom, reg_start, reg_stop]
+				regions.append(region)
+
+			return(reg_i)
+
 		reg_i = 0
+		reg_start = -1
+		reg_stop  = -1
+
 		bw = pyBigWig.open(str(Path(output_directory, dir_name, "kernel.bw")))
 		# print(bw.isBigWig())
 		# print(bw.chroms())
@@ -1349,14 +1302,13 @@ def tradeoff(**params):
 					in_region = True
 
 				else:
-					if in_region:
-						reg_i += 1
-						region = [f"region_{reg_i}", chrom, reg_start, reg_stop]
-						regions.append(region)
 
+					reg_i = check_and_cash_region(in_region, reg_i, chrom, reg_start, reg_stop)
 					in_region = False
 
 
+
+			reg_i = check_and_cash_region(in_region, reg_i, chrom, reg_start, reg_stop)
 
 
 		bw.close()
@@ -2287,7 +2239,10 @@ def tradeoff(**params):
 		except StatisticsError:
 			median_depth = None
 		if len(regions) > 0:
-			proportion_libraries_annotated = round(sum(read_depths) / chrom_depth_c[chrom], 4)
+			try:
+				proportion_libraries_annotated = round(sum(read_depths) / chrom_depth_c[chrom], 4)
+			except ZeroDivisionError:
+				proportion_libraries_annotated = None
 		else:
 			proportion_libraries_annotated = None
 
