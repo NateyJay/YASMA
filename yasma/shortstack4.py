@@ -39,12 +39,10 @@ from datetime import datetime
 @optgroup.group('\n  Basic options',
 				help='')
 
-
-@optgroup.option('-a', "--trimmed_libraries", 
+@optgroup.option("-a", "--alignment_file", 
 	required=False, 
-	type=click.UNPROCESSED, callback=validate_glob_path,
-	multiple=True,
-	help='Path to trimmed libraries. Accepts wildcards (*).')
+	type=click.UNPROCESSED, callback=validate_path,
+	help='Alignment file input (bam or cram).')
 
 
 @optgroup.option("-g", "--genome_file", 
@@ -85,7 +83,7 @@ from datetime import datetime
 
 @optgroup.option('--subsample_keep_max',
 	type=int,
-	default=0,
+	default=1,
 	help="The maximum number of subset alignments that will be written to the disk. Numbers higher than 1 are really only useful for performance comparisons. This value will automatically be raised to a minimum of the subsample_n+1.")
 
 @optgroup.option('--override', is_flag=True, default=False, help='Overrides config file changes without prompting.')
@@ -121,20 +119,37 @@ def shortstack4(**params):
 
 	aligned_read_count = sum(chrom_depth_c.values())
 
-	if target_depth:
-		subsample = parse_subsample(target_depth, alignment_file, "bam", sum(chrom_depth_c.values()), seed=seed,
-			n=params['subsample_n'])
 
-		alignment_file = perform_subsample(subsample, subsample_keep_max=params['subsample_keep_max'])
+	if params['subsample']:
+
+		alignment_file = subsample(aligned_read_count, alignment_file, params)
+		chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
+		aligned_read_count = sum(chrom_depth_c.values())
+
+	# if target_depth:
+	# 	subsample = parse_subsample(target_depth, alignment_file, "bam", sum(chrom_depth_c.values()), seed=seed,
+	# 		n=params['subsample_n'])
+
+	# 	alignment_file = perform_subsample(subsample, subsample_keep_max=params['subsample_keep_max'])
 
 
 
-		dir_name = f'shortstack4_{subsample.string}{subsample.seed_string}'
-	else:
-		dir_name = f'shortstack4'
+	# 	dir_name = f'shortstack4_{subsample.string}{subsample.seed_string}'
+	# else:
+	# 	dir_name = f'shortstack4'
 
 	if name:
 		dir_name = f'shortstack4_{name}'
+
+	elif params['subsample']:
+		floor(aligned_read_count/1000000)
+		dir_name = f"shortstack4_{floor(aligned_read_count/1000000)}M_n{params['subsample_n']}_s{params['subsample_seed']}"
+
+	else:
+		dir_name = 'shortstack4'
+
+
+
 
 
 
