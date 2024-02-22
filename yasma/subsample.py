@@ -13,7 +13,7 @@ from collections import Counter#, deque
 from pprint import pprint
 from random import sample, seed
 
-import numpy as np
+# import numpy as np
 # from statistics import quantiles
 import math
 
