@@ -84,6 +84,7 @@ from datetime import datetime
 	default=1,
 	help="The maximum number of subset alignments that will be written to the disk. Numbers higher than 1 are really only useful for performance comparisons. This value will automatically be raised to a minimum of the subsample_n+1.")
 
+@optgroup.option('--force', is_flag=True, default=False, help='force resubsample')
 @optgroup.option('--override', is_flag=True, default=False, help='Overrides config file changes without prompting.')
 
 
@@ -156,17 +157,20 @@ def shortstack3(**params):
 
 	Path(output_directory, dir_name).mkdir(parents=True, exist_ok=True)
 
+
 	log_file = f"{output_directory}/{dir_name}/yasma_log.txt"
 	sys.stdout = Logger(log_file)
 
-	temp_folder  = Path(output_directory, dir_name, "temp")
+	temp_folder       = Path(output_directory, dir_name, "temp")
 	annotation_folder = Path(output_directory, dir_name)
-
+	MIRNAs_folder     = Path(annotation_folder, 'MIRNAs')
 
 	if isdir(temp_folder):
 		shutil.rmtree(temp_folder)
 
 
+	if isdir(MIRNAs_folder):
+		shutil.rmtree(MIRNAs_folder)
 
 
 	args = ["ShortStack3"]

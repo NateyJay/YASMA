@@ -1,4 +1,5 @@
 
+from .tradeoff import *
 from .count import *
 from .context import *
 from .hairpin import *
@@ -13,7 +14,6 @@ from .size_profile import *
 from .shortstack3 import *
 from .shortstack4 import *
 from .subsample import *
-from .tradeoff import *
 
 
 ## Functionality to add:

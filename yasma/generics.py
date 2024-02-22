@@ -670,11 +670,23 @@ class percentageClass():
 		self.points = [floor(p * increment / 100 * total) for p in range(int(100/increment))]
 		self.points.append(total-1)
 
+		self.removable = list(self.points)
+
 		self.running = 0
 
 		# print(self.points)
 		# print(total)
 		# sys.exit()
+
+	def check(self, value):
+		try:
+			if value >= self.removable[0]:
+				perc = self.points.index(self.removable.pop(0)) * self.increment
+			else:
+				perc = None
+			return(perc)
+		except IndexError:
+			return(None)
 
 	def get_percent(self, i):
 		try:
@@ -1706,6 +1718,7 @@ def subsample(total_aligned_reads, base_alignment_file, params):
 
 	if td_number > total_aligned_reads:
 		print("subsample larger than to alignment. Ignoring command....")
+		print(f'{total_aligned_reads:,} < {td_number:,} subsample')
 		sys.exit()
 		return(alignment_file, False, total_aligned_reads)
 
