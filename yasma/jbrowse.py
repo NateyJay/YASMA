@@ -494,6 +494,24 @@ def jbrowse(**params):
 			uri=f"{genome_name}/{od_name}_annotations/loci.gff3")
 		config_d['tracks'].append(at)
 
+
+	## sRNA loci
+	if f"{od_name}_annotations" not in names:
+		print(f"  adding track: {color.BOLD}{od_name}_annotations{color.END}")
+		at = make_annotation_track(
+			name=f'{od_name}_shortstack3', 
+			uri=f"{genome_name}/{od_name}_annotations/shortstack3.gff3")
+		config_d['tracks'].append(at)
+
+	if f"{od_name}_annotations" not in names:
+		print(f"  adding track: {color.BOLD}{od_name}_annotations{color.END}")
+		at = make_annotation_track(
+			name=f'{od_name}_shortstack4', 
+			uri=f"{genome_name}/{od_name}_annotations/shortstack4.gff3")
+		config_d['tracks'].append(at)
+
+
+
 	## sRNA regions
 	if f"{od_name}_Regions" not in names:
 		print(f"  adding track: {color.BOLD}{od_name}_Regions{color.END}")
@@ -569,6 +587,11 @@ def jbrowse(**params):
 	copy_it(Path(output_directory, "tradeoff/loci.gff3"), Path(ann_dir, "loci.gff3"))
 	copy_it(Path(output_directory, "tradeoff/regions.gff3"), Path(ann_dir, "regions.gff3"))
 	copy_it(Path(output_directory, "tradeoff/revised_regions.gff3"), Path(ann_dir, "revised_regions.gff3"))
+
+
+	copy_it(Path(output_directory, "shortstack3/ShortStack_All.gff3"), Path(ann_dir, "shortstack3.gff3"))
+	copy_it(Path(output_directory, "shortstack4/Results.gff3"), Path(ann_dir, "shortstack4.gff3"))
+
 	copy_it(genome_file, Path(output_directory, "jbrowse", genome_name, f"{genome_name}.fa"))
 	copy_it(Path(str(genome_file).replace(".fa", ".fa.fai")), Path(output_directory, "jbrowse", genome_name, f"{genome_name}.fa.fai"))
 	if gene_annotation_file:

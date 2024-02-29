@@ -803,7 +803,16 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 
 			gen_score = total_genomic_space/genome_length
 			read_score = total_read_space/aligned_read_count
-			avg_score = ((1-gen_score) + read_score) /2
+
+			## unweighted avg
+			avg_score = ((1-gen_score) + read_score) / 2
+
+			## weight avg
+
+			weight_score = ((1-gen_score) * (1-params['tradeoff_weight'])) + (read_score * params['tradeoff_weight'])
+
+
+
 			geom_score = math.sqrt(((1-gen_score) * read_score))
 
 			# if not out and avg_score < last_avg:
@@ -819,16 +828,17 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 			# 	peak = '0'
 			# last_avg = avg_score
 
-			averages.append(round(avg_score, params['tradeoff_round']))
+			# averages.append(round(avg_score, params['tradeoff_round']))
+			averages.append(round(weight_score, params['tradeoff_round']))
 
 			table.append([depth_threshold, total_genomic_space, round(gen_score,4),
 				total_read_space, round(total_read_space/aligned_read_count,4),
-				round(avg_score, 4), round(geom_score, 4)])
+				round(avg_score, 4), round(geom_score, 4), round(weight_score, 4)])
 
 		peak_index = averages.index(max(averages))
 
 		with open(Path(out_dir, 'thresholds.txt'), 'w') as outf:
-			print('depth\tannotated_space\tp_genome\tannotated_reads\tp_reads\taverage_score\tgeom_score\tpeak', file=outf)
+			print('depth\tannotated_space\tp_genome\tannotated_reads\tp_reads\taverage_score\tgeom_score\tweighted_avg\tpeak', file=outf)
 			for i,t in enumerate(table):
 
 				if i == peak_index:
@@ -837,7 +847,8 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 						'depth_threshold' : t[0],
 						'gen_score' : t[2],
 						'read_score' : t[4],
-						'avg_score' : t[5]
+						'avg_score' : t[5],
+						'weighted_avg' : t[7]
 						}
 				else:
 					peak = 0
@@ -1280,6 +1291,11 @@ def get_kernel_coverage_proto(bam, rgs, params, chrom_depth_c, chromosomes, out_
 @optgroup.option('--read_perc',
 	default=False,
 	help='')
+
+@optgroup.option("--tradeoff_weight",
+	default = 0.65,
+	help=f'Weighting factor applied to tradeoff averages. Values above 0.5 favor annotating more reads at the expense of more genome (higher sensitivity). Default 0.65 (alignment is 3x more important than genome).')
+
 
 @optgroup.option('--trim_regions', is_flag=True, default=False, help='Flag to include trimming of regions')
 
@@ -1940,6 +1956,12 @@ def tradeoff(**params):
 			except KeyError:
 				pass
 
+
+	def string_plus_white(s, length = 7):
+		s = str(s)
+		return s + " " * (length - len(s))
+
+
 	print()
 
 	print(f"    {revised_genomic_space:,} ({round(revised_genomic_space/genome_length *100,1)}%) genome in revised regions")
@@ -1955,7 +1977,7 @@ def tradeoff(**params):
 			assess = ''
 		else:
 			assess = f"\t{assess}%"
-		print(f"{i+1}/{n}\t{chrom}\t{unclumped_regions_count}\t{len(regions)}{assess}", end='\r', flush=True)
+		print(f"{i+1}/{n}\t{chrom}\t{string_plus_white(unclumped_regions_count)}\t{string_plus_white(len(regions))}{assess}", end='\r', flush=True)
 
 	print()
 	print('prog', "chrom"+(max_chrom_word_length-5)*" ",'regions\tloci\tassess', sep='\t')
