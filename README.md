@@ -34,6 +34,59 @@ Annotation based on these alignments follows a multi step approach:
 
 This results in contiguous loci which are more homogenous in profile. It also tends to avoid over-annotation of background sequences.
 
+# Installation
+
+Yasma is written in python 3.x. It is not yet in any package managers, but it is fairly easy to install directly with github. This should work in linux/unix systems, though I'm sure bugs will crop up (make a issue request please!!).
+
+### Installing with `git`
+```
+## cloning the repo with git
+git clone https://github.com/NateyJay/YASMA.git
+
+## moving it somewhere permanent. If you use the github desktop app, you probably just want to leave it where it is.
+mv ./YASMA /usr/local/YASMA
+
+## adding this to $PATH - you will want to add the following line to your ~/.bash_rc (linux) or ~/.bash_profile (mac). You can open it using: nano ~/.bash_profile
+## export PATH="/usr/local/YASMA:$PATH"
+
+## sourcing the new ~/.bash_profile file
+source ~/.bash_profile
+```
+
+### Installing with github desktop
+This is a useful tool for managing github repos you use. Great for those that like command-line and github, but find the `git` and `gh` cli tools cumbersome. 
+
+With this, you can download repo directly from `NateyJay/YASMA`. You will also need to add the folder to your path, but probably don't want to move it.
+
+
+### Installing with `curl`
+If you don't want to use git for some reason, you can download the latest release with curl. This may have a different directory name so you need to adjust accordingly.
+
+```
+curl -L -O https://github.com/NateyJay/YASMA/archive/refs/tags/v0.1.0-beta.zip
+unzip v0.1.0-beta
+
+## move and add to path as above.
+```
+
+### Dependencies
+Yasma makes use of many tools through wrappers, as well as several non-standard python modules. Most of these should be easy enough to install.
+
+python modules:
+* [`click`](https://click.palletsprojects.com/)
+pyBigWig
+
+system modules:
+samtools
+bowtie1
+shorstack
+rnafold
+cutadapt
+
+
+
+
+
 # Yasma Modules
 
 Yasma is organized into several modules, made with the CLI-module [click](https://click.palletsprojects.com/). These modules are organized into several major sections which are generally ordered by processing step:
