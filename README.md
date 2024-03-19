@@ -77,10 +77,10 @@ To help with ease of use, Yasma orients all of its analyses around a directory. 
 
 `config.json` is human-readable and can be pretty easily modified manually, though not normally advisable.
 
-All modules will automatically produce `config.json` if it is not found, and use lazy evaluation looking for included values. This makes it easy to jump in at a later step if you have done prior analyses.
+All modules will automatically produce `config.json` if it is not found, and use lazy evaluation looking for included values. This makes it easy to jump in at a later step if you have done prior analyses separately.
 
 
-Modueles can be run simply with `yasma.py [module] -o output_directory_path [...]`. The only required option for all modules is `-o, --output_directory`, and yasma will automatically tell you if you are missing any other inputs.
+Modules can be run simply with `yasma.py [module] -o output_directory_path [...]`. The only required option for all modules is `-o, --output_directory`, and yasma will automatically tell you if you are missing any other inputs.
 
 
 ### Preliminary step - *inputs*
@@ -127,7 +127,7 @@ Compares loci locations with an NCBI-formatted `.gff3` file provided. Gives over
 `yasma.py jbrowse`
 This module was made to take some of the headache out of making nicely-formatted jbrowse-ready coverage and annotation maps. This produces `.bw` files for all specified sizes and strands of sRNAs, which can then be plotted in the same track with provided configuration code. If provided with a `-j, --jbrowse_directory`, this will automatically look for a config file, update it, and copy all relevant files to a directory based on the genome name.
 
-`yasma.py hairpin`
+`yasma.py hairpin` 
 This tool is still in development, but it is meant to evaluate all loci for the possibility that they are derived from an RNA hairpin, rather than RDR-dsRNA. This is not finalized, but it generally looks for stranded regions and folds them, analyzing their profile based on a battery of rules from multiple publications.
 
 
