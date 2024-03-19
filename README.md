@@ -1,4 +1,5 @@
 
+<p align="center"><img src="images/Logo.png" alt="main logo" width="500" /></p>
 
 # YASMA
 ### *<ins>Y</ins>et <ins>a</ins>nother <ins>sm</ins>all RNA <ins>a</ins>nnotator*
@@ -91,6 +92,8 @@ conda install pybigwig -c conda-forge -c bioconda
 ```
 
 #### System modules:
+Most of these are required for basic functions - each module will inform you if you are missing something. Yasma expects each of these executable from the PATH.
+
 * [`samtools`](https://www.htslib.org/)
 * [`bowtie` (1)](https://bowtie-bio.sourceforge.net/index.shtml)
 * [`ShortStack` (3 or 4)](https://github.com/MikeAxtell/ShortStack)
