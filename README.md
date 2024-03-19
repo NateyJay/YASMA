@@ -74,7 +74,7 @@ Yasma makes use of many tools through wrappers, as well as several non-standard 
 
 #### Python modules:
 
-[click`](https://click.palletsprojects.com/) is required, as it manages the cli interface for the tool
+[`click`](https://click.palletsprojects.com/) is required, as it manages the cli interface for the tool
 
 ```
 python3 -m pip install click
@@ -91,11 +91,11 @@ conda install pybigwig -c conda-forge -c bioconda
 ```
 
 #### System modules:
-samtools 
-bowtie1
-shorstack
-rnafold
-cutadapt
+* [`samtools`](https://www.htslib.org/)
+* [`bowtie` (1)](https://bowtie-bio.sourceforge.net/index.shtml)
+* [`ShortStack` (3 or 4)](https://github.com/MikeAxtell/ShortStack)
+* `rnafold` from the [ViennaRNA](https://www.tbi.univie.ac.at/RNA/) package.
+* [`cutadapt`](https://cutadapt.readthedocs.io/en/stable/)
 
 
 
