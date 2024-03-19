@@ -1,5 +1,5 @@
 
-<p align="left"><img src="images/logo2.png" alt="main logo" width="300" /></p>
+<p align="center"><img src="images/logo2.png" alt="main logo" width="300" /></p>
 
 ## YASMA - *<ins>Y</ins>et <ins>a</ins>nother <ins>sm</ins>all RNA <ins>a</ins>nnotator*
  
