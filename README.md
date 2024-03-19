@@ -1,7 +1,7 @@
 
 <p align="left"><img src="images/logo.png" alt="main logo" width="300" /></p>
 
-### YASMA - *<ins>Y</ins>et <ins>a</ins>nother <ins>sm</ins>all RNA <ins>a</ins>nnotator*
+## YASMA - *<ins>Y</ins>et <ins>a</ins>nother <ins>sm</ins>all RNA <ins>a</ins>nnotator*
  
 **warning**: this project is in active development and the readme may be out of date. 
 
