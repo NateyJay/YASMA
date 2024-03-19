@@ -27,7 +27,7 @@ from time import time
 
 import re
 
-from tqdm import tqdm
+# from tqdm import tqdm
 
 
 from datetime import datetime
