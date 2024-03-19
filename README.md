@@ -36,15 +36,15 @@ This results in contiguous loci which are more homogenous in profile. It also te
 
 # Installation
 
-Yasma is written in python 3.x. It is not yet in any package managers, but it is fairly easy to install directly with github. This should work in linux/unix systems, though I'm sure bugs will crop up (make a issue request please!!).
+Yasma is written in `python 3.x`. It is not yet in any package managers, but it is fairly easy to install directly with github. This should work in linux/unix systems, though I'm sure bugs will crop up (make a issue request please!!).
 
 ### Installing with `git`
 ```
 ## cloning the repo with git
 git clone https://github.com/NateyJay/YASMA.git
 
-## moving it somewhere permanent. If you use the github desktop app, you probably just want to leave it where it is.
-mv ./YASMA /usr/local/YASMA
+## moving it somewhere permanent.
+mv ./YASMA /usr/local/
 
 ## adding this to $PATH - you will want to add the following line to your ~/.bash_rc (linux) or ~/.bash_profile (mac). You can open it using: nano ~/.bash_profile
 ## export PATH="/usr/local/YASMA:$PATH"
@@ -72,12 +72,26 @@ unzip v0.1.0-beta
 ### Dependencies
 Yasma makes use of many tools through wrappers, as well as several non-standard python modules. Most of these should be easy enough to install.
 
-python modules:
-* [`click`](https://click.palletsprojects.com/)
-pyBigWig
+#### Python modules:
 
-system modules:
-samtools
+[click`](https://click.palletsprojects.com/) is required, as it manages the cli interface for the tool
+
+```
+python3 -m pip install click
+python3 -m pip install click-option-group
+```
+
+[`pyBigWig`](https://github.com/deeptools/pyBigWig) allows python-native functions with bigwig files.
+```
+python3 -m pip install pyBigWig
+
+# or 
+
+conda install pybigwig -c conda-forge -c bioconda
+```
+
+#### System modules:
+samtools 
 bowtie1
 shorstack
 rnafold
