@@ -651,7 +651,12 @@ class hairpinClass():
 		# print(seq)
 		# print(fold)
 
-		for read in samtools_view(alignment_file, locus=locus):
+
+		contig = locus.split(":")[0]
+		start = int(locus.split(":")[-1].split("-")[0])
+		stop  = int(locus.split(":")[-1].split("-")[1])
+
+		for read in samtools_view(alignment_file, contig=contig, start=start, stop=stop):
 
 			sam_strand, sam_length, _, sam_pos, sam_chrom, sam_rg, sam_read, sam_read_id = read
 			# strand, length, size, sam_pos, sam_chrom, rg, seq, read_id
@@ -1105,11 +1110,11 @@ def hairpin(**params):
 
 	genome_file = get_genome_file()
 
-	results_file = f"{output_directory}/peak/loci.txt"
+	results_file = f"{output_directory}/tradeoff/loci.txt"
 	assert isfile(results_file), f"results_file {results_file} not found... (Have you run annotation with this directory?)"
 
 	input_mas_d = {}
-	tops_file = f"{output_directory}/peak/reads.txt"
+	tops_file = f"{output_directory}/tradeoff/reads.txt"
 	with open(tops_file, 'r') as f:
 		header = f.readline()
 		for line in f:

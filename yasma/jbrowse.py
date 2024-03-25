@@ -651,7 +651,7 @@ def jbrowse(**params):
 
 			perc = percentageClass(1, chrom_depth_c[chrom])
 
-			reads = samtools_view(alignment_file, rgs=annotation_readgroups, locus=chrom)
+			reads = samtools_view(alignment_file, rgs=annotation_readgroups, contig=chrom)
 
 			for i, read in enumerate(reads):
 
