@@ -1082,150 +1082,191 @@ def counters_to_bigwig(counter_d, chromosomes, file, verbose=True):
 
 
 
-def samtools_view(bam, dcr_range=False, non_range=False, locus=False, rgs=[], boundary_rule='loose', subsample=None, reverse=False, reverse_chunk = 100):
+def samtools_view(bam, rgs='all', contig=None, start=None, stop=None, threads=4, boundary_rule='loose'):
 
-	if subsample and locus:
-		print("Error: locus and subsample are conflicting options for samtools view")
-		sys.exit()
+	import pysam
 
 
 
 
-	if str(bam).endswith('.bam'):
-		index_file = f"{bam}.bai"
-	elif str(bam).endswith('.cram'):
-		index_file = f"{bam}.crai"
+	bamf = pysam.AlignmentFile(bam,'rb', threads=threads)
 
-	if not isfile(index_file):
-		# call = f"samtools index {bam}"
-		call= ['samtools','index',bam]
-		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
-		out,err=p.communicate()
-		# print(out)
-		# print(err)
+	if not bamf.has_index():
+		print(f'   index not found for {bam}. Indexing with samtools.')
 
-		# print("WHY AM I INDEXING???")
+		pysam.index(str(bam))
+		bamf.close()
+		bamf = pysam.AlignmentFile(bam,'rb', threads=threads)
 
-	if boundary_rule == 'tight':
-		lbound = int(locus.split(":")[-1].split("-")[0])
-		rbound = int(locus.split(":")[-1].split("-")[1])+1
+
+
+	if rgs == 'all':
+		rgs = [rgd['ID'] for rgd in bamf.header['RG']]
+
+	rgs = set(rgs)
+
+
+
+	if boundary_rule == 'tight' and start and stop:
+
+		for read in bamf.fetch(contig=contig, start=start, stop=stop):
+
+
+			if read.get_tag("RG") in rgs and read.is_mapped and read.overlap == read.infer_read_length():
+				strand = "-" if read.is_reverse else "+"
+
+				yield(strand, 
+					read.infer_read_length(), 
+					False, 
+					read.reference_start, 
+					read.reference_name, 
+					read.get_tag("RG"), 
+					read.get_forward_sequence().replace("T","U"), 
+					read.query_name)
 	else:
-		lbound = False
+
+		for read in bamf.fetch(contig=contig, start=start, stop=stop):
 
 
-	# call = f"samtools view -@ 4 -F 4 {bam}"
-	call = ['samtools', 'view', '-F', '4']
+			if read.get_tag("RG") in rgs and read.is_mapped:
+				strand = "-" if read.is_reverse else "+"
+
+				yield(strand, 
+					read.infer_read_length(), 
+					False, 
+					read.reference_start, 
+					read.reference_name, 
+					read.get_tag("RG"), 
+					read.get_forward_sequence().replace("T","U"), 
+					read.query_name)
+
+	bamf.close()
+
+# def samtools_view(bam, dcr_range=False, non_range=False, locus=False, rgs=[], boundary_rule='loose', subsample=None, reverse=False, reverse_chunk = 100):
+
+
+
+
+# 	if boundary_rule == 'tight':
+# 		lbound = int(locus.split(":")[-1].split("-")[0])
+# 		rbound = int(locus.split(":")[-1].split("-")[1])+1
+# 	else:
+# 		lbound = False
+
+
+# 	# call = f"samtools view -@ 4 -F 4 {bam}"
+# 	call = ['samtools', 'view', '-F', '4']
 	
-	for rg in rgs:
-		call += ['-r', rg]
+# 	for rg in rgs:
+# 		call += ['-r', rg]
 
-	if subsample:
-		call += ['--subsample', str(subsample)]
+# 	if subsample:
+# 		call += ['--subsample', str(subsample)]
 
-	call += [str(bam)]
+# 	call += [str(bam)]
 
-	size=False
-
-
+# 	size=False
 
 
-	# print(" ".join(map(str,call)))
+
+
+# 	# print(" ".join(map(str,call)))
 		
-	# print(call)
+# 	# print(call)
 
-	def parse_line(line):
-		read_id = line[0]
-		flag = line[1]
-		seq = line[9]
+# 	def parse_line(line):
+# 		read_id = line[0]
+# 		flag = line[1]
+# 		seq = line[9]
 
-		if flag == "16":
-			strand = '-'
-		elif flag == '0':
-			strand = "+"
-		else:
-			strand = False
+# 		if flag == "16":
+# 			strand = '-'
+# 		elif flag == '0':
+# 			strand = "+"
+# 		else:
+# 			strand = False
 
-		length = int(line[5].rstrip("M"))
+# 		length = int(line[5].rstrip("M"))
 
-		sam_pos = int(line[3])
-		sam_chrom = line[2]
+# 		sam_pos = int(line[3])
+# 		sam_chrom = line[2]
 
-		seq = seq.replace("T", "U")
+# 		seq = seq.replace("T", "U")
 
-		rg = line[18].lstrip("RG:Z:")
-		size=False
-
-
-
-		return(strand, length, size, sam_pos, sam_chrom, rg, seq, read_id)
-
-	if not reverse:
-		if locus:
-			call.append(locus)
-
-		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
-
-		for i,line in enumerate(p.stdout):
-
-			line = line.strip().split()
-
-			# read_id, flag, sam_chrom, sam_pos, _, length, _, _, _, _,_,_,_,_,_,_,_,_,rg= line
-			strand, length, size, sam_pos, sam_chrom, rg, seq, read_id = parse_line(line)
-
-			if lbound and boundary_rule == 'tight':
-				if sam_pos >= lbound and sam_pos + length + 1 <= rbound:
-					yield(strand, length, size, sam_pos, sam_chrom, rg, seq, read_id)
-
-			else:
-				yield(strand, length, size, sam_pos, sam_chrom, rg, seq, read_id)
-
-		p.wait()
-
-	else:
-		chrom = locus.split(":")[0]
-
-		coords = locus.split(":")[1].split("-")
-
-		if len(coords) == 2:
-			left, right = map(int, coords)
-
-		elif len(coords) == 1:
-			left = False
-			right = int(coords[0])
-		# start, stop = map(int, locus.split(":")[1].split("-")[1]
+# 		rg = line[18].lstrip("RG:Z:")
+# 		size=False
 
 
 
-		read_set=set()
-		chunk_r = right
-		while chunk_r > left:
+# 		return(strand, length, size, sam_pos, sam_chrom, rg, seq, read_id)
 
-			chunk = []
-			chunk_l = chunk_r - reverse_chunk
+# 	if not reverse:
+# 		if locus:
+# 			call.append(locus)
 
-			locus = f"{chrom}:{chunk_l}-{chunk_r}"
+# 		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
-			sub_call = call.copy()
-			sub_call.append(locus)
+# 		for i,line in enumerate(p.stdout):
 
-			p = Popen(sub_call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+# 			line = line.strip().split()
 
-			for i,line in enumerate(p.stdout):
+# 			# read_id, flag, sam_chrom, sam_pos, _, length, _, _, _, _,_,_,_,_,_,_,_,_,rg= line
+# 			strand, length, size, sam_pos, sam_chrom, rg, seq, read_id = parse_line(line)
 
-				line = line.strip().split()
-				if line[0] not in read_set:
-					chunk.append(line)
-					read_set.add(line[0])
+# 			if lbound and boundary_rule == 'tight':
+# 				if sam_pos >= lbound and sam_pos + length + 1 <= rbound:
+# 					yield(strand, length, size, sam_pos, sam_chrom, rg, seq, read_id)
+
+# 			else:
+# 				yield(strand, length, size, sam_pos, sam_chrom, rg, seq, read_id)
+
+# 		p.wait()
+
+# 	else:
+# 		chrom = locus.split(":")[0]
+
+# 		coords = locus.split(":")[1].split("-")
+
+# 		if len(coords) == 2:
+# 			left, right = map(int, coords)
+
+# 		elif len(coords) == 1:
+# 			left = False
+# 			right = int(coords[0])
+# 		# start, stop = map(int, locus.split(":")[1].split("-")[1]
 
 
-			p.wait()
 
-			for line in chunk[::-1]:
-				strand, length, size, sam_pos, sam_chrom, rg, seq, read_id = parse_line(line)
+# 		read_set=set()
+# 		chunk_r = right
+# 		while chunk_r > left:
 
-				yield(strand, length, size, sam_pos, sam_chrom, rg, seq, read_id)
+# 			chunk = []
+# 			chunk_l = chunk_r - reverse_chunk
 
-			chunk_r -= reverse_chunk
+# 			locus = f"{chrom}:{chunk_l}-{chunk_r}"
+
+# 			sub_call = call.copy()
+# 			sub_call.append(locus)
+
+# 			p = Popen(sub_call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+
+# 			for i,line in enumerate(p.stdout):
+
+# 				line = line.strip().split()
+# 				if line[0] not in read_set:
+# 					chunk.append(line)
+# 					read_set.add(line[0])
+
+
+# 			p.wait()
+
+# 			for line in chunk[::-1]:
+# 				strand, length, size, sam_pos, sam_chrom, rg, seq, read_id = parse_line(line)
+
+# 				yield(strand, length, size, sam_pos, sam_chrom, rg, seq, read_id)
+
+# 			chunk_r -= reverse_chunk
 
 
 

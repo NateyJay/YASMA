@@ -441,11 +441,10 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 		pos_d[chrom]       = dict()
 
 
-
 	# ec = elapsedClass()
 	iterables = []
 	for c,l in chromosomes:
-		iterables.append(samtools_view(bam, rgs=rgs, locus=c))
+		iterables.append(samtools_view(bam, rgs=rgs, contig=c))
 
 	reads = chain.from_iterable(iterables)
 
@@ -1464,7 +1463,7 @@ def tradeoff(**params):
 
 
 		reads = [r for r in samtools_view(alignment_file, 
-			locus=coords, 
+			contig=chrom, start=start, stop=stop, 
 			rgs=annotation_readgroups, 
 			boundary_rule = 'tight')]
 
@@ -1574,25 +1573,25 @@ def tradeoff(**params):
 
 	start = time()
 
-	if params['test_mode']:
+	# if params['test_mode']:
 
-		pos_d, threshold_stats = get_kernel_coverage_proto(
-			bam=alignment_file, 
-			rgs=annotation_readgroups, 
-			params=params, 
-			chrom_depth_c=chrom_depth_c,
-			chromosomes=chromosomes,
-			out_dir=Path(output_directory, dir_name))
+	# 	pos_d, threshold_stats = get_kernel_coverage_proto(
+	# 		bam=alignment_file, 
+	# 		rgs=annotation_readgroups, 
+	# 		params=params, 
+	# 		chrom_depth_c=chrom_depth_c,
+	# 		chromosomes=chromosomes,
+	# 		out_dir=Path(output_directory, dir_name))
 
-	else:
+	# else:
 
-		pos_d, threshold_stats = get_kernel_coverage(
-			bam=alignment_file, 
-			rgs=annotation_readgroups, 
-			params=params, 
-			chrom_depth_c=chrom_depth_c,
-			chromosomes=chromosomes,
-			out_dir=Path(output_directory, dir_name))
+	pos_d, threshold_stats = get_kernel_coverage(
+		bam=alignment_file, 
+		rgs=annotation_readgroups, 
+		params=params, 
+		chrom_depth_c=chrom_depth_c,
+		chromosomes=chromosomes,
+		out_dir=Path(output_directory, dir_name))
 
 	# sys.exit()
 
@@ -2077,7 +2076,9 @@ def tradeoff(**params):
 
 
 
-		for read in samtools_view(alignment_file, locus=chrom, rgs=annotation_readgroups):
+
+
+		for read in samtools_view(alignment_file, contig=chrom, rgs=annotation_readgroups):
 
 			## Breaks for the final region
 			if not considered_regions:

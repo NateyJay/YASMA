@@ -18,13 +18,13 @@ def call_count(job):
 
 	name, locus = job
 
-
+	contig = locus.split(":")[0]
 	start = int(locus.split(":")[-1].split("-")[0])
 	stop  = int(locus.split(":")[-1].split("-")[1])
 
 	c = Counter()
 
-	sam_iter = samtools_view(alignment_file, locus=locus)
+	sam_iter = samtools_view(alignment_file, contig=contig, start=start, stop=stop)
 
 	for read in sam_iter:
 		sam_strand, sam_length, _, sam_pos, _, sam_rg, sam_seq = read
@@ -119,7 +119,7 @@ def count(** params):
 	deep_counts_file = f"{output_directory}/counts/deepcounts.txt"
 
 	if len(locus_files) == 0:
-		locus_files = [f"{output_directory}/peak/loci.txt"]
+		locus_files = [f"{output_directory}/tradeoff/loci.txt"]
 
 
 	c = Counter()
@@ -212,7 +212,7 @@ def count(** params):
 
 		chrom, start, stop = parse_locus(locus)
 
-		for read in samtools_view(alignment_file, locus=locus):
+		for read in samtools_view(alignment_file, contig=chrom, start=start, stop=stop):
 			sam_strand, sam_length, sam_size, sam_pos, sam_chrom, sam_rg, sam_seq, sam_read_id = read
 
 
