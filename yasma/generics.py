@@ -703,94 +703,94 @@ class percentageClass():
 
 
 
-def get_window_depths(alignment_file, chromosome, window_length):
-	i = 0
-	window = deque()
-	d_out = []
+# def get_window_depths(alignment_file, chromosome, window_length):
+# 	i = 0
+# 	window = deque()
+# 	d_out = []
 
-	sam_iter = samtools_view(alignment_file, locus=chromosome)
+# 	sam_iter = samtools_view(alignment_file, locus=chromosome)
 
-	read = next(sam_iter)
+# 	read = next(sam_iter)
 
-	while True:
+# 	while True:
 
-		_, length, _, pos, chromosome, _, _, _ = read
+# 		_, length, _, pos, chromosome, _, _, _ = read
 
-		if pos > i:
-			i += 1
+# 		if pos > i:
+# 			i += 1
 
-			try:
-				d = window.popleft()
-			except IndexError:
-				d = 0
+# 			try:
+# 				d = window.popleft()
+# 			except IndexError:
+# 				d = 0
 
-			d_out.append(d)
-
-
-		elif pos == i:
-
-			for r in range(length + window_length):
-
-				try:
-					window[r] += 1
-				except IndexError:
-					window.append(1)
-
-			try:
-				read = next(sam_iter)
-			except StopIteration:
-				return(d_out)
-			# if i > 1000000:
-			# 	return(d_out)
-		elif pos < i:
-			print(pos, i)
-			sys.exit("this shouldn't happen")
+# 			d_out.append(d)
 
 
-def get_lambda(alignment_file, chromosomes, window_length, output_directory):
+# 		elif pos == i:
 
-	lambda_file = f"./{output_directory}/Lambdas.txt"
-	lambda_d = {}
+# 			for r in range(length + window_length):
 
+# 				try:
+# 					window[r] += 1
+# 				except IndexError:
+# 					window.append(1)
 
-	if isfile(lambda_file):
-		with open(lambda_file, 'r') as f:
-			for line in f:
-				c,m = line.strip().split('\t')
-				m = float(m)
-				lambda_d[c] = m
-
-	else:
-		window_d = {}
-
-
-		for c, l in chromosomes:
-
-			window_d[c] = get_window_depths(alignment_file, c, window_length)
+# 			try:
+# 				read = next(sam_iter)
+# 			except StopIteration:
+# 				return(d_out)
+# 			# if i > 1000000:
+# 			# 	return(d_out)
+# 		elif pos < i:
+# 			print(pos, i)
+# 			sys.exit("this shouldn't happen")
 
 
-			with open(f"./{output_directory}/{c}.dist.txt", 'w') as outf:
-				for d in window_d[c]:
-					print(d, file=outf)
+# def get_lambda(alignment_file, chromosomes, window_length, output_directory):
+
+# 	lambda_file = f"./{output_directory}/Lambdas.txt"
+# 	lambda_d = {}
 
 
-		print('\n')
-		print('chrom','median','mean', sep='\t')
-		for c,l in chromosomes:
+# 	if isfile(lambda_file):
+# 		with open(lambda_file, 'r') as f:
+# 			for line in f:
+# 				c,m = line.strip().split('\t')
+# 				m = float(m)
+# 				lambda_d[c] = m
 
-			window_d[c] = sample(window_d[c],10000)
+# 	else:
+# 		window_d = {}
 
-			print(c, median(window_d[c]), round(mean(window_d[c]),4), sep='\t')
+
+# 		for c, l in chromosomes:
+
+# 			window_d[c] = get_window_depths(alignment_file, c, window_length)
+
+
+# 			with open(f"./{output_directory}/{c}.dist.txt", 'w') as outf:
+# 				for d in window_d[c]:
+# 					print(d, file=outf)
+
+
+# 		print('\n')
+# 		print('chrom','median','mean', sep='\t')
+# 		for c,l in chromosomes:
+
+# 			window_d[c] = sample(window_d[c],10000)
+
+# 			print(c, median(window_d[c]), round(mean(window_d[c]),4), sep='\t')
 			
-			lambda_d[c] = mean(window_d[c])
+# 			lambda_d[c] = mean(window_d[c])
 
 
-		with open(lambda_file, 'w') as outf:
-			for c,m in lambda_d.items():
-				print(c,m, sep='\t', file=outf)
+# 		with open(lambda_file, 'w') as outf:
+# 			for c,m in lambda_d.items():
+# 				print(c,m, sep='\t', file=outf)
 
 
-	return(lambda_d)
+# 	return(lambda_d)
 
 
 	# for i,line in enumerate(p.stdout):
@@ -1082,7 +1082,7 @@ def counters_to_bigwig(counter_d, chromosomes, file, verbose=True):
 
 
 
-def samtools_view(bam, rgs='all', contig=None, start=None, stop=None, threads=4, boundary_rule='loose'):
+def samtools_view(bam, rgs='all', contig=None, start=None, stop=None, threads=4, boundary_rule='loose', read_minmax=(15,30)):
 
 	import pysam
 
@@ -1110,35 +1110,39 @@ def samtools_view(bam, rgs='all', contig=None, start=None, stop=None, threads=4,
 	if boundary_rule == 'tight' and start and stop:
 
 		for read in bamf.fetch(contig=contig, start=start, stop=stop):
+			read_length = read.infer_read_length()
 
-
-			if read.get_tag("RG") in rgs and read.is_mapped and read.overlap == read.infer_read_length():
+			if read.get_tag("RG") in rgs and read.is_mapped and read.overlap == read_length:
 				strand = "-" if read.is_reverse else "+"
 
-				yield(strand, 
-					read.infer_read_length(), 
-					False, 
-					read.reference_start, 
-					read.reference_name, 
-					read.get_tag("RG"), 
-					read.get_forward_sequence().replace("T","U"), 
-					read.query_name)
+				if read_length >= read_minmax[0] and read_length <= read_minmax[-1]:
+
+					yield(strand, 
+						read_length, 
+						False, 
+						read.reference_start, 
+						read.reference_name, 
+						read.get_tag("RG"), 
+						read.get_forward_sequence().replace("T","U"), 
+						read.query_name)
 	else:
 
 		for read in bamf.fetch(contig=contig, start=start, stop=stop):
 
+			read_length = read.infer_read_length()
 
 			if read.get_tag("RG") in rgs and read.is_mapped:
 				strand = "-" if read.is_reverse else "+"
 
-				yield(strand, 
-					read.infer_read_length(), 
-					False, 
-					read.reference_start, 
-					read.reference_name, 
-					read.get_tag("RG"), 
-					read.get_forward_sequence().replace("T","U"), 
-					read.query_name)
+				if read_length >= read_minmax[0] and read_length <= read_minmax[-1]:
+					yield(strand, 
+						read_length, 
+						False, 
+						read.reference_start, 
+						read.reference_name, 
+						read.get_tag("RG"), 
+						read.get_forward_sequence().replace("T","U"), 
+						read.query_name)
 
 	bamf.close()
 
