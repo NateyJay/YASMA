@@ -50,12 +50,11 @@ class elapsedClass():
 class sizeClass():
 	def __init__(self, 
 		sizes=[],
-		min_size=15,
-		max_size=30):
+		minmax=(15,30)):
 
 
-		self.min_size=min_size
-		self.max_size=max_size
+		self.min_size=minmax[0]
+		self.max_size=minmax[1]
 
 		self.depth = 0
 
@@ -444,7 +443,7 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 	# ec = elapsedClass()
 	iterables = []
 	for c,l in chromosomes:
-		iterables.append(samtools_view(bam, rgs=rgs, contig=c))
+		iterables.append(samtools_view(bam, rgs=rgs, contig=c, read_minmax=(params['min_read_length'], params['max_read_length'])))
 
 	reads = chain.from_iterable(iterables)
 
@@ -923,7 +922,7 @@ def get_kernel_coverage_proto(bam, rgs, params, chrom_depth_c, chromosomes, out_
 	# ec = elapsedClass()
 	iterables = []
 	for c,l in chromosomes:
-		iterables.append(samtools_view(bam, rgs=rgs, locus=c))
+		iterables.append(samtools_view(bam, rgs=rgs, locus=c, read_minmax=(params['min_read_length'], params['max_read_length'])))
 
 	reads = chain.from_iterable(iterables)
 
@@ -1210,7 +1209,6 @@ def get_kernel_coverage_proto(bam, rgs, params, chrom_depth_c, chromosomes, out_
 @cli.command(group='Annotation', help_priority=2)
 
 
-
 @optgroup.group('\n  Basic options',
 				help='')
 
@@ -1323,6 +1321,20 @@ def get_kernel_coverage_proto(bam, rgs, params, chrom_depth_c, chromosomes, out_
 
 
 
+@optgroup.group('\n  Read options',
+				help='')
+
+
+@optgroup.option("--min_read_length",
+	default=15,
+	help="An override filter to ignore aligned reads which are smaller than a min length in locus calculations.")
+
+@optgroup.option("--max_read_length",
+	default=30,
+	help="The same as above, but with a max length.")
+
+
+
 
 @optgroup.group('\n Other options',
 				help='')
@@ -1356,6 +1368,7 @@ def tradeoff(**params):
 	target_depth            = params['subsample']
 	seed                    = params['subsample_seed']
 
+	read_minmax = (params['min_read_length'], params['max_read_length'])
 
 	params['output_directory'] = output_directory
 	params['alignment_file'] = alignment_file
@@ -1465,7 +1478,8 @@ def tradeoff(**params):
 		reads = [r for r in samtools_view(alignment_file, 
 			contig=chrom, start=start, stop=stop, 
 			rgs=annotation_readgroups, 
-			boundary_rule = 'tight')]
+			boundary_rule = 'tight',
+			read_minmax=read_minmax)]
 
 
 		strand_c = Counter()
@@ -1753,7 +1767,7 @@ def tradeoff(**params):
 
 
 		strands = Counter()
-		sizes   = sizeClass()
+		sizes   = sizeClass(minmax=read_minmax)
 		names   = set()
 
 
@@ -1799,7 +1813,7 @@ def tradeoff(**params):
 				window_r += increment * direction
 
 				w_strands = Counter()
-				w_sizes   = sizeClass()
+				w_sizes   = sizeClass(minmax=read_minmax)
 
 				for w in range(window_l, window_r):
 					try:
@@ -2078,7 +2092,7 @@ def tradeoff(**params):
 
 
 
-		for read in samtools_view(alignment_file, contig=chrom, rgs=annotation_readgroups):
+		for read in samtools_view(alignment_file, contig=chrom, rgs=annotation_readgroups, read_minmax=read_minmax):
 
 			## Breaks for the final region
 			if not considered_regions:
@@ -2122,7 +2136,7 @@ def tradeoff(**params):
 			try:
 				sizecall_d[claim]
 			except KeyError:
-				sizecall_d[claim] = sizeClass()
+				sizecall_d[claim] = sizeClass(minmax=read_minmax)
 				strand_d[claim] = Counter()
 				seq_d[claim] = Counter()
 
@@ -2235,7 +2249,7 @@ def tradeoff(**params):
 								current_sc = sizecall_d[current_locus[0]]
 								current_ft = get_frac_top(strand_d[current_locus[0]])
 							except KeyError:
-								current_sc = sizeClass()
+								current_sc = sizeClass(minmax=read_minmax)
 								current_ft = -1
 								# print(f"\nWarning: region {current_locus} may not have counts")
 
@@ -2244,7 +2258,7 @@ def tradeoff(**params):
 								next_sc = sizecall_d[next_locus[0]]
 								next_ft = get_frac_top(strand_d[next_locus[0]])
 							except KeyError:
-								next_sc = sizeClass()
+								next_sc = sizeClass(minmax=read_minmax)
 								next_ft = -1
 								# print(f"\nWarning: region {next_locus} may not have counts")
 
