@@ -226,7 +226,7 @@ def align(**params):
 	shutil.rmtree(temp_folder)
 
 
-	get_log_details(output_directory)
+	get_log_details(Path(output_directory))
 
 	ic.inputs['alignment_file'] = alignment_file_new.absolute()
 	ic.write()
