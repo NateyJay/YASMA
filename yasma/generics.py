@@ -368,22 +368,23 @@ class inputClass():
 		elif not value:
 			pass
 
-		elif saved_value != value and self.override:
+		# elif saved_value != value and self.override:
+		else:
 			print(f"  Override!")
 			print(f"  Replace: ... '{self.inputs[option]}'")
 			print(f"  with: ...... '{value}'")
 			self.inputs[option] = value
 
-		elif saved_value != value:
-			print(f"  Warning: input for option '{color.BOLD}{option}{color.END}' does not match logged value")
+		# elif saved_value != value:
+		# 	print(f"  Warning: input for option '{color.BOLD}{option}{color.END}' does not match logged value")
 
-			print(f"  Replace: ... '{self.inputs[option]}'")
-			print(f"  with: ...... '{value}'")
+		# 	print(f"  Replace: ... '{self.inputs[option]}'")
+		# 	print(f"  with: ...... '{value}'")
 
-			res = input("   (y)es or (n)o?\n")
+		# 	res = input("   (y)es or (n)o?\n")
 
-			if res == 'y':
-				self.inputs[option] = value
+		# 	if res == 'y':
+		# 		self.inputs[option] = value
 
 
 
