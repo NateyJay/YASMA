@@ -50,6 +50,8 @@ from .cli import cli
 	type=int,
 	help="Number of reads to check for adapter (default 10,000)")
 
+@optgroup.option('--override', is_flag=True, default=False, help='Overrides config file changes without prompting.')
+
 
 def adapter(**params):
 	'''Tool to check untrimmed-libraries for 3' adapter content.'''

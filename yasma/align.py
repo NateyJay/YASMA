@@ -135,6 +135,9 @@ def get_log_details(output_directory):
 	help="Compression algorithm used for resulting alignment. Cram is more space efficient, but Bam is more robust/portable.")
 
 
+@optgroup.option('--override', is_flag=True, default=False, help='Overrides config file changes without prompting.')
+
+
 
 
 def align(**params):
