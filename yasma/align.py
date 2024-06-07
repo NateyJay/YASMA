@@ -235,6 +235,9 @@ def align(**params):
 	ic.write()
 
 
+	trash = get_global_depth(output_directory, alignment_file_new, aggregate_by=['rg','chrom'])
+
+
 
 
 
