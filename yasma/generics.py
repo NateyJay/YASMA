@@ -821,11 +821,11 @@ def get_global_depth(output_directory, alignment_file, force=False, aggregate_by
 
 
 	if not isfile(depth_file) or stat(depth_file).st_size < 50 or force:
-		call = ['samtools', 'view', '-F', '4', str(alignment_file)]
+		# call = ['samtools', 'view', '-F', '4', str(alignment_file)]
 		# print(" ".join(call))
 		c = Counter()
 
-		p = Popen(call, stdout=PIPE, encoding=ENCODING)
+		# p = Popen(call, stdout=PIPE, encoding=ENCODING)
 
 		print(f"  {depth_file} not found.")
 		print("Reading alignment to find global depth dimensions...")
@@ -835,7 +835,10 @@ def get_global_depth(output_directory, alignment_file, force=False, aggregate_by
 		chroms  = set()
 		lengths = set()
 
-		for i,line in enumerate(p.stdout):
+
+
+		for i, sam_out in enumerate(samtools_view(alignment_file)):
+		# for i,line in enumerate(p.stdout):
 			if (i+1) % 1000000 == 0:
 				print(".", end='', flush=True)
 				if (i+1) % 10000000 == 0:
@@ -843,11 +846,12 @@ def get_global_depth(output_directory, alignment_file, force=False, aggregate_by
 					if (i+1) % 100000000 == 0:
 						print("\n", end='', flush=True)
 
-			line = line.strip().split("\t")
+			# line = line.strip().split("\t")
 
-			rg     = line[18][5:]
-			length = int(line[5][:-1])
-			chrom  = line[2]
+			# rg     = line[18][5:]
+			# length = int(line[5][:-1])
+			# chrom  = line[2]
+			_, length, _, _, chrom, rg, _, _ = sam_out
 
 			key = (rg,length,chrom)
 
