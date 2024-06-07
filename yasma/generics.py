@@ -4,6 +4,7 @@ import sys
 import click
 from os import stat
 import os
+from git import Repo
 from pprint import pprint
 
 # import click
@@ -1512,6 +1513,15 @@ class Logger(object):
 		self.file_name = file_name
 		self.log = open(file_name, "w")
 
+		git_dir = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
+		git_repo = Repo(git_dir)
+		git_commit = git_repo.head.commit.tree
+
+		self.terminal.write(f"git_dir:    {git_dir}\n")
+		self.terminal.write(f"git_commit: {git_commit}\n\n")
+		self.log.write(f"git_dir:    {git_dir}\n")
+		self.log.write(f"git_commit: {git_commit}\n\n")
+
 	def clear_ansi(self, message):
 		return(message.replace("\033[1m", "").replace("\033[0m",""))
 
@@ -1748,7 +1758,7 @@ def subsample(total_aligned_reads, base_alignment_file, params):
 		multipliers = {'M' : 1000000, "K" : 1000, "G" : 1000000000}
 
 		number = float(re.sub('[A-Za-z]', '', target_depth))
-		prefix = re.sub('\d', '', target_depth).upper()
+		prefix = re.sub(r'\d', '', target_depth).upper()
 
 		if prefix != '':
 			number = round(number * multipliers[prefix])
