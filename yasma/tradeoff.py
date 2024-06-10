@@ -1356,7 +1356,7 @@ def tradeoff(**params):
 	ic.check(['alignment_file', 'annotation_readgroups'])
 
 	output_directory        = str(ic.output_directory)
-	alignment_file          = ic.inputs["alignment_file"]
+	alignment_file          = ic.inputs["alignment_file"].relative_to(output_directory)
 	annotation_readgroups   = ic.inputs['annotation_readgroups']
 	project_name            = ic.inputs['project_name']
 

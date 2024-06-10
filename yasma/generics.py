@@ -42,6 +42,16 @@ from random import sample, seed, shuffle
 ENCODING='cp850'
 # ENCODING=ENCODING
 
+# def make_bash_safe_path(path):
+
+# 	print(path)
+# 	print(os.path.relpath(path))
+# 	sys.exit()
+
+# 	string = str(path)
+# 	string = string.replace(" ", "\ ")
+# 	return(string)
+
 
 
 class requirementClass():
@@ -305,7 +315,7 @@ class inputClass():
 				path = Path(path)
 
 
-
+			# path = Path(os.path.relpath(path))
 			return(path)
 
 		for p in ["untrimmed_libraries", "trimmed_libraries"]:
