@@ -177,7 +177,7 @@ def align(**params):
 
 	# trimmed_libraries = [t.replace(" ", "\ ") for t in trimmed_libraries]
 
-	args = ["ShortStack", "--readfile"] + trimmed_libraries + ["--genomefile", genome_file, "--bowtie_cores", cores, "--align_only", "--mmap", 'u', "--sort_mem", "200M", "--outdir", temp_folder]
+	args = ["ShortStack", "--readfile"] + [t.relative_to(output_directory) for t in trimmed_libraries] + ["--genomefile", genome_file, "--bowtie_cores", cores, "--align_only", "--mmap", 'u', "--sort_mem", "200M", "--outdir", temp_folder.relative_to(output_directory)]
 
 	if compression == 'cram':
 		args += ['--cram']
@@ -187,7 +187,6 @@ def align(**params):
 	args = list(map(str, args))
 
 	print(" ".join(args))
-
 	p = Popen(args, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
 
