@@ -497,18 +497,21 @@ def jbrowse(**params):
 
 	## sRNA loci
 	if f"{od_name}_annotations" not in names:
-		print(f"  adding track: {color.BOLD}{od_name}_annotations{color.END}")
-		at = make_annotation_track(
-			name=f'{od_name}_shortstack3', 
-			uri=f"{genome_name}/{od_name}_annotations/shortstack3.gff3")
-		config_d['tracks'].append(at)
+		if isfile(Path(output_directory, "shortstack3/ShortStack_All.gff3")):
+			print(f"  adding track: {color.BOLD}{od_name}_annotations{color.END}")
+			at = make_annotation_track(
+				name=f'{od_name}_shortstack3', 
+				uri=f"{genome_name}/{od_name}_annotations/shortstack3.gff3")
+			config_d['tracks'].append(at)
 
 	if f"{od_name}_annotations" not in names:
-		print(f"  adding track: {color.BOLD}{od_name}_annotations{color.END}")
-		at = make_annotation_track(
-			name=f'{od_name}_shortstack4', 
-			uri=f"{genome_name}/{od_name}_annotations/shortstack4.gff3")
-		config_d['tracks'].append(at)
+
+		if isfile(Path(output_directory, "shortstack4/Results.gff3")):
+			print(f"  adding track: {color.BOLD}{od_name}_annotations{color.END}")
+			at = make_annotation_track(
+				name=f'{od_name}_shortstack4', 
+				uri=f"{genome_name}/{od_name}_annotations/shortstack4.gff3")
+			config_d['tracks'].append(at)
 
 
 
