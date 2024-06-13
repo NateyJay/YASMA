@@ -129,7 +129,7 @@ def trim(**params):
 
 		call = ["cutadapt", "-a", adapter, "--minimum-length", str(min_length), "--maximum-length", str(max_length), "-O", "4", "--max-n", "0", "-o", out_file, file]
 
-		p = Popen(call, stdout=PIPE, encoding='utf-8')
+		p = Popen(call, stdout=PIPE, encoding=ENCODING)
 
 		for line in p.stdout:
 			print(line.strip())
