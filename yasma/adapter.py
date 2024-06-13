@@ -275,7 +275,7 @@ def adapter(**params):
 		for i, line in enumerate(f):
 			
 			try:
-				line = line.decode('utf-8')
+				line = line.decode(ENCODING)
 			except AttributeError:
 				pass
 
