@@ -33,6 +33,8 @@ import pyBigWig
 
 import json
 from random import sample, seed, shuffle
+import pysam
+
 
 # import git
 
@@ -821,7 +823,15 @@ class percentageClass():
 	# 	length = int(line[5].rstrip("M"))
 
 
+def read_loci(params):
+	from collections import namedtuple
 
+
+	results_file = f"{params['output_directory']}/tradeoff/loci.txt"
+	with open(results_file, 'r') as f:
+		for line in f:
+			print(line)
+			sys.exit()
 
 
 def get_global_depth(output_directory, alignment_file, force=False, aggregate_by=['rg','chrom','length']):
@@ -1099,8 +1109,6 @@ def counters_to_bigwig(counter_d, chromosomes, file, verbose=True):
 
 
 def samtools_view(bam, rgs='all', contig=None, start=None, stop=None, threads=4, boundary_rule='loose', read_minmax=(15,30)):
-
-	import pysam
 
 
 
