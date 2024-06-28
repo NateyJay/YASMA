@@ -9,6 +9,8 @@ from os.path import isfile, isdir
 from collections import Counter#, deque
 from pprint import pprint
 
+from statistics import stdev, median
+
 # from random import sample
 
 # import numpy as np
@@ -39,6 +41,11 @@ from tqdm import tqdm
 	type=click.Path(),
 	help="Directory name for annotation output.")
 
+@optgroup.option("-a", "--alignment_file", 
+	required=False, 
+	default=None,
+	type=click.UNPROCESSED, callback=validate_path,
+	help='Alignment file input (bam or cram).')
 
 
 @optgroup.group('\n  Optional',
@@ -58,60 +65,183 @@ def size_profile(**params):
 
 	ic = inputClass(params)
 
+	pprint(params)
 
 
 	output_directory        = ic.output_directory
 	alignment_file          = ic.inputs['alignment_file']
 
-	force = params['force']
+	# force = params['force']
 
 
 	chromosomes, bam_rgs = get_chromosomes(alignment_file)
-	chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
+	rg_size_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','length'])
+	rg_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg'])
 
 
-	output_file = Path(output_directory, 'align', 'size_profile.txt')
+	
 
-	if not isfile(alignment_file):
-		sys.exit(f"Alignment file {alignment_file} not found...")
-	if isfile(output_file):
-		if not force:
-			sys.exit(f"Output file found: {output_file}\nstopping run. (override with -f flag)")
-		else:
-			print(f'Output file found: {output_file}\n***forcing override due to -f flag.')
+	props = list()
+	prop_d = dict()
 
-	total = sum(chrom_depth_c.values())
 
-	print()
-	print(f"Total aligned reads {total:,}")
+	for rg in bam_rgs:
+		for i,size in enumerate(range(15, 36)):
+			count = rg_size_c[(rg, str(size))]
+			prop  = count / rg_c[rg]
+			# print(rg, size, count, prop, sep='\t')
 
-	print()
-	print(f'Reading alignment...')
-	pbar = tqdm(total=total)
+			try:
+				prop_d[size] += prop / len(rg_c)
+			except KeyError:
+				prop_d[size] = prop / len(rg_c)
 
-	c = Counter()
-	for line in samtools_view(alignment_file):
-		pbar.update()
-		strand, length, size, sam_pos, sam_chrom, rg, seq, read_id = line
-
-		c[(length, rg)] += 1
+			try:
+				props[i] += prop / len(rg_c)
+			except IndexError:
+				props.append(prop / len(rg_c))
 
 
 
-	pbar.close()
-	# pprint(c)
 
-	chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg'])
 
-	with open(output_file, 'w') as outf:
-		print("project", "library", "size", 'depth', 'prop', sep='\t', file=outf)
+	with open(alignment_file.with_suffix(".sizes.txt"), 'w') as outf:
+
+		print("size", end = '', file=outf)
 		for rg in bam_rgs:
+			print('\t', rg, sep='', end='', file=outf)
+		print('\taverage', file=outf)
 
-			for size in range(15, 36):
-				depth = c[(size, rg)]
-				prop = round(depth / chrom_depth_c[rg], 3)
-				print(output_directory.name, rg, size, depth, prop, sep='\t', file=outf)
+		for size in range(15,31):
+			print(size, end='\t', file=outf)
 
+			for rg in bam_rgs:
+
+				count = rg_size_c[(rg, str(size))]
+				prop  = count / rg_c[rg]
+
+				
+				print(round(prop,4), end = '\t', file=outf)
+
+			print(round(prop_d[size],4), file=outf)
+
+
+	sizes = list(range(15,36))
+	peaks = dict()
+	for r in range(len(props)):
+		peaks[r] = False
+
+	sd = stdev(props)
+	zprops = [(p - median(props)) / sd for p in props]
+	candidates = [i[0] for i in sorted(enumerate(zprops), key=lambda x:x[1], reverse=True) if i[1] > 1]
+	hysterics  = [i[0] for i in sorted(enumerate(zprops), key=lambda x:x[1], reverse=True) if i[1] > 0.5]
+
+	# pprint(zprops)
+	# pprint(candidates)
+
+
+	change_threshold = -50
+	max_threshold = 50
+
+	peak_i = -1
+	for c in candidates:
+
+
+		if peaks[c] is False:
+			peak_i += 1
+
+			peaks[c] = peak_i
+
+			print()
+			print('peak_i:', peak_i)
+			print('candidate:',c)
+
+
+
+
+
+			for direction in [" ==>", "<== "]:
+
+				p_last = props[c]
+				p_cand = props[c]
+
+				if direction == " ==>":
+					rang = range(c+1, len(props))
+				else:
+					rang = range(c-1, -1, -1)
+
+				for r in rang:
+					if r not in hysterics:
+						print(f'({r}) not a candidate')
+						break
+					# print(r)
+					p_curr = props[r]
+					p_change = round((p_curr - p_last) / p_last  * 100,1)
+					p_max    = round(p_curr / p_cand * 100, 1)
+
+
+					p_last = p_curr
+					if p_max < max_threshold and p_change > change_threshold:
+						print(f"({r}) below {max_threshold}% of max peak and above {change_threshold} change_threshold")
+						break
+					if p_change > 0:
+						print(f'({r}) peak growing')
+						break
+
+					if peaks[r] is not False:
+						print(f"({r}) pos in peak")
+						break
+
+					print(direction, r, round(p_curr,4), round(p_last,4), p_change, p_max, sep='\t')
+					peaks[r] = peak_i
+
+
+
+	print()
+	print("i\tsize\tprop\tzmed\tcand\thyst\tpeak")
+	print("=====================================================")
+	for i,s in enumerate(sizes):
+		print(i, s, round(props[i],4), round(zprops[i],4), i in candidates, i in hysterics, peaks[i], sep='\t')
+
+
+
+	with open(alignment_file.with_suffix(".peak_prop.txt"), 'w') as outf:
+
+
+		print("i\tsize\tprop\tzmed\tcand\thyst\tpeak", file=outf)
+		for i,s in enumerate(sizes):
+			print(i, s, round(props[i],4), round(zprops[i],4), i in candidates, i in hysterics, peaks[i], sep='\t', file=outf)
+
+
+
+	unplaced = 1.0
+	print()
+	print()
+	print("")
+
+
+	with open(alignment_file.with_suffix(".prop.txt"), 'w') as outf:
+
+		print('peak','sizes','center','width','prop', sep='\t', file=outf)
+		print('peak','sizes','center','width','prop', sep='\t')
+		print("=====================================")
+		for peak_i in range(max(peaks.values())+1):
+
+			positions  = [k for k,v in peaks.items() if str(v) == str(peak_i)]
+			peak_sizes = [sizes[p] for p in positions]
+			cum_prop   = sum([props[p] for p in positions])
+			width      = len(peak_sizes)
+			unplaced  -= cum_prop
+
+			max_prop   = max([props[p] for p in positions])
+			center     = [sizes[p] for p in positions if props[p] == max_prop][0]
+
+
+			print(f"peak{peak_i}", ",".join(map(str,peak_sizes)), center, width, round(cum_prop, 4), sep='\t', file=outf)
+			print(f"peak{peak_i}", ",".join(map(str,peak_sizes)), center, width, round(cum_prop, 4), sep='\t')
+
+		print("none", '-','-','-', round(unplaced,4), sep='\t', file=outf)
+		print("none", '-','-','-', round(unplaced,4), sep='\t')
 
 
 
