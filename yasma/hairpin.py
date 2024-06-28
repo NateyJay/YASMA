@@ -11,6 +11,7 @@ from math import log10, sqrt
 
 from .generics import *
 from .cli import cli
+from Levenshtein import distance
 
 
 
@@ -503,6 +504,10 @@ class hairpinClass():
 
 		self.seq, self.fold, self.mfe, self.pairing, mas_d, self.pos_d, self.input_mas_coords = self.get_locus(locus, strand, input_mas)
 
+		try:
+			mas_d['all']
+		except KeyError:
+			return
 
 		self.mas_c = mas_d['all']
 		self.mas = self.mas_c.most_common(1)[0][0]
@@ -1041,7 +1046,7 @@ class hairpinClass():
 def hairpin(**params):
 	"""Evaluates annotated loci for hairpin or miRNA structures."""
 
-	from Levenshtein import distance
+	
 
 	rc = requirementClass()
 	rc.add_samtools()
@@ -1053,26 +1058,27 @@ def hairpin(**params):
 
 	output_directory     = str(ic.output_directory)
 	alignment_file       = ic.inputs['alignment_file']
+	genome_file          = ic.inputs['genome_file']
 
 	ignore_replication   = params['ignore_replication']
 	max_length           = params['max_length']
 
 
-	def get_genome_file():
-		call = ['samtools', 'view', '-H', alignment_file]
+	# def get_genome_file():
+	# 	call = ['samtools', 'view', '-H', alignment_file]
 
-		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+	# 	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
-		for line in p.stdout:
-			if line.startswith("@SQ"):
-				# print(line)
-				break
-		p.wait()
-		line = line.strip().split()[4]
-		# print(line)
-		genome = line.lstrip("UR:")
+	# 	for line in p.stdout:
+	# 		if line.startswith("@SQ"):
+	# 			# print(line)
+	# 			break
+	# 	p.wait()
+	# 	line = line.strip().split()[4]
+	# 	# print(line)
+	# 	genome = line.lstrip("UR:")
 
-		return(genome)
+	# 	return(genome)
 
 
 
@@ -1108,7 +1114,7 @@ def hairpin(**params):
 
 
 
-	genome_file = get_genome_file()
+	# genome_file = get_genome_file()
 
 	results_file = f"{output_directory}/tradeoff/loci.txt"
 	assert isfile(results_file), f"results_file {results_file} not found... (Have you run annotation with this directory?)"
@@ -1156,109 +1162,102 @@ mfe_per_nt
 v vv vv v v""")
 
 
-	with open(results_file, 'r') as f:
-		header = f.readline().lstrip("#").strip().split("\t")
-		header = [h.lower() for h in header]
 
-		# print(header)
-		# for i,h in enumerate(header):
-		# 	print(i,h)
+	for entry in read_loci(params):
 
-		for line in f:
-			line = line.strip().split('\t')
-
-			name   = line[header.index('name')]
-			locus  = line[header.index('locus')]
-			strand = line[header.index('strand')]
-			length = int(line[header.index('length')])
+		name     = entry['name']
+		locus    = entry['locus']
+		strand   = entry['strand']
+		length   = int(entry['length'])
+		sizecall = entry['sizecall']
 
 
-			locus = locus.replace("..", "-")
+		locus = locus.replace("..", "-")
 
-			chrom = locus.split(":")[0]
-			start = int(locus.split(":")[1].split("-")[0])
-			stop  = int(locus.split(":")[1].split("-")[1])
+		chrom = locus.split(":")[0]
+		start = int(locus.split(":")[1].split("-")[0])
+		stop  = int(locus.split(":")[1].split("-")[1])
 
 
 
 
-			# print(seq, fold, mfe, sep='\n')
+		# print(seq, fold, mfe, sep='\n')
 
-			cluster_selected = True
-			# cluster_selected = name == 'Cl_125'
+		cluster_selected = True
+		# cluster_selected = name == 'Cl_125'
 
-			# status = []
+		# status = []
 
-			stranded = strand in ["-", "+"]
-			# if stranded:
-			# 	status.append(f"{strand} stranded")
-			# else:
-			# 	status.append("not stranded")
+		stranded = strand in ["-", "+"]
+		# if stranded:
+		# 	status.append(f"{strand} stranded")
+		# else:
+		# 	status.append("not stranded")
 
-			short_enough = length <= max_length
-			# if short_enough:
-			# 	status.append(f"length {length} <= {max_length}")
-			# else:
-			# 	status.append(f"too long {length}")
+		short_enough = length <= max_length
+		# if short_enough:
+		# 	status.append(f"length {length} <= {max_length}")
+		# else:
+		# 	status.append(f"too long {length}")
 
 
 
 
 
-			input_mas = input_mas_d[name]
+		input_mas = input_mas_d[name]
 
-			hpc = hairpinClass(stranded, short_enough, name,locus, strand, input_mas, genome_file, alignment_file, output_directory)
-			hpc.table()
+		hpc = hairpinClass(stranded, short_enough, name,locus, strand, input_mas, genome_file, alignment_file, output_directory)
+		hpc.table()
 
-			if hpc.valid:
-				print()
-				print(f"{hpc.ruling}\t\033[1m{name}\033[0m", length, sep='\t')
-				# hpc.strucVis()
+		if hpc.valid:
+			print()
+			print(f"{hpc.ruling}\t\033[1m{name}\033[0m", length, sep='\t')
+			# hpc.strucVis()
 
-			with open(hairpin_file, 'a') as outf:
-				print(hpc.table(), file=outf)
+		with open(hairpin_file, 'a') as outf:
+			print(hpc.table(), file=outf)
 
-			
+		
 
-			if hpc.valid:
-				trimmed_locus = trim_hairpin(hpc)
-
-
-				trimmed_hpc = hairpinClass(stranded, short_enough, name+"-t", trimmed_locus, strand, input_mas, genome_file, alignment_file, output_directory)
-				if trimmed_hpc.valid:
-					print(f"{trimmed_hpc.ruling}\t\033[1m{name}\033[0m", len(trimmed_hpc.seq), 'trimmed', sep='\t')
-
-					with open(hairpin_file, 'a') as outf:
-						print(trimmed_hpc.table(), file=outf)
-				# print()
+		if hpc.valid:
+			trimmed_locus = trim_hairpin(hpc)
 
 
+			trimmed_hpc = hairpinClass(stranded, short_enough, name+"-t", trimmed_locus, strand, input_mas, genome_file, alignment_file, output_directory)
+			if trimmed_hpc.valid:
+				print(f"{trimmed_hpc.ruling}\t\033[1m{name}\033[0m", len(trimmed_hpc.seq), sizecall, 'trimmed', sep='\t')
 
-			# input_mas_coords = hpc.input_mas_coords
+				with open(hairpin_file, 'a') as outf:
+					print(trimmed_hpc.table(), file=outf)
+			# print()
 
 
 
-			# imas_start = int(input_mas_coords.split(":")[-1].split("-")[0])
-			# imas_stop  = int(input_mas_coords.split(":")[-1].split("-")[1])
-			# # print()
+		# input_mas_coords = hpc.input_mas_coords
 
-			# gemini_size = 120
-			# gemini_offset = 20
 
-			# gemini = [
-			# f"{chrom}:{imas_start - gemini_size + gemini_offset}-{imas_stop + gemini_offset}",
-			# f"{chrom}:{imas_start - gemini_offset}-{imas_stop + gemini_size - gemini_offset}"
-			# ]
 
-			# twins = ['castor', 'pollux']
+		# imas_start = int(input_mas_coords.split(":")[-1].split("-")[0])
+		# imas_stop  = int(input_mas_coords.split(":")[-1].split("-")[1])
+		# # print()
 
-			# for gem_i, gem in enumerate(gemini):
+		# gemini_size = 120
+		# gemini_offset = 20
 
-			# 	twin = twins[gem_i]
+		# gemini = [
+		# f"{chrom}:{imas_start - gemini_size + gemini_offset}-{imas_stop + gemini_offset}",
+		# f"{chrom}:{imas_start - gemini_offset}-{imas_stop + gemini_size - gemini_offset}"
+		# ]
 
-			# 	gem_hpc = hairpinClass(gem, strand, input_mas, genome_file, alignment_file)
-			# 	if gem_hpc.valid:
-			# 		print(f"{gem_hpc.ruling}\t\033[1m{name}\033[0m", len(gem_hpc.seq), twin, sep='\t')
+		# twins = ['castor', 'pollux']
+
+		# for gem_i, gem in enumerate(gemini):
+
+		# 	twin = twins[gem_i]
+
+		# 	gem_hpc = hairpinClass(gem, strand, input_mas, genome_file, alignment_file)
+		# 	if gem_hpc.valid:
+		# 		print(f"{gem_hpc.ruling}\t\033[1m{name}\033[0m", len(gem_hpc.seq), twin, sep='\t')
 
 
 
