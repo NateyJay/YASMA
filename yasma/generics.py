@@ -1113,7 +1113,7 @@ def counters_to_bigwig(counter_d, chromosomes, file, verbose=True):
 
 
 
-def samtools_view(bam, rgs='all', contig=None, start=None, stop=None, threads=4, boundary_rule='loose', read_minmax=(15,30)):
+def samtools_view(bam, rgs='all', contig=None, start=None, stop=None, threads=4, boundary_rule='loose'): #, read_minmax=(15,30)):
 
 
 
@@ -1144,16 +1144,16 @@ def samtools_view(bam, rgs='all', contig=None, start=None, stop=None, threads=4,
 			if read.get_tag("RG") in rgs and read.is_mapped and read.overlap == read_length:
 				strand = "-" if read.is_reverse else "+"
 
-				if read_length >= read_minmax[0] and read_length <= read_minmax[-1]:
+				# if read_length >= read_minmax[0] and read_length <= read_minmax[-1]:
 
-					yield(strand, 
-						read_length, 
-						False, 
-						read.reference_start, 
-						read.reference_name, 
-						read.get_tag("RG"), 
-						read.get_forward_sequence().replace("T","U"), 
-						read.query_name)
+				yield(strand, 
+					read_length, 
+					False, 
+					read.reference_start, 
+					read.reference_name, 
+					read.get_tag("RG"), 
+					read.get_forward_sequence().replace("T","U"), 
+					read.query_name)
 	else:
 
 		for read in bamf.fetch(contig=contig, start=start, stop=stop):
@@ -1163,15 +1163,15 @@ def samtools_view(bam, rgs='all', contig=None, start=None, stop=None, threads=4,
 			if read.get_tag("RG") in rgs and read.is_mapped:
 				strand = "-" if read.is_reverse else "+"
 
-				if read_length >= read_minmax[0] and read_length <= read_minmax[-1]:
-					yield(strand, 
-						read_length, 
-						False, 
-						read.reference_start, 
-						read.reference_name, 
-						read.get_tag("RG"), 
-						read.get_forward_sequence().replace("T","U"), 
-						read.query_name)
+				# if read_length >= read_minmax[0] and read_length <= read_minmax[-1]:
+				yield(strand, 
+					read_length, 
+					False, 
+					read.reference_start, 
+					read.reference_name, 
+					read.get_tag("RG"), 
+					read.get_forward_sequence().replace("T","U"), 
+					read.query_name)
 
 	bamf.close()
 
