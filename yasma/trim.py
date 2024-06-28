@@ -64,13 +64,13 @@ from .cli import cli
 				help='')
 
 @optgroup.option("--min_length",
-	default = 10,
-	help= 'Minimum allowed size for a trimmed read.')
+	default = 15,
+	help= 'Minimum allowed size for a trimmed read. (default 10)')
 
 
 @optgroup.option("--max_length",
 	default = 50,
-	help= 'Maxiumum allowed size for a trimmed read.')
+	help= 'Maxiumum allowed size for a trimmed read. (default 50)')
 
 
 
@@ -127,7 +127,7 @@ def trim(**params):
 
 		out_file = Path(output_directory, 'trim', file.stem.split('.')[0] + "".join(suffixes))
 
-		call = ["cutadapt", "-a", adapter, "--minimum-length", str(min_length), "--maximum-length", str(max_length), "-O", "4", "--max-n", "0", "-o", out_file, file]
+		call = ["cutadapt", "-a", adapter, "--minimum-length", str(min_length), "--maximum-length", str(max_length), "-O", "4", "--max-n", "0", "--trimmed-only", "-o", out_file, file]
 
 		p = Popen(call, stdout=PIPE, encoding=ENCODING)
 
