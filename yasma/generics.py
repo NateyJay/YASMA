@@ -612,13 +612,14 @@ def parse_locus(locus):
 def samtools_faidx(locus, strand, genome_file):
 
 	call = ['samtools', 'faidx', genome_file, locus]
-
+	# print(" ".join(call))
 	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
 	out, err = p.communicate()
 
 	if err != "":
-		sys.exit(err)
+		print(f"WARNING: {err}")
+		# sys.exit(err)
 
 	out = "".join(out.split("\n")[1:]).strip().upper()
 
@@ -824,14 +825,18 @@ class percentageClass():
 
 
 def read_loci(params):
-	from collections import namedtuple
 
 
 	results_file = f"{params['output_directory']}/tradeoff/loci.txt"
 	with open(results_file, 'r') as f:
+		header = f.readline().strip().split("\t")
+		header = [h.lower() for h in header]
+
 		for line in f:
-			print(line)
-			sys.exit()
+			line = line.strip().split("\t")
+			d = dict(zip(header, line))
+
+			yield d
 
 
 def get_global_depth(output_directory, alignment_file, force=False, aggregate_by=['rg','chrom','length']):
