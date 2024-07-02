@@ -240,6 +240,7 @@ def size_profile(**params):
 
 
 	unplaced = 1.0
+	unplaced_count = 35 - 15
 	print()
 	print("Peaks found:")
 	print("")
@@ -250,8 +251,8 @@ def size_profile(**params):
 
 	with open(alignment_file.with_suffix(".peaks.txt"), 'w') as outf:
 
-		print('peak','sizes','center','width','prop', sep='\t', file=outf)
-		print('peak','sizes','center','width','prop', sep='\t')
+		print('peak','sizes','center','width','prop', 'm_prop', sep='\t', file=outf)
+		print('peak','sizes','center','width','prop', 'm_prop', sep='\t')
 		print("==========================================")
 		for peak_i in range(max(peaks.values())+1):
 
@@ -267,6 +268,7 @@ def size_profile(**params):
 
 
 			unplaced  -= cum_prop
+			unplaced_count -= width
 
 			max_prop   = max([props[p] for p in positions])
 			center     = [sizes[p] for p in positions if props[p] == max_prop][0]
@@ -278,11 +280,11 @@ def size_profile(**params):
 				final_peaks[s] = peak_name
 
 
-			print(peak_name, ",".join(map(str,peak_sizes)), center, width, round(cum_prop, 4), sep='\t', file=outf)
-			print(peak_name, ",".join(map(str,peak_sizes)), center, width, round(cum_prop, 4), sep='\t')
+			print(peak_name, ",".join(map(str,peak_sizes)), center, width, round(cum_prop, 4), round(cum_prop/width, 4), sep='\t', file=outf)
+			print(peak_name, ",".join(map(str,peak_sizes)), center, width, round(cum_prop, 4), round(cum_prop/width, 4), sep='\t')
 
-		print("none", '-','-','-', round(unplaced,4), sep='\t', file=outf)
-		print("none", '-','-','-', round(unplaced,4), sep='\t')
+		print("none", '-','-','-', round(unplaced,4), round(unplaced/unplaced_count,4), sep='\t', file=outf)
+		print("none", '-','-','-', round(unplaced,4), round(unplaced/unplaced_count,4), sep='\t')
 
 
 
