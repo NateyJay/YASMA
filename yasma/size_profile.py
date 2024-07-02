@@ -105,7 +105,7 @@ def size_profile(**params):
 
 
 	## showing the averaging of all readgroups
-	with open(alignment_file.with_suffix(".sizes.txt"), 'w') as outf:
+	with open(alignment_file.with_suffix(".props.txt"), 'w') as outf:
 
 		print("size", end = '', file=outf)
 		for rg in bam_rgs:
@@ -226,7 +226,7 @@ def size_profile(**params):
 
 
 
-	with open(alignment_file.with_suffix(".peak_prop.txt"), 'w') as outf:
+	with open(alignment_file.with_suffix(".prop_summary.txt"), 'w') as outf:
 
 
 		print("i\tsize\tprop\tzero\tzmed\tcand\thyst\tpeak", file=outf)
@@ -248,7 +248,7 @@ def size_profile(**params):
 
 	peak_i_name = 1
 
-	with open(alignment_file.with_suffix(".prop.txt"), 'w') as outf:
+	with open(alignment_file.with_suffix(".peaks.txt"), 'w') as outf:
 
 		print('peak','sizes','center','width','prop', sep='\t', file=outf)
 		print('peak','sizes','center','width','prop', sep='\t')
