@@ -1,0 +1,5 @@
+git
+click
+click option group
+pyBigWig
+numpy
