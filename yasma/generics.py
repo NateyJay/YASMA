@@ -540,6 +540,36 @@ class inputClass():
 		for chrom in all_chroms:
 			print(is_found(chrom, genome_chromosomes), is_found(chrom, alignment_chromosomes), is_found(chrom, gene_annotation_chromosomes), chrom, sep='\t')
 
+
+	def check_paired_end(self):
+
+		if self.inputs['untrimmed_libraries']:
+			libs = self.inputs['untrimmed_libraries']
+
+			first_pairs = []
+
+			possible_basenames = set()
+
+			for lib in libs:
+				input_lib = lib
+
+				while lib.suffix:
+					lib = lib.with_suffix('')
+
+
+				if lib.stem.endswith(("_1","_2","_3")):
+
+					possible_basenames.add(lib.stem[:-2])
+
+				if lib.stem.endswith("_1"):
+					first_pairs.append(input_lib)
+
+
+			if len(libs) != len(possible_basenames):
+				# print("Likely paired ends!!!")
+				# print("Use these libraries for the first pairs")
+
+				self.inputs['untrimmed_libraries'] = first_pairs
 			
 def validate_glob_path(ctx, param, value):
 

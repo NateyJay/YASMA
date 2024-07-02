@@ -106,6 +106,8 @@ def inputs(**params):
 	ic = inputClass(params)
 	ic.check_chromosomes()
 
+	ic.check_paired_end()
+
 	print()
 	print(color.BOLD + "Inputs:" + color.END)
 	pprint(ic.inputs)
