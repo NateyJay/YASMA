@@ -236,6 +236,7 @@ def size_profile(**params):
 
 
 
+	bad_count = 0
 
 
 	unplaced = 1.0
@@ -252,10 +253,19 @@ def size_profile(**params):
 		print("==========================================")
 		for peak_i in range(max(peaks.values())+1):
 
+			peak_i -= bad_count
+
 			positions  = [k for k,v in peaks.items() if str(v) == str(peak_i)]
 			peak_sizes = [sizes[p] for p in positions]
 			cum_prop   = sum([props[p] for p in positions])
 			width      = len(peak_sizes)
+
+
+			if 15 in peak_sizes or 35 in peak_sizes:
+				bad_count += 1
+				continue
+
+
 			unplaced  -= cum_prop
 
 			max_prop   = max([props[p] for p in positions])
