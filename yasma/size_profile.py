@@ -283,8 +283,8 @@ def size_profile(**params):
 			print(peak_name, ",".join(map(str,peak_sizes)), center, width, round(cum_prop, 4), round(cum_prop/width, 4), sep='\t', file=outf)
 			print(peak_name, ",".join(map(str,peak_sizes)), center, width, round(cum_prop, 4), round(cum_prop/width, 4), sep='\t')
 
-		print("none", '-','-','-', round(unplaced,4), round(unplaced/unplaced_count,4), sep='\t', file=outf)
-		print("none", '-','-','-', round(unplaced,4), round(unplaced/unplaced_count,4), sep='\t')
+		print("none", '-','-',unplaced_count, round(unplaced,4), round(unplaced/unplaced_count,4), sep='\t', file=outf)
+		print("none", '-','-',unplaced_count, round(unplaced,4), round(unplaced/unplaced_count,4), sep='\t')
 
 
 
