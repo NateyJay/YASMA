@@ -262,7 +262,7 @@ def size_profile(**params):
 			width      = len(peak_sizes)
 
 
-			if 15 in peak_sizes or 35 in peak_sizes:
+			if 15 in peak_sizes:
 				continue
 
 
