@@ -135,8 +135,15 @@ def size_profile(**params):
 
 	non_zero_props = [p for p in props if p > 0]
 
-	sd = stdev(non_zero_props)
-	zprops = [(p - median(non_zero_props)) / sd for p in props]
+	sd  = stdev(non_zero_props)
+	med = median(non_zero_props)
+
+	print()
+	print(f"sd:  {sd}")
+	print(f"med: {med}")
+	print()
+
+	zprops = [(p - med) / sd for p in props]
 	candidates = [i[0] for i in sorted(enumerate(zprops), key=lambda x:x[1], reverse=True) if i[1] > 1]
 	hysterics  = [i[0] for i in sorted(enumerate(zprops), key=lambda x:x[1], reverse=True) if i[1] > 0.5]
 
