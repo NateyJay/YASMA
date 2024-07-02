@@ -81,8 +81,8 @@ def size_profile(**params):
 
 	
 
-	props = list()
-	prop_d = dict()
+	props = list()  ## a list of all proportions in order
+	prop_d = dict() ## a dictionary of proportions by size
 
 
 	for rg in bam_rgs:
@@ -104,7 +104,7 @@ def size_profile(**params):
 
 
 
-
+	## showing the averaging of all readgroups
 	with open(alignment_file.with_suffix(".sizes.txt"), 'w') as outf:
 
 		print("size", end = '', file=outf)
@@ -126,13 +126,17 @@ def size_profile(**params):
 			print(round(prop_d[size],4), file=outf)
 
 
+
+
 	sizes = list(range(15,36))
 	peaks = dict()
 	for r in range(len(props)):
 		peaks[r] = False
 
-	sd = stdev(props)
-	zprops = [(p - median(props)) / sd for p in props]
+	non_zero_props = [p for p in props if p > 0]
+
+	sd = stdev(non_zero_props)
+	zprops = [(p - median(non_zero_props)) / sd for p in props]
 	candidates = [i[0] for i in sorted(enumerate(zprops), key=lambda x:x[1], reverse=True) if i[1] > 1]
 	hysterics  = [i[0] for i in sorted(enumerate(zprops), key=lambda x:x[1], reverse=True) if i[1] > 0.5]
 
