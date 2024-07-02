@@ -140,6 +140,7 @@ def size_profile(**params):
 
 	print()
 	print("Basic stats:")
+	print()
 	print(f"  sd:  {round(sd,4)}")
 	print(f"  med: {round(med,4)}")
 	print()
@@ -219,7 +220,7 @@ def size_profile(**params):
 	print("Sizes in terms of peaks:")
 	print()
 	print("i\tsize\tprop\tzero\tzmed\tcand\thyst\tpeak")
-	print("=====================================================")
+	print("==========================================================")
 	for i,s in enumerate(sizes):
 		print(i, s, round(props[i],4), props[i] ==  0, round(zprops[i],4), i in candidates, i in hysterics, peaks[i], sep='\t')
 
@@ -234,17 +235,21 @@ def size_profile(**params):
 
 
 
+
+
+
 	unplaced = 1.0
 	print()
 	print("Peaks found:")
 	print("")
 
+	final_peaks = dict()
 
 	with open(alignment_file.with_suffix(".prop.txt"), 'w') as outf:
 
 		print('peak','sizes','center','width','prop', sep='\t', file=outf)
 		print('peak','sizes','center','width','prop', sep='\t')
-		print("=====================================")
+		print("==========================================")
 		for peak_i in range(max(peaks.values())+1):
 
 			positions  = [k for k,v in peaks.items() if str(v) == str(peak_i)]
@@ -256,9 +261,14 @@ def size_profile(**params):
 			max_prop   = max([props[p] for p in positions])
 			center     = [sizes[p] for p in positions if props[p] == max_prop][0]
 
+			peak_name = f"peak{peak_i}"
 
-			print(f"peak{peak_i}", ",".join(map(str,peak_sizes)), center, width, round(cum_prop, 4), sep='\t', file=outf)
-			print(f"peak{peak_i}", ",".join(map(str,peak_sizes)), center, width, round(cum_prop, 4), sep='\t')
+			for s in peak_sizes:
+				final_peaks[s] = peak_name
+
+
+			print(peak_name, ",".join(map(str,peak_sizes)), center, width, round(cum_prop, 4), sep='\t', file=outf)
+			print(peak_name, ",".join(map(str,peak_sizes)), center, width, round(cum_prop, 4), sep='\t')
 
 		print("none", '-','-','-', round(unplaced,4), sep='\t', file=outf)
 		print("none", '-','-','-', round(unplaced,4), sep='\t')
@@ -266,9 +276,42 @@ def size_profile(**params):
 
 
 
+	print()
+	print("Plot:")
+	print()
+	print("size\tprop\tzmed\tpeak\t  0    5    10   15   20   25   30   35   40")
+	print("==============================    |    |    |    |    |    |    |    |    |")
+
+	for i,s in enumerate(sizes):
+		# z = zprops[i]
+		p = props[i]
 
 
+		val = 0
 
+		bar_string = '  '
+		pch = "-"
+		while True:
+			if val > p:
+				break
+
+			z = (val - med) / sd
+
+			if z > 0.5:
+				pch = "•"
+			if z > 1:
+				pch = "*"
+
+
+			bar_string += pch
+			val += 0.01
+
+		try:
+			peak_name = final_peaks[s]
+		except KeyError:
+			peak_name = ''
+
+		print(s, round(p,3), round(zprops[i],3), peak_name, bar_string, sep='\t')
 
 
 
