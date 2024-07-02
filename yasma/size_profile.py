@@ -135,8 +135,8 @@ def size_profile(**params):
 
 	non_zero_props = [p for p in props if p > 0]
 
-	sd  = stdev(non_zero_props)
-	med = median(non_zero_props)
+	sd  = stdev(props)
+	med = median(props)
 
 	print()
 	print(f"sd:  {sd}")
