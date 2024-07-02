@@ -246,6 +246,8 @@ def size_profile(**params):
 
 	final_peaks = dict()
 
+	peak_i_name = 1
+
 	with open(alignment_file.with_suffix(".prop.txt"), 'w') as outf:
 
 		print('peak','sizes','center','width','prop', sep='\t', file=outf)
@@ -253,7 +255,6 @@ def size_profile(**params):
 		print("==========================================")
 		for peak_i in range(max(peaks.values())+1):
 
-			peak_i -= bad_count
 
 			positions  = [k for k,v in peaks.items() if str(v) == str(peak_i)]
 			peak_sizes = [sizes[p] for p in positions]
@@ -262,7 +263,6 @@ def size_profile(**params):
 
 
 			if 15 in peak_sizes or 35 in peak_sizes:
-				bad_count += 1
 				continue
 
 
@@ -271,7 +271,8 @@ def size_profile(**params):
 			max_prop   = max([props[p] for p in positions])
 			center     = [sizes[p] for p in positions if props[p] == max_prop][0]
 
-			peak_name = f"peak{peak_i}"
+			peak_name = f"peak{peak_i_name}"
+			peak_i_name += 1
 
 			for s in peak_sizes:
 				final_peaks[s] = peak_name
