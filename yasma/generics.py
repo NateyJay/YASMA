@@ -250,6 +250,9 @@ class inputClass():
 				pass
 
 		self.parse(params)
+
+		self.check_paired_end()
+
 		self.write()
 	
 
@@ -267,6 +270,7 @@ class inputClass():
 		with open(self.file, 'w') as outf:
 			outf.write(json.dumps(self.inputs, indent=2))
 		self.decode_inputs()
+
 
 
 	def encode_inputs(self):
