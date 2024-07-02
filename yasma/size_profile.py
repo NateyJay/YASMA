@@ -139,10 +139,11 @@ def size_profile(**params):
 	med = median(non_zero_props)
 
 	print()
-	print(f"sd:  {round(sd,4)}")
-	print(f"med: {round(med,4)}")
+	print("Basic stats:")
+	print(f"  sd:  {round(sd,4)}")
+	print(f"  med: {round(med,4)}")
 	print()
-	print(f"zmed = (p - {round(med,4)}) / {round(sd,4)}")
+	print(f"  zmed = (p - {round(med,4)}) / {round(sd,4)}")
 	print()
 
 	zprops = [(p - med) / sd for p in props]
@@ -155,6 +156,10 @@ def size_profile(**params):
 
 	change_threshold = -50
 	max_threshold = 50
+
+	print()
+	print("Peak finding log:")
+	print()
 
 	peak_i = -1
 	for c in candidates:
@@ -211,10 +216,12 @@ def size_profile(**params):
 
 
 	print()
-	print("i\tsize\tprop\tzmed\tcand\thyst\tpeak")
+	print("Sizes in terms of peaks:")
+	print()
+	print("i\tsize\tprop\tzero\tzmed\tcand\thyst\tpeak")
 	print("=====================================================")
 	for i,s in enumerate(sizes):
-		print(i, s, round(props[i],4), props[i] >=  0, round(zprops[i],4), i in candidates, i in hysterics, peaks[i], sep='\t')
+		print(i, s, round(props[i],4), props[i] ==  0, round(zprops[i],4), i in candidates, i in hysterics, peaks[i], sep='\t')
 
 
 
@@ -223,13 +230,13 @@ def size_profile(**params):
 
 		print("i\tsize\tprop\tzero\tzmed\tcand\thyst\tpeak", file=outf)
 		for i,s in enumerate(sizes):
-			print(i, s, round(props[i],4), props[i] >=  0, round(zprops[i],4), i in candidates, i in hysterics, peaks[i], sep='\t', file=outf)
+			print(i, s, round(props[i],4), props[i] ==  0, round(zprops[i],4), i in candidates, i in hysterics, peaks[i], sep='\t', file=outf)
 
 
 
 	unplaced = 1.0
 	print()
-	print()
+	print("Peaks found:")
 	print("")
 
 
