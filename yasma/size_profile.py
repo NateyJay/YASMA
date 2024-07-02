@@ -135,8 +135,8 @@ def size_profile(**params):
 
 	non_zero_props = [p for p in props if p > 0]
 
-	sd  = stdev(props)
-	med = median(props)
+	sd  = stdev(non_zero_props)
+	med = median(non_zero_props)
 
 	print()
 	print(f"sd:  {sd}")
@@ -219,9 +219,9 @@ def size_profile(**params):
 	with open(alignment_file.with_suffix(".peak_prop.txt"), 'w') as outf:
 
 
-		print("i\tsize\tprop\tzmed\tcand\thyst\tpeak", file=outf)
+		print("i\tsize\tprop\tzero\tzmed\tcand\thyst\tpeak", file=outf)
 		for i,s in enumerate(sizes):
-			print(i, s, round(props[i],4), round(zprops[i],4), i in candidates, i in hysterics, peaks[i], sep='\t', file=outf)
+			print(i, s, round(props[i],4), props[i] ==  0, round(zprops[i],4), i in candidates, i in hysterics, peaks[i], sep='\t', file=outf)
 
 
 
