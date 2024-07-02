@@ -133,14 +133,16 @@ def size_profile(**params):
 	for r in range(len(props)):
 		peaks[r] = False
 
-	non_zero_props = [p for p in props if p >= 0.0001]
+	non_zero_props = [p for p in props if p >= 0]
 
 	sd  = stdev(non_zero_props)
 	med = median(non_zero_props)
 
 	print()
-	print(f"sd:  {sd}")
-	print(f"med: {med}")
+	print(f"sd:  {round(sd,4)}")
+	print(f"med: {round(med,4)}")
+	print()
+	print(f"zmed = (p - {round(med,4)}) / {round(sd,4)}")
 	print()
 
 	zprops = [(p - med) / sd for p in props]
@@ -212,7 +214,7 @@ def size_profile(**params):
 	print("i\tsize\tprop\tzmed\tcand\thyst\tpeak")
 	print("=====================================================")
 	for i,s in enumerate(sizes):
-		print(i, s, round(props[i],4), props[i] >=  0.0001, round(zprops[i],4), i in candidates, i in hysterics, peaks[i], sep='\t')
+		print(i, s, round(props[i],4), props[i] >=  0, round(zprops[i],4), i in candidates, i in hysterics, peaks[i], sep='\t')
 
 
 
@@ -221,7 +223,7 @@ def size_profile(**params):
 
 		print("i\tsize\tprop\tzero\tzmed\tcand\thyst\tpeak", file=outf)
 		for i,s in enumerate(sizes):
-			print(i, s, round(props[i],4), props[i] >=  0.0001, round(zprops[i],4), i in candidates, i in hysterics, peaks[i], sep='\t', file=outf)
+			print(i, s, round(props[i],4), props[i] >=  0, round(zprops[i],4), i in candidates, i in hysterics, peaks[i], sep='\t', file=outf)
 
 
 
