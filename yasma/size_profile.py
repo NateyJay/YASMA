@@ -27,6 +27,46 @@ from tqdm import tqdm
 
 
 
+class peakClass():
+	def __init__(self, alignment_file, min_size=15, max_size=35):
+
+		self.alignment_file = alignment_file
+		self.min_size       = min_size
+		self.max_size       = max_size
+
+
+		self.calc_proportions()
+
+	def calc_proportions():
+
+
+
+	chromosomes, bam_rgs = get_chromosomes(alignment_file)
+	rg_size_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','length'])
+	rg_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg'])
+
+	props = list()  ## a list of all proportions in order
+	prop_d = dict() ## a dictionary of proportions by size
+
+
+	for rg in bam_rgs:
+		for i,size in enumerate(range(15, 36)):
+			count = rg_size_c[(rg, str(size))]
+			prop  = count / rg_c[rg]
+			# print(rg, size, count, prop, sep='\t')
+
+			try:
+				prop_d[size] += prop / len(rg_c)
+			except KeyError:
+				prop_d[size] = prop / len(rg_c)
+
+			try:
+				props[i] += prop / len(rg_c)
+			except IndexError:
+				props.append(prop / len(rg_c))
+
+
+
 @cli.command(group='Utilities', help_priority=5)
 
 
@@ -254,7 +294,7 @@ def size_profile(**params):
 		print('peak','sizes','center','width','prop', 'm_prop', sep='\t', file=outf)
 		print('peak','sizes','center','width','prop', 'm_prop', sep='\t')
 		print("==========================================")
-		for peak_i in range(max(peaks.values())+1):
+		for peak_i in range(1,max(peaks.values())+2):
 
 
 			positions  = [k for k,v in peaks.items() if str(v) == str(peak_i)]
