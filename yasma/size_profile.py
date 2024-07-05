@@ -162,7 +162,7 @@ def size_profile(**params):
 	print("Peak finding log:")
 	print()
 
-	peak_i = -1
+	peak_i = 0
 	for c in candidates:
 
 
