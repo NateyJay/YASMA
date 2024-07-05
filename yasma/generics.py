@@ -873,7 +873,7 @@ def read_loci(params):
 			yield d
 
 
-def get_global_depth(output_directory, alignment_file, force=False, aggregate_by=['rg','chrom','length']):
+def get_global_depth(alignment_file, force=False, aggregate_by=['rg','chrom','length']):
 
 	depth_file = alignment_file.with_suffix(".depth.txt")
 

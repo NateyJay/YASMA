@@ -1436,7 +1436,7 @@ def tradeoff(**params):
 
 	# chromosomes = [c for c in chromosomes if c[0] == 'NC_037320.1']
 
-	chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
+	chrom_depth_c = get_global_depth(alignment_file, aggregate_by=['rg','chrom'])
 
 	keys = list(chrom_depth_c.keys())
 	for key in keys:
@@ -1457,7 +1457,7 @@ def tradeoff(**params):
 	if params['subsample']:
 
 		alignment_file = subsample(aligned_read_count, alignment_file, params)
-		chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
+		chrom_depth_c = get_global_depth(alignment_file, aggregate_by=['rg','chrom'])
 		aligned_read_count = sum(chrom_depth_c.values())
 
 
