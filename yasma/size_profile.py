@@ -393,7 +393,7 @@ def size_profile(**params):
 	output_directory        = ic.output_directory
 
 
-	pprint(ic)
+	pprint(ic.inputs)
 	sys.exit()
 
 	pc = peakClass(ic.inputs['project_name'], alignment_file)
