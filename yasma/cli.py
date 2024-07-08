@@ -100,14 +100,10 @@ class customClickClass(click.Group):
 				else:
 					new_args.append(arg)
 
-		# print(new_args)
-
-		# args = ['test-function', '-l', 'SRR3222443_trimmed.fastq SRR3222444_trimmed.fastq']
-
-
 		return super(customClickClass, self).parse_args(ctx, new_args)
 
-	
+
+
 
 
 @click.group(cls=customClickClass)
