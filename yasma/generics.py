@@ -251,8 +251,6 @@ class inputClass():
 
 		self.parse(params)
 
-		pprint(params)
-		sys.exit()
 
 		self.check_paired_end()
 
