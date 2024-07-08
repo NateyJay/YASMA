@@ -251,18 +251,11 @@ class inputClass():
 				print("DECODER ERROR!")
 				pass
 
+		self.inputs['project_name'] = self.output_directory.name
 
-		print(self.inputs['project_name'])
 		self.parse(params)
-		print(self.inputs['project_name'])
-
 		self.check_paired_end()
-		print(self.inputs['project_name'])
-
-
 		self.write()
-		print(self.inputs['project_name'])
-		sys.exit()
 	
 
 
