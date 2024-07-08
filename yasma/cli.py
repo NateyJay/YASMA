@@ -83,6 +83,7 @@ class customClickClass(click.Group):
 		last_is_glob = False
 		new_args = []
 		for arg in args:
+			print(arg)
 
 			if arg.startswith("-"):
 				new_args.append(arg)
