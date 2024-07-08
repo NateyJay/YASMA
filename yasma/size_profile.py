@@ -210,7 +210,7 @@ class peakClass():
 			print(i, s, round(props[i],4), props[i] ==  0, round(zprops[i],4), i in candidates, i in extensions, peaks[i], sep='\t')
 
 			if out_file:
-				print(project, i, s, round(props[i],4), props[i] ==  0, round(zprops[i],4), i in candidates, i in extensions, peaks[i], sep='\t', file=outf)
+				print(self.project, i, s, round(props[i],4), props[i] ==  0, round(zprops[i],4), i in candidates, i in extensions, peaks[i], sep='\t', file=outf)
 
 
 		if out_file:
@@ -252,7 +252,7 @@ class peakClass():
 		print('peak','sizes','center','width','prop', 'avg_prop', sep='\t')
 
 		if out_file:
-			print('peak','sizes','center','width','prop', 'avg_prop', sep='\t', file=outf)
+			print('project','peak','sizes','center','width','prop', 'avg_prop', sep='\t', file=outf)
 
 		print("==========================================")
 		for peak_i in range(1, max_peak+1):
