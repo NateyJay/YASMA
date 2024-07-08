@@ -28,13 +28,15 @@ from tqdm import tqdm
 
 
 class peakClass():
-	def __init__(self, 
+	def __init__(self,
+		project, 
 		alignment_file, 
 		min_size=15, 
 		max_size=35, 
 		candidate_threshold=1.0, 
 		extension_threshold=0.5):
 
+		self.project             = project
 		self.alignment_file      = alignment_file
 		self.sizes               = list(range(min_size,max_size))
 		self.candidate_threshold = candidate_threshold
@@ -188,8 +190,15 @@ class peakClass():
 		candidates = [i for i,c in enumerate(self.master['candidate']) if c] 
 		extensions = [i for i,e in enumerate(self.master['candidate']) if e] 
 
-		header = "i\tsize\tprop\tzero\tzmed\tcand\thyst\tpeak" 
-		rows   = []
+
+
+		print("i\tsize\tprop\tzero\tzmed\tcand\thyst\tpeak")
+
+
+		if out_file:
+			outf = open(out_file, 'w')
+			print("project\ti\tsize\tprop\tzero\tzmed\tcand\thyst\tpeak",file=outf)
+
 
 		print()
 		print("Sizes in terms of peaks:")
@@ -198,12 +207,14 @@ class peakClass():
 		print("============================================================")
 		for i,s in enumerate(self.sizes):
 
-			row = [i, s, round(props[i],4), props[i] ==  0, round(zprops[i],4), i in candidates, i in extensions, peaks[i]]
-			row = [str(r) for r in row]
-			print("\t".join(row))
-			rows.append(row)
+			print(i, s, round(props[i],4), props[i] ==  0, round(zprops[i],4), i in candidates, i in extensions, peaks[i], sep='\t')
 
-		return(header, rows)
+			if out_file:
+				print(project, i, s, round(props[i],4), props[i] ==  0, round(zprops[i],4), i in candidates, i in extensions, peaks[i], sep='\t', file=outf)
+
+
+		if out_file:
+			outf.close()
 
 
 		# with open(alignment_file.with_suffix(".prop_summary.txt"), 'w') as outf:
@@ -213,7 +224,7 @@ class peakClass():
 		# 	for i,s in enumerate(sizes):
 		# 		print(i, s, round(props[i],4), props[i] ==  0, round(zprops[i],4), i in candidates, i in extensions, peaks[i], sep='\t', file=outf)
 
-	def summarize_peaks(self):
+	def summarize_peaks(self, out_file=None):
 
 		sizes  = self.sizes
 		props  = self.master['prop']
@@ -234,12 +245,15 @@ class peakClass():
 
 		peak_i_name = 1
 
-		# with open(alignment_file.with_suffix(".peaks.txt"), 'w') as outf:
-		rows = []
+		if out_file:
+			outf = open(out_file, 'w')
 
 		# print('peak','sizes','center','width','prop', 'm_prop', sep='\t', file=outf)
-		header = '\t'.join(['peak','sizes','center','width','prop', 'avg_prop'])
-		print(header)
+		print('peak','sizes','center','width','prop', 'avg_prop', sep='\t')
+
+		if out_file:
+			print('peak','sizes','center','width','prop', 'avg_prop', sep='\t', file=outf)
+
 		print("==========================================")
 		for peak_i in range(1, max_peak+1):
 
@@ -265,18 +279,18 @@ class peakClass():
 
 			# print(peak_name, ",".join(map(str,peak_sizes)), center, width, round(cum_prop, 4), round(cum_prop/width, 4), sep='\t', file=outf)
 
-			row = peak_name, ",".join(map(str,peak_sizes)), center, width, round(cum_prop, 4), round(cum_prop/width, 4)
-			row = [str(r) for r in row]
-			print("\t".join(row))
-			rows.append(row)
+			print(peak_name, ",".join(map(str,peak_sizes)), center, width, round(cum_prop, 4), round(cum_prop/width, 4), sep='\t')
+			if out_file:
+				print(self.project, peak_name, ",".join(map(str,peak_sizes)), center, width, round(cum_prop, 4), round(cum_prop/width, 4), sep='\t', file=outf)
+
 
 		# print("none", '-','-',unplaced_count, round(unplaced,4), round(unplaced/unplaced_count,4), sep='\t', file=outf)
-		row = ["none", '-','-',unplaced_count, round(unplaced,4), round(unplaced/unplaced_count,4)]
-		row = [str(r) for r in row]
-		print("\t".join(row))
-		rows.append(row)
+		print("none", '-','-',unplaced_count, round(unplaced,4), round(unplaced/unplaced_count,4), sep='\t')
 
-		return(header, rows)
+		if (out_file):
+			print(self.project, "none", '-','-',unplaced_count, round(unplaced,4), round(unplaced/unplaced_count,4), sep='\t', file=outf)
+			outf.close()
+
 
 	def plot_proportions(self, out_file = None):
 
@@ -375,34 +389,14 @@ def size_profile(**params):
 
 	ic = inputClass(params)
 
-	pprint(params)
-
-
 	output_directory        = ic.output_directory
-	alignment_file          = ic.inputs['alignment_file']
 
-	# force = params['force']
-
-
-
-	pc = peakClass(alignment_file)
+	pc = peakClass(inputs['project_name'], inputs['alignment_file'])
 
 
 
-	header, rows  = pc.peak_table()
-	with open(alignment_file.with_suffix(".peak_table.txt"), 'w') as outf:
-		print(header, file=outf)
-		for r in rows:
-			print("\t".join(r), file=outf)
-
-
-
-	header, rows = pc.summarize_peaks()
-	with open(alignment_file.with_suffix(".peak_summary.txt"), 'w') as outf:
-		print(header, file=outf)
-		for r in rows:
-			print("\t".join(r), file=outf)
-
+	pc.peak_table(alignment_file.with_suffix(".peak_table.txt"))
+	pc.summarize_peaks(alignment_file.with_suffix(".peak_summary.txt"))
 	pc.plot_proportions(alignment_file.with_suffix(".peak_plot.txt"))
 
 
