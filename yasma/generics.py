@@ -209,8 +209,11 @@ class inputClass():
 			self.output_directory.mkdir(parents=True, exist_ok=True)
 
 
-		project_name = self.output_directory.name
+		pprint(params)
 
+		project_name = self.output_directory.name
+		print(project_name)
+		sys.exit()
 
 		self.file = Path(output_directory, "inputs.json")
 
