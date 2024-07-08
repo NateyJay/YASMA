@@ -211,10 +211,11 @@ class inputClass():
 
 		project_name = self.output_directory.name
 
+
 		self.file = Path(output_directory, "inputs.json")
 
 
-		self.inputs = {'project_name' : output_directory}
+		self.inputs = {'project_name' : project_name}
 
 
 		self.input_list = [
