@@ -192,7 +192,7 @@ class peakClass():
 
 
 
-		print("i\tsize\tprop\tzero\tzmed\tcand\thyst\tpeak")
+		
 
 
 		if out_file:
@@ -203,7 +203,7 @@ class peakClass():
 		print()
 		print("Sizes in terms of peaks:")
 		print()
-		print(header)
+		print("i\tsize\tprop\tzero\tzmed\tcand\thyst\tpeak")
 		print("============================================================")
 		for i,s in enumerate(self.sizes):
 
