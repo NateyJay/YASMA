@@ -242,7 +242,6 @@ class inputClass():
 		for i in self.input_list:
 			self.inputs[i] = None
 
-		print(self.inputs['project_name'])
 
 
 		if isfile(self.file):
@@ -253,6 +252,7 @@ class inputClass():
 				pass
 
 
+		print(self.inputs['project_name'])
 		self.parse(params)
 		print(self.inputs['project_name'])
 
