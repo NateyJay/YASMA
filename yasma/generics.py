@@ -253,11 +253,9 @@ class inputClass():
 
 		print("params:")
 		pprint(params)
-		print("inputs:")
-		pprint(self.inputs)
-		sys.exit()
-
 		self.check_paired_end()
+
+		sys.exit()
 
 
 
