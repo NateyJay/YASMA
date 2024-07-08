@@ -209,11 +209,8 @@ class inputClass():
 			self.output_directory.mkdir(parents=True, exist_ok=True)
 
 
-		pprint(params)
 
 		project_name = self.output_directory.name
-		print(project_name)
-		sys.exit()
 
 		self.file = Path(output_directory, "inputs.json")
 
@@ -254,10 +251,15 @@ class inputClass():
 				pass
 
 		self.parse(params)
+		pprint(self.inputs)
 
 		self.check_paired_end()
+		pprint(self.inputs)
+
 
 		self.write()
+		pprint(self.inputs)
+		sys.exit()
 	
 
 
