@@ -253,9 +253,6 @@ class inputClass():
 
 		self.check_paired_end()
 
-
-
-
 		self.write()
 	
 
