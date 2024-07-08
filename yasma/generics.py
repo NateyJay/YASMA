@@ -251,11 +251,8 @@ class inputClass():
 
 		self.parse(params)
 
-		print("params:")
-		pprint(params)
 		self.check_paired_end()
 
-		sys.exit()
 
 
 
@@ -552,9 +549,6 @@ class inputClass():
 
 
 	def check_paired_end(self):
-		print("check_paired_end input:")
-		pprint(self.inputs['untrimmed_libraries'])
-
 		if self.inputs['untrimmed_libraries']:
 			libs = self.inputs['untrimmed_libraries']
 
@@ -573,7 +567,9 @@ class inputClass():
 
 					possible_basenames.add(lib.stem[:-2])
 
-				if lib.stem.endswith("_1"):
+					if lib.stem.endswith("_1"):
+						first_pairs.append(input_lib)
+				else:
 					first_pairs.append(input_lib)
 
 
@@ -583,7 +579,6 @@ class inputClass():
 
 				self.inputs['untrimmed_libraries'] = first_pairs
 
-		pprint(self.inputs)
 			
 def validate_glob_path(ctx, param, value):
 
