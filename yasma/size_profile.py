@@ -391,7 +391,7 @@ def size_profile(**params):
 
 	output_directory        = ic.output_directory
 
-	pc = peakClass(inputs['project_name'], inputs['alignment_file'])
+	pc = peakClass(ic.inputs['project_name'], ic.inputs['alignment_file'])
 
 
 
