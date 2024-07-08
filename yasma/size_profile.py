@@ -278,17 +278,23 @@ class peakClass():
 
 		return(header, rows)
 
-	def plot_proportions(self):
+	def plot_proportions(self, out_file = None):
 
 		sizes  = self.sizes
 		props  = self.master['prop']
 		zprops = self.master['zprop']
+
+		if out_file:
+			outf = open(out_file, 'w')
 
 		print()
 		print("Plot:")
 		print()
 		print("size\tprop\tzmed\tpeak\t  0    5    10   15   20   25   30   35   40")
 		print("==============================    |    |    |    |    |    |    |    |    |")
+
+		print("size\tprop\tzmed\tpeak\t  0    5    10   15   20   25   30   35   40", file=outf)
+		print("==============================    |    |    |    |    |    |    |    |    |", file=outf)
 
 		for i,s in enumerate(sizes):
 			# z = zprops[i]
@@ -321,7 +327,12 @@ class peakClass():
 				peak_name = ''
 
 			print(s, round(p,3), round(zprops[i],3), peak_name, bar_string, sep='\t')
+			print(s, round(p,3), round(zprops[i],3), peak_name, bar_string, sep='\t', file=outf)
 
+
+
+		if out_file:
+			outf.close()
 
 
 
@@ -392,7 +403,7 @@ def size_profile(**params):
 		for r in rows:
 			print("\t".join(r), file=outf)
 
-	pc.plot_proportions()
+	pc.plot_proportions(alignment_file.with_suffix(".peak_plot.txt"))
 
 
 
