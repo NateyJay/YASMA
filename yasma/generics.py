@@ -554,6 +554,8 @@ class inputClass():
 
 
 	def check_paired_end(self):
+		print("check_paired_end input:")
+		pprint(self.inputs['untrimmed_libraries'])
 
 		if self.inputs['untrimmed_libraries']:
 			libs = self.inputs['untrimmed_libraries']
@@ -582,6 +584,8 @@ class inputClass():
 				# print("Use these libraries for the first pairs")
 
 				self.inputs['untrimmed_libraries'] = first_pairs
+
+		pprint(self.inputs)
 			
 def validate_glob_path(ctx, param, value):
 
