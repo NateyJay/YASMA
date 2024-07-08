@@ -242,6 +242,8 @@ class inputClass():
 		for i in self.input_list:
 			self.inputs[i] = None
 
+		print(self.inputs['project_name'])
+
 
 		if isfile(self.file):
 			try:
@@ -250,15 +252,16 @@ class inputClass():
 				print("DECODER ERROR!")
 				pass
 
+
 		self.parse(params)
-		pprint(self.inputs)
+		print(self.inputs['project_name'])
 
 		self.check_paired_end()
-		pprint(self.inputs)
+		print(self.inputs['project_name'])
 
 
 		self.write()
-		pprint(self.inputs)
+		print(self.inputs['project_name'])
 		sys.exit()
 	
 
