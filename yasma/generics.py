@@ -713,6 +713,13 @@ def abundance_to_rgb(abd):
 	return(rgb)
 
 
+
+def write_over_terminal_lines(n):
+	for r in range(n):
+		sys.stdout.write("\x1b[1A\x1b[2K", terminal_only = True)
+
+
+
 class percentageClass():
 	'''used to make percent timers on known iterations'''
 
@@ -776,7 +783,7 @@ def read_loci(params):
 			yield d
 
 def make_depth_file(alignment_file, verbose=True):
-	
+
 	header = ['rg','chrom','length','abundance']
 	depth_file = alignment_file.with_suffix(".depth.txt")
 	try:
