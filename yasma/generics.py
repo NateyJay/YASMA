@@ -278,7 +278,7 @@ class inputClass():
 	def encode_inputs(self):
 
 		od = self.output_directory
-		print("OD:", od)
+		# print("OD:", od)
 
 		def encode_path(path):
 
@@ -756,110 +756,9 @@ class percentageClass():
 
 
 
-# def get_window_depths(alignment_file, chromosome, window_length):
-# 	i = 0
-# 	window = deque()
-# 	d_out = []
-
-# 	sam_iter = samtools_view(alignment_file, locus=chromosome)
-
-# 	read = next(sam_iter)
-
-# 	while True:
-
-# 		_, length, _, pos, chromosome, _, _, _ = read
-
-# 		if pos > i:
-# 			i += 1
-
-# 			try:
-# 				d = window.popleft()
-# 			except IndexError:
-# 				d = 0
-
-# 			d_out.append(d)
 
 
-# 		elif pos == i:
 
-# 			for r in range(length + window_length):
-
-# 				try:
-# 					window[r] += 1
-# 				except IndexError:
-# 					window.append(1)
-
-# 			try:
-# 				read = next(sam_iter)
-# 			except StopIteration:
-# 				return(d_out)
-# 			# if i > 1000000:
-# 			# 	return(d_out)
-# 		elif pos < i:
-# 			print(pos, i)
-# 			sys.exit("this shouldn't happen")
-
-
-# def get_lambda(alignment_file, chromosomes, window_length, output_directory):
-
-# 	lambda_file = f"./{output_directory}/Lambdas.txt"
-# 	lambda_d = {}
-
-
-# 	if isfile(lambda_file):
-# 		with open(lambda_file, 'r') as f:
-# 			for line in f:
-# 				c,m = line.strip().split('\t')
-# 				m = float(m)
-# 				lambda_d[c] = m
-
-# 	else:
-# 		window_d = {}
-
-
-# 		for c, l in chromosomes:
-
-# 			window_d[c] = get_window_depths(alignment_file, c, window_length)
-
-
-# 			with open(f"./{output_directory}/{c}.dist.txt", 'w') as outf:
-# 				for d in window_d[c]:
-# 					print(d, file=outf)
-
-
-# 		print('\n')
-# 		print('chrom','median','mean', sep='\t')
-# 		for c,l in chromosomes:
-
-# 			window_d[c] = sample(window_d[c],10000)
-
-# 			print(c, median(window_d[c]), round(mean(window_d[c]),4), sep='\t')
-			
-# 			lambda_d[c] = mean(window_d[c])
-
-
-# 		with open(lambda_file, 'w') as outf:
-# 			for c,m in lambda_d.items():
-# 				print(c,m, sep='\t', file=outf)
-
-
-# 	return(lambda_d)
-
-
-	# for i,line in enumerate(p.stdout):
-
-	# 	if i % 1000000 == 0:
-	# 		print(".", end='', flush=True)
-	# 	if i % 10000000 == 0 and i > 0:
-	# 		print(" ", end='', flush=True)
-
-	# 	line = line.strip().split("\t")
-	# 	print(line)
-
-	# 	flag = line[1]
-	# 	chrom = line[2]
-	# 	pos = int(line[3])
-	# 	length = int(line[5].rstrip("M"))
 
 
 def read_loci(params):
@@ -876,63 +775,70 @@ def read_loci(params):
 
 			yield d
 
-
-def get_global_depth(alignment_file, force=False, aggregate_by=['rg','chrom','length']):
-
-	depth_file = alignment_file.with_suffix(".depth.txt")
-
+def make_depth_file(alignment_file, verbose=True):
+	
 	header = ['rg','chrom','length','abundance']
+	depth_file = alignment_file.with_suffix(".depth.txt")
+	try:
+		os.remove(str(alignment_file) + ".bai")
+	except FileNotFoundError:
+		pass
 
+	c = Counter()
 
-	if not isfile(depth_file) or stat(depth_file).st_size < 50 or force:
-		# call = ['samtools', 'view', '-F', '4', str(alignment_file)]
-		# print(" ".join(call))
-		c = Counter()
-
-		# p = Popen(call, stdout=PIPE, encoding=ENCODING)
-
+	if verbose:
 		print(f"  {depth_file} not found.")
 		print("Reading alignment to find global depth dimensions...")
 		print('  "." = 1M reads')
 
-		rgs     = set()
-		chroms  = set()
-		lengths = set()
+	rgs     = set()
+	chroms  = set()
+	lengths = set()
 
 
 
-		for i, sam_out in enumerate(samtools_view(alignment_file)):
-		# for i,line in enumerate(p.stdout):
-			if (i+1) % 1000000 == 0:
-				print(".", end='', flush=True)
-				if (i+1) % 10000000 == 0:
-					print(" ", end='', flush=True)
-					if (i+1) % 100000000 == 0:
-						print("\n", end='', flush=True)
+	for i, sam_out in enumerate(samtools_view(alignment_file)):
+	# for i,line in enumerate(p.stdout):
+		if (i+1) % 1000000 == 0:
+			print(".", end='', flush=True)
+			if (i+1) % 10000000 == 0:
+				print(" ", end='', flush=True)
+				if (i+1) % 100000000 == 0:
+					print("\n", end='', flush=True)
 
-			# line = line.strip().split("\t")
+		# line = line.strip().split("\t")
 
-			# rg     = line[18][5:]
-			# length = int(line[5][:-1])
-			# chrom  = line[2]
-			_, length, _, _, chrom, rg, _, _ = sam_out
+		# rg     = line[18][5:]
+		# length = int(line[5][:-1])
+		# chrom  = line[2]
+		_, length, _, _, chrom, rg, _, _ = sam_out
 
-			key = (rg,length,chrom)
+		key = (rg,length,chrom)
 
-			rgs.add(rg)
-			lengths.add(length)
-			chroms.add(chrom)
+		rgs.add(rg)
+		lengths.add(length)
+		chroms.add(chrom)
 
-			c[key] += 1
+		c[key] += 1
 
-		print()
-		# print(c.keys())
-		with open(depth_file, 'w') as outf:
-			print("\t".join(header), file=outf)
-			for rg in rgs:
-				for chrom in chroms:
-					for length in lengths:
-						print(rg, chrom, length, c[(rg,length, chrom)], sep='\t', file=outf)
+	# print(c.keys())
+	with open(depth_file, 'w') as outf:
+		print("\t".join(header), file=outf)
+		for rg in rgs:
+			for chrom in chroms:
+				for length in lengths:
+					print(rg, chrom, length, c[(rg,length, chrom)], sep='\t', file=outf)
+
+def get_global_depth(alignment_file, force=False, aggregate_by=['rg','chrom','length']):
+
+	header = ['rg','chrom','length','abundance']
+	depth_file = alignment_file.with_suffix(".depth.txt")
+
+
+
+	if not isfile(depth_file) or stat(depth_file).st_size < 50 or force:
+		make_depth_file(alignment_file)
+		
 
 	out_c = Counter()
 
@@ -1586,9 +1492,10 @@ class Logger(object):
 	def clear_ansi(self, message):
 		return(message.replace("\033[1m", "").replace("\033[0m",""))
 
-	def write(self, message):
+	def write(self, message, terminal_only=False):
 		self.terminal.write(message)
-		self.log.write(self.clear_ansi(message))
+		if not terminal_only:
+			self.log.write(self.clear_ansi(message))
 
 	def flush(self):
 		self.terminal.flush()

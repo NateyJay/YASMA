@@ -443,7 +443,7 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 	# ec = elapsedClass()
 	iterables = []
 	for c,l in chromosomes:
-		iterables.append(samtools_view(bam, rgs=rgs, contig=c, read_minmax=(params['min_read_length'], params['max_read_length'])))
+		iterables.append(samtools_view(bam, rgs=rgs, contig=c))#, read_minmax=(params['min_read_length'], params['max_read_length'])))
 
 	reads = chain.from_iterable(iterables)
 
@@ -2092,7 +2092,7 @@ def tradeoff(**params):
 
 
 
-		for read in samtools_view(alignment_file, contig=chrom, rgs=annotation_readgroups, read_minmax=read_minmax):
+		for read in samtools_view(alignment_file, contig=chrom, rgs=annotation_readgroups):#, read_minmax=read_minmax):
 
 			## Breaks for the final region
 			if not considered_regions:
