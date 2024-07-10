@@ -247,9 +247,7 @@ def nativealign(**params):
 					'''
 
 		if read_i > 1:
-
-			for r in range(len(to_print.split("\n"))-1):
-				sys.stdout.write("\x1b[1A\x1b[2K", terminal_only = True)
+			write_over_terminal_lines(len(to_print.split("\n"))-1)
 
 
 		sys.stdout.write(to_print + '\r', terminal_only = terminal_only)
@@ -300,21 +298,17 @@ def nativealign(**params):
 
 
 				if a.flag == 4:
+					## non-mappers and excluded
 
-					if a.has_tag("XM"):
-						a.set_tag("XY","H","Z")
-					else:
+					if a.get_tag("XM") == 0:
 						a.set_tag("XY","N","Z")
+					else:
+						a.set_tag("XY","H","Z")
 
 					a.set_tag("XZ",0.0,'f')
 
 				else:
 					alignment_count = a.get_tag("XM")-1
-
-					# loc  = int(line[3])
-					# size = int(line[5][:-1])
-
-					# XM   = int(line[14].split(":")[-1])
 
 
 					if alignment_count == 1:
@@ -415,7 +409,7 @@ def nativealign(**params):
 
 
 	print()
-	print("Writing table of abundance by rg + ref + strand + length...")
+	print("Writing table of abundance by library + reference + strand + length...")
 	make_depth_file(sorted_bam, verbose=False)
 
 
