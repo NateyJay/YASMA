@@ -13,6 +13,7 @@ from .size_profile import *
 from .shortstack3 import *
 from .shortstack4 import *
 from .subsample import *
+from .nativealign import *
 
 
 ## Functionality to add:
