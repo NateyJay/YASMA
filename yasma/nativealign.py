@@ -317,19 +317,31 @@ def nativealign(**params):
 
 					else:
 
-						alns = [a]
-						weight  = unique_d[a.reference_name][a.query_alignment_start + round(a.query_length/2)]
+						weight  = max([unique_d[a.reference_name][a.query_alignment_start], unique_d[a.reference_name][a.query_alignment_end]])
 
 						weights = [weight]
 
 						# alns.append((ref, loc))
 
-						for r in range(alignment_count - 1):
-							a = a.fromstring(p.stdout.readline().strip(), bamfile.header)
+						for r in range(alignment_count):
+							if r == 0:
+								alns = [a]
+								weights = []
 
-							alns.append(a)
-							weight  = unique_d[a.reference_name][a.query_alignment_start + round(a.query_length/2)]
+							else:
+								line = p.stdout.readline().strip()
+								a = a.fromstring(line, bamfile.header)
+								try:
+									unique_d[a.reference_name]
+								except KeyError:
+									print(line)
+									print(a)
+									print(a.reference_name)
+									sys.exit("WEIRD ERROR CAPTURE - report to nate please!!!")
+								alns.append(a)
 
+
+							weight = max([unique_d[a.reference_name][a.query_alignment_start], unique_d[a.reference_name][a.query_alignment_end]])
 							weights.append(weight)
 							# alns.append((new_ref, new_loc))
 
@@ -415,6 +427,7 @@ def nativealign(**params):
 
 	ic.inputs['alignment_file'] = sorted_bam.absolute()
 	ic.write()
+	print()
 			# input()
 
 
