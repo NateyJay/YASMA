@@ -42,7 +42,7 @@ def get_log_details(output_directory):
 	# Create and open the "01out-srr_alignments.txt" file
 	srr_table = f"{output_directory}/align/library_stats.txt"
 	srrf = open(srr_table, 'w')
-	print("project\tsrr\tunique\tmulti\tnon", file=srrf)
+	print("project\tlibrary\tunique\tmulti\tnon", file=srrf)
 
 
 
@@ -61,7 +61,7 @@ def get_log_details(output_directory):
 			# print("->", line.strip())
 			if "Completed. Results" in line:
 
-				srr = line.split('/temp/')[-1].split('_readsorted.sam.gz')[0]
+				srr = line.split('/')[-1].split('_readsorted.sam.gz')[0]
 				# f.readline()
 				# f.readline()
 				unique = f.readline().split()[2]
