@@ -714,10 +714,6 @@ def abundance_to_rgb(abd):
 
 
 
-def write_over_terminal_lines(n):
-	for r in range(n):
-		sys.stdout.write("\x1b[1A\x1b[2K", terminal_only = True)
-
 
 
 class percentageClass():
@@ -1507,6 +1503,14 @@ class Logger(object):
 	def flush(self):
 		self.terminal.flush()
 		self.log.flush()
+
+
+	def overwrite_lines(self, n=None, text=None):
+		if not n:
+			n = text.count("\n")
+		## used to be called write_over_terminal_lines()
+		for r in range(n):
+			self.write("\x1b[1A\x1b[2K", terminal_only = True)
 
 
 
