@@ -96,6 +96,8 @@ def nativealign(**params):
 	unsorted_bam = Path(align_folder, "alignment.unsorted.bam")
 	sorted_bam = Path(align_folder, "alignment.bam")
 
+	project_table = Path(align_folder, "project_stats.txt")
+	library_table = Path(align_folder, "library_stats.txt")
 
 	log_file = Path(output_directory,"nativealign/log.txt")
 	sys.stdout = Logger(log_file)
@@ -237,17 +239,17 @@ def nativealign(**params):
 
 		to_print += f'''  
   current read:\t{read_i} ({read_p}%)       
-                                   \tperc\treads
-  unique mappers ............... XY:U:P\t{percs[0]}%\t{counts[0]:,}         
-  mmap, weighted ............... XY:P:P\t{percs[1]}%\t{counts[1]:,}        
-  mmap, random ................. XY:R:P\t{percs[2]}%\t{counts[2]:,}            
-  nonmap, above rand_max ....... XY:Q:P\t{percs[3]}%\t{counts[3]:,}          
-  nonmap, above max alignments . XY:H:P\t{percs[4]}%\t{counts[4]:,}          
-  nonmap, no valid alignments .. XY:N:P\t{percs[5]}%\t{counts[5]:,}         
+                                   maptag\tmapcat\t perc\treads
+  (unique mappers) ............... XY:Z:U\tumap\t {percs[0]}%\t{counts[0]:,}         
+  (mmap, weighted) ............... XY:Z:P\tmmap_wg\t {percs[1]}%\t{counts[1]:,}        
+  (mmap, placed w/o weighting) ... XY:Z:R\tmmap_nw\t {percs[2]}%\t{counts[2]:,}            
+  (nonmap, above rand_max) ....... XY:Z:Q\txmap_nw\t {percs[3]}%\t{counts[3]:,}          
+  (nonmap, above max alignments) . XY:Z:H\txmap_ma\t {percs[4]}%\t{counts[4]:,}          
+  (nonmap, no valid alignments ... XY:Z:N\txmap_nv\t {percs[5]}%\t{counts[5]:,}         
 					'''
 
 		if read_i > 1:
-			write_over_terminal_lines(len(to_print.split("\n"))-1)
+			sys.stdout.overwrite_lines(text=to_print)
 
 
 		sys.stdout.write(to_print + '\r', terminal_only = terminal_only)
@@ -257,6 +259,7 @@ def nativealign(**params):
 	def do_weighted_alignment():
 		read_i = 0
 		threshold_i = 0
+		lib_c = Counter()
 		map_c = Counter()
 		done_rgs = set()
 
@@ -374,6 +377,7 @@ def nativealign(**params):
 							# print(weights)
 
 				map_c[a.get_tag("XY")] += 1
+				lib_c[(rg, a.get_tag("XY"))] += 1
 
 				a.set_tag("RG", rg, "Z")
 				bamfile.write(a)
@@ -391,12 +395,38 @@ def nativealign(**params):
 
 		print_progress(read_i, map_c, None, done_rgs)
 
-		print()
-		pprint(map_c)
+		# print()
+		# pprint(map_c)
+		# pprint(lib_c)
+
+		return(map_c, lib_c)
 
 	print()
 	print("Making alignment with multimapper placement...")
-	do_weighted_alignment()
+	map_c, lib_c = do_weighted_alignment()
+
+
+	with open(project_table, 'w') as outf:
+		print("project\tumap\tmmap_wg\tmmap_nw\txmap_nw\txmap_ma\txmap_nv", file=outf)
+
+		to_print = [ic.inputs['project_name']]
+		to_print += [map_c[i] for i in ['U','P','R','Q','H','N']]
+
+		print("\t".join(map(str, to_print)), file=outf)
+
+
+	with open(library_table, 'w') as outf:
+		print("project\tlibrary\tumap\tmmap_wg\tmmap_nw\txmap_nw\txmap_ma\txmap_nv", file=outf)
+
+		for lib in trimmed_libraries:
+			rg = lib.stem
+			to_print = [ic.inputs['project_name'], rg]
+			to_print += [lib_c[(rg, i)] for i in ['U','P','R','Q','H','N']]
+
+			print("\t".join(map(str, to_print)), file=outf)
+
+
+
 
 	def print_elapsed(start):
 
