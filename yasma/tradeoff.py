@@ -1243,7 +1243,6 @@ def tradeoff(**params):
 		# print(bw.header())
 
 		for chrom, chrom_length in chromosomes:
-			print(chrom, chrom_length)
 
 			in_region = False
 
@@ -1371,6 +1370,8 @@ def tradeoff(**params):
 				strands['-'] += pos_strand_d[chrom][p][1]
 				sizes.update(pos_size_d[chrom][p])
 			except TypeError:
+				pass
+			except IndexError:
 				pass
 
 
@@ -1562,7 +1563,11 @@ def tradeoff(**params):
 
 		name, chrom, start, stop = l
 		for r in range(start, stop+1):
-			total_revised_reads += pos_depth_d[chrom][r]
+			try:
+				total_revised_reads += pos_depth_d[chrom][r]
+			except IndexError:
+				print(chrom, r, "<- index error")
+				pass
 
 
 	def string_plus_white(s, length = 7):
