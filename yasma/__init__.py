@@ -14,6 +14,8 @@ from .shortstack3 import *
 from .shortstack4 import *
 from .subsample import *
 from .nativealign import *
+from .download import *
+from .coverage import *
 
 
 ## Functionality to add:
