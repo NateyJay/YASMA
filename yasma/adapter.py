@@ -56,7 +56,7 @@ from .cli import cli
 def adapter(**params):
 	'''Tool to check untrimmed-libraries for 3' adapter content.'''
 
-
+	pprint(params)
 	rc = requirementClass()
 	rc.check()
 
@@ -450,7 +450,7 @@ def adapter(**params):
 
 	pprint(adapters)
 
-	print(f"writing {adapters[0]} to config.json")
+	print(f"writing {adapters[0]} to inputs.json")
 
 	ic.inputs['adapter'] = adapters[0]
 	ic.write()
