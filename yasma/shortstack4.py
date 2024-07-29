@@ -116,8 +116,37 @@ def shortstack4(**params):
 	name                    = params['name']
 
 
+	def get_target_rpm():
+		bamf = pysam.AlignmentFile(alignment_file, "rb")
 
-	chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
+		
+		if not bamf.has_index():
+			pysam.index(str(alignment_file))
+			bamf.close()
+			bamf = pysam.AlignmentFile(alignment_file,'rb')
+
+
+		ls = bamf.get_index_statistics()
+		total = 0
+		for l in ls:
+			total += l[3]
+
+		if bamf.nocoordinate == 0:
+			sys.exit("alignment contains no unmapped reads, meaning it has been subsampled. For shortstack runs, you must let yasma do the subsampling, as shortstack requires information on the unmapped reads.")
+
+
+		primaries = total + bamf.nocoordinate
+
+
+		target_rpm = primaries / total * 1
+
+		bamf.close()
+		return(round(target_rpm,3))
+
+	target_rpm = get_target_rpm()
+
+
+	chrom_depth_c = get_global_depth(alignment_file, aggregate_by=['rg','chrom'])
 
 	aligned_read_count = sum(chrom_depth_c.values())
 
@@ -125,7 +154,7 @@ def shortstack4(**params):
 	if params['subsample']:
 
 		alignment_file = subsample(aligned_read_count, alignment_file, params)
-		chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
+		chrom_depth_c = get_global_depth(alignment_file, aggregate_by=['rg','chrom'])
 		aligned_read_count = sum(chrom_depth_c.values())
 
 	# if target_depth:
@@ -191,6 +220,10 @@ def shortstack4(**params):
 
 
 	args = ["ShortStack4", '--bamfile', alignment_file, "--genomefile", genome_file, "--outdir", temp_folder , '--threads', '4']
+
+	if params['subsample']:
+		args += ['--mincov', target_rpm]
+
 
 	args = list(map(str, args))
 
