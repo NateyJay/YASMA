@@ -141,7 +141,7 @@ def subsample_module(**params):
 
 	# chromosomes = [c for c in chromosomes if c[0] == 'NC_037320.1']
 
-	chrom_depth_c = get_global_depth(output_directory, alignment_file, aggregate_by=['rg','chrom'])
+	chrom_depth_c = get_global_depth(alignment_file, aggregate_by=['rg','chrom'])
 
 	keys = list(chrom_depth_c.keys())
 	for key in keys:
