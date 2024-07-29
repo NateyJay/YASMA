@@ -96,6 +96,11 @@ from shutil import copyfile
 	multiple=True,
 	help='Path to untrimmed libraries. Accepts wildcards (*).')
 
+@optgroup.option("-s", "--srrs", 
+	required=False, 
+	multiple=True,
+	help='NCBI SRA codes for libraries. These will almost certainly start with SRR or ERR.')
+
 def inputs(**params):
 	'''A tool to log inputs, which will be referenced by later tools.'''
 
