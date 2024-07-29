@@ -56,6 +56,82 @@ ENCODING='cp850'
 
 
 
+class trackClass():
+	def __init__(self, bw_file, chromosomes):
+		self.bw = pyBigWig.open(str(bw_file), 'w')
+		self.bw.addHeader(chromosomes)
+
+		self.last_start      = 0
+		self.interval_length = 1
+		self.last_chrom = chromosomes[0][0]
+		self.last_val   = 0
+
+		self.chromosomes = chromosomes
+
+	def write(self):
+		stop = self.last_start + self.interval_length
+		self.bw.addEntries(
+						[self.last_chrom], 
+						[self.last_start], 
+						ends= [stop], 
+						values= [float(self.last_val)]
+						)
+
+
+	def add(self, chrom, pos, val):
+
+		if chrom != self.last_chrom:
+			self.write()
+			self.last_start      = 0
+			self.interval_length = 1
+
+		elif pos > self.last_start:
+
+			if val != self.last_val:
+				self.write()
+				self.last_start = pos
+				self.interval_length = 1
+
+			else:
+				self.interval_length += 1
+
+
+		self.last_val   = val
+		self.last_chrom = chrom
+
+	def close(self):
+		self.write()
+		self.bw.close()
+
+	def process_bam(self, bam_file, aligned_depth):
+		print('processing .bam to form .bw')
+		rpm_factor = 1000000 / aligned_depth
+
+		bamf = pysam.AlignmentFile(str(bam_file),'rb')
+
+		for c,l in self.chromosomes:
+			print(" ", c, end = " ")
+			depths = bamf.count_coverage(c, quality_threshold=0)
+
+
+			for i in range(l):
+
+				rpm = round(sum([depths[r][i] for r in range(4)]) * rpm_factor,3)
+				self.add(c, i, rpm)
+
+				if i % 1000000 == 0:
+					print(".", end = '')
+
+				# print(i, depths[1][i], rpm)
+			print()
+
+		# for line in pysam.depth(str(bam_file)):
+		# 	print(line)
+		# 	sys.exit()
+
+
+
+
 class requirementClass():
 	def __init__(self):
 		self.reqs = []
@@ -163,6 +239,21 @@ class requirementClass():
 
 		self.reqs.append(('bedtools', found, version))
 
+	def add_sratools(self):
+
+		try:
+			p = Popen(['prefetch', '--version'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+			out,err = p.communicate()
+			out = out.split("\n")
+			found=True
+			version = out[1].split()[-1]
+
+		except FileNotFoundError:
+			found=False
+			version=''
+
+		self.reqs.append(('sratools', found, version))
+
 	def check(self):
 
 		fail=False
@@ -219,6 +310,7 @@ class inputClass():
 
 
 		self.input_list = [
+			"srrs",
 			"untrimmed_libraries",
 			"trimmed_libraries",
 			"adapter",
@@ -578,18 +670,22 @@ class inputClass():
 
 				self.inputs['untrimmed_libraries'] = first_pairs
 
+
+
+
+
+
 			
 def validate_glob_path(ctx, param, value):
 
-	paths = list(value)
-	paths = [p.strip() for p in paths]
-	paths = " ".join(paths)
-	paths = paths.strip().split(" ")
 
-	if paths == ['']:
+
+	if len(value) == 0:
 		# print(param)
 		# raise click.UsageError("Error: Missing or empty option '-l'")
 		return(None)
+
+	paths = list(value[0])
 
 	full_paths = []
 	for path in paths:
@@ -729,6 +825,7 @@ class percentageClass():
 		self.removable = list(self.points)
 
 		self.running = 0
+		self.last_percent = 0
 
 		# print(self.points)
 		# print(total)
@@ -754,8 +851,12 @@ class percentageClass():
 
 	def update(self, i=1):
 		self.running += i
+		perc = self.get_percent(self.running)
 
-		return(self.get_percent(self.running))
+		if perc:
+			self.last_percent = perc
+
+		return(perc)
 
 
 
@@ -1061,7 +1162,6 @@ def counters_to_bigwig(counter_d, chromosomes, file, verbose=True):
 
 
 def samtools_view(bam, rgs='all', contig=None, start=None, stop=None, threads=4, boundary_rule='loose'): #, read_minmax=(15,30)):
-
 
 
 
@@ -1499,6 +1599,7 @@ class Logger(object):
 		self.terminal.write(message)
 		if not terminal_only:
 			self.log.write(self.clear_ansi(message))
+
 
 	def flush(self):
 		self.terminal.flush()
