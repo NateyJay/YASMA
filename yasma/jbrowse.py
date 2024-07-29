@@ -31,6 +31,277 @@ from subprocess import PIPE, Popen
 from datetime import datetime
 
 
+class configClass():
+	def __init__(self, input_config, output_directory, inputs, params):
+		self.input_config      = input_config
+		self.inputs            = inputs
+		self.genome_name       = inputs['genome_file'].stem
+		self.project_name      = inputs['project_name']
+		self.output_directory  = output_directory
+		self.jbrowse_directory = inputs['jbrowse_directory']
+		self.params            = params
+
+		self.annotation_files  = []
+
+
+		self.config_d = self.read_config(input_config, params['overwrite_config'])
+
+		## Plugins
+		if 'plugins' not in self.config_d:
+			self.config_d['plugins'] = []
+
+		names = [c['name'] for c in self.config_d['plugins']]
+		if 'MyNoBuildPlugin' not in names:
+			print(f"  adding plugins: {color.BOLD}MyNoBuildPlugin{color.END}")
+			self.config_d['plugins'].append(self.make_plugins_object())
+
+
+		## initalizing dict
+		if 'assemblies' not in self.config_d:
+			self.config_d['assemblies'] = []
+
+		if 'tracks' not in self.config_d:
+			self.config_d['tracks'] = []
+
+
+		## adding assembly
+		names = [c['name'] for c in self.config_d['assemblies']]
+		if self.genome_name not in names:
+			print(f"  adding assembly: {color.BOLD}{self.genome_name}{color.END}")
+			self.config_d['assemblies'].append(self.make_assembly_object())
+			
+
+		## initializng output folders
+		for key in ['coverages','annotations','debug']:
+			directory = Path(self.output_directory, "jbrowse", self.genome_name, f"{self.output_directory.name}_{key}")
+			directory.mkdir(parents=True, exist_ok=True)
+
+
+	def add_track(self, file, name=None, gene_annotation = False):
+		if not file.is_file():
+			return
+
+		if gene_annotation:
+			uri = Path(self.genome_name, file.name)
+		else:
+			uri = Path(self.genome_name, f"{self.project_name}_annotations", file.name)
+
+
+
+		names = [c['name'] for c in self.config_d['tracks']]
+
+		if not name:
+			name = file.stem
+		if name not in names:
+			print(f"  adding track: {color.BOLD}{file.name}{color.END}")
+			at = self.make_annotation_track(
+				name=name,
+				uri=str(uri))
+			self.config_d['tracks'].append(at)
+
+		if not gene_annotation:
+			self.annotation_files.append(file)
+
+	def add_coverages(self):
+
+		names = [c['name'] for c in self.config_d['tracks']]
+		if f"{self.project_name}_coverage" not in names:
+			print(f"  adding track: {color.BOLD}{self.project_name}_coverage{color.END}")
+			self.config_d['tracks'].append(self.make_bigwig_track())
+
+
+
+
+	def make_plugins_object(self):
+		d = {"name": "MyNoBuildPlugin",
+			"umdLoc": {"uri": "myplugin.js"}
+			}
+
+		return(d)
+
+
+	def make_assembly_object(self):
+		d = {
+				"name": self.genome_name,
+				"sequence": {
+				"type": "ReferenceSequenceTrack",
+				"trackId": f"{self.genome_name}-ReferenceSequenceTrack",
+				"adapter": {
+						"type": "IndexedFastaAdapter",
+						"fastaLocation": {
+							"uri": f"{self.genome_name}/{self.genome_name}.fa",
+							"locationType": "UriLocation"
+					},
+						"faiLocation": {
+							"uri": f"{self.genome_name}/{self.genome_name}.fa.fai",
+							"locationType": "UriLocation"
+						}
+					}
+				}
+			}
+		return(d)
+
+	def make_annotation_track(self, name, uri):
+
+		# track_id = f"{output_directory}_{name}"
+
+		d = { "type": "FeatureTrack",
+				"trackId": name,
+				"name": name, #f"{output_directory}_{name}",
+				"adapter": {
+					"type": "Gff3Adapter",
+					"gffLocation": {
+						"uri": uri, #f"{genome_name}/{output_directory}_annotations/{name}.gff3",
+						"locationType": "UriLocation"
+					}
+				},
+				"assemblyNames": [
+					self.genome_name
+				],
+				"displays": [
+					{
+						"type": "LinearBasicDisplay",
+						"displayId": name, #f"{output_directory}_{name}",
+						"renderer": {
+							"type": "SvgFeatureRenderer",
+							"color1": "jexl:customColor(feature)"
+						}
+					}
+				]
+			}
+		return(d)
+
+
+	def make_bigwig_track(self):
+
+
+		d = {
+			"type": "MultiQuantitativeTrack",
+			"trackId": f"{self.project_name}_coverage",
+			"name": f"{self.project_name}_coverage",
+			"assemblyNames": [
+				self.genome_name
+				],
+			"adapter": {
+				"type": "MultiWiggleAdapter",
+				"subadapters": []
+				},
+			"displays": 
+				[
+					{
+						"type": "MultiLinearWiggleDisplay",
+						"displayId": f"{self.project_name}_coverage",
+						"defaultRendering": "multiline",
+						"renderers": {
+							"MultiXYPlotRenderer": {
+								"type": "MultiXYPlotRenderer",
+								"bicolorPivot": "none",
+								"filled": False
+								},
+							"MultiRowLineRenderer": {
+								"type": "MultiRowLineRenderer",
+								"color": "rgb(202, 178, 202)"
+								}
+						}
+					}
+				]
+			}
+
+
+
+		sizes = [r for r in range(self.params['min_size'], self.params['max_size'] + 1)] + ["non"]
+
+
+
+		color_d = {
+			"non" : "grey",
+			20 : "lightblue",
+			21 : "blue",
+			22 : "mediumseagreen",
+			23 : "orange",
+			24 : "tomato",
+			25 : "darkred"
+		}
+
+
+		for r in sizes:
+			if r not in color_d:
+				color_d[r] = 'pink'
+
+
+		for size in sizes:
+			for strand in ['-', '+']:
+				key = str(size) + strand
+
+				subadapter = {
+								"name": key,
+								"type": "BigWigAdapter",
+								"bigWigLocation": {
+									"name": f"{key}.bigwig",
+									"locationType": "UriLocation",
+									"uri": f"{self.genome_name}/{self.project_name}_coverages/{key}.bigwig"
+									},
+								"color": color_d[size]
+							}
+				d['adapter']['subadapters'].append(subadapter)
+
+		return(d)
+
+
+	def backup_config(self, input_config):
+		now = datetime.now()
+		backup_dir = Path(self.inputs['jbrowse_directory'], "config_backups", now.strftime("%Y.%m.%d"))
+		backup_dir.mkdir(parents=True, exist_ok=True)
+		backup_file = Path(backup_dir, "config_" + str(round(time())) + ".json")
+		copyfile(input_config, backup_file)
+
+		print(f"  Backing up config: {backup_file}")
+
+
+	def read_config(self, input_config, overwrite):
+		print()
+		if not input_config or overwrite:
+			print("Making config.json de novo")
+			return({})
+		with open(input_config, 'r') as f:
+			print(f"Reading from input config.json: {input_config}")
+			data = json.load(f)
+			self.backup_config(input_config)
+		return(data)
+
+	def write(self):
+		config_file = Path(self.output_directory, 'jbrowse','config.json')
+		with open(config_file, 'w') as outf:
+			outf.write(json.dumps(self.config_d, indent=2))
+
+	def copy_files(self):
+
+		def copy_it(src, des):
+			if self.params['force'] or not isfile(des) or self.params['recopy']:
+				if not isfile(src):
+					print(f"Warning: source {src} could not be found and copied to jbrowse directory.")
+				else:
+					print(f"    {src}")
+					copyfile(src, des)
+
+		print()
+		print("Copying data to project jbrowse folder...")
+
+
+		copy_it(self.inputs['genome_file'], 
+			Path(self.output_directory, "jbrowse", self.genome_name, f"{self.genome_name}.fa"))
+
+		copy_it(self.inputs['genome_file'].with_suffix(".fa.fai"), 
+			Path(self.output_directory, "jbrowse", self.genome_name, f"{self.genome_name}.fa.fai"))
+		copy_it(self.inputs['genome_file'].with_suffix(".gff"), 
+			Path(self.output_directory, "jbrowse", self.genome_name, f"{self.genome_name}.gff"))
+
+		for file in self.annotation_files:
+			copy_it(file, Path(self.output_directory, "jbrowse", self.genome_name, f"{self.project_name}_annotations", file.name))
+
+
+
+
 
 
 class bigwigClass():
@@ -162,6 +433,11 @@ class bigwigClass():
 @optgroup.group('\n  Options',
 				help='')
 
+@optgroup.option("--include_subannotations",
+	is_flag=True,
+	default=False,
+	help="Makes jbrowse entries for other annotations from the tradeoff module than the primary annotation 'tradeoff'.")
+
 @optgroup.option("--min_size",
 	default=20,
 	help="Minimum read size for specific coverage treatment Default 20 nt.")
@@ -211,6 +487,7 @@ def jbrowse(**params):
 	genome_file            = ic.inputs['genome_file']
 	jbrowse_directory      = ic.inputs['jbrowse_directory']
 	gene_annotation_file   = ic.inputs["gene_annotation_file"]
+	project_name           = ic.inputs['project_name']
 
 	min_size               = params['min_size']
 	max_size               = params['max_size']
@@ -219,6 +496,7 @@ def jbrowse(**params):
 	removes                = params['remove_name']
 	recopy                 = params['recopy']
 
+	sizes = [r for r in range(min_size, max_size + 1)] + ["non"]
 
 	if jbrowse_directory:
 		# jbrowse_directory = jbrowse_directory.rstrip("/")
@@ -235,19 +513,28 @@ def jbrowse(**params):
 	else:
 		input_config = None
 
-	# print(genome_file)
-	# print(genome_file.parent)
-	# print(genome_file.stem)
-	# genome_name = genome_file.rstrip(".gz").rstrip(".fa").split("/")[-1]
-	genome_name = genome_file.stem
 
-	cov_dir = Path(output_directory, "jbrowse", genome_name, f"{output_directory.name}_coverages")
-	ann_dir = Path(output_directory, "jbrowse", genome_name, f"{output_directory.name}_annotations")
-	deb_dir = Path(output_directory, "jbrowse", genome_name, f"{output_directory.name}_debug")
+	# genome_name = genome_file.stem
 
 
-	for directory in [cov_dir, ann_dir, deb_dir]:
-		directory.mkdir(parents=True, exist_ok=True)
+	cc = configClass(input_config, output_directory, ic.inputs, params)
+
+
+	tradeoff_annotations = []
+
+	if params['include_subannotations']:
+		for d in os.listdir(output_directory):
+			ann_file = Path(output_directory, d, 'loci.gff3')
+			if ann_file.is_file():
+				name = str(d)[9:]
+
+				if name != '':
+					tradeoff_annotations.append((name, Path(output_directory, d, 'loci.gff3')))
+
+
+
+	# for directory in [cov_dir, ann_dir, deb_dir]:
+	# 	directory.mkdir(parents=True, exist_ok=True)
 
 
 
@@ -274,301 +561,55 @@ def jbrowse(**params):
 	total_reads = sum(chrom_depth_c.values())
 
 
-	color_d = {
-		"non" : "grey",
-		20 : "lightblue",
-		21 : "blue",
-		22 : "mediumseagreen",
-		23 : "orange",
-		24 : "tomato",
-		25 : "darkred"
-	}
-
-	sizes = [r for r in range(min_size, max_size + 1)] + ["non"]
-
-	for r in sizes:
-		if r not in color_d:
-			color_d[r] = 'pink'
-
-
-	def make_counter_dict():
-		d = {}
-
-		for r in sizes:
-			for s in ['-','+']:
-
-				d[f"{r}{s}"] = Counter()
-
-		return(d)
-
-
-	def make_plugins_object():
-		d = {"name": "MyNoBuildPlugin",
-			"umdLoc": {"uri": "myplugin.js"}
-			}
-			
-		
-		return(d)
-
-
-	def make_assembly_object():
-		d = {
-				"name": genome_name,
-				"sequence": {
-				"type": "ReferenceSequenceTrack",
-				"trackId": f"{genome_name}-ReferenceSequenceTrack",
-				"adapter": {
-						"type": "IndexedFastaAdapter",
-						"fastaLocation": {
-							"uri": f"{genome_name}/{genome_name}.fa",
-							"locationType": "UriLocation"
-					},
-						"faiLocation": {
-							"uri": f"{genome_name}/{genome_name}.fa.fai",
-							"locationType": "UriLocation"
-						}
-					}
-				}
-			}
-		return(d)
-
-	def make_annotation_track(name, uri):
-
-		# track_id = f"{output_directory}_{name}"
-
-		d = { "type": "FeatureTrack",
-				"trackId": name,
-				"name": name, #f"{output_directory}_{name}",
-				"adapter": {
-					"type": "Gff3Adapter",
-					"gffLocation": {
-						"uri": uri, #f"{genome_name}/{output_directory}_annotations/{name}.gff3",
-						"locationType": "UriLocation"
-					}
-				},
-				"assemblyNames": [
-					genome_name
-				],
-				"displays": [
-					{
-						"type": "LinearBasicDisplay",
-						"displayId": name, #f"{output_directory}_{name}",
-						"renderer": {
-							"type": "SvgFeatureRenderer",
-							"color1": "jexl:customColor(feature)"
-						}
-					}
-				]
-			}
-		return(d)
-
-
-	def make_bigwig_track():
-
-		track_id = f"{od_name}_Coverage"
-
-		d = {
-			"type": "MultiQuantitativeTrack",
-			"trackId": track_id,
-			"name": f"{od_name}_Coverage",
-			"assemblyNames": [
-				genome_name
-				],
-			"adapter": {
-				"type": "MultiWiggleAdapter",
-				"subadapters": []
-				},
-			"displays": 
-				[
-					{
-						"type": "MultiLinearWiggleDisplay",
-						"displayId": f"{od_name}_coverage",
-						"defaultRendering": "multiline",
-						"renderers": {
-							"MultiXYPlotRenderer": {
-								"type": "MultiXYPlotRenderer",
-								"bicolorPivot": "none",
-								"filled": False
-								},
-							"MultiRowLineRenderer": {
-								"type": "MultiRowLineRenderer",
-								"color": "rgb(202, 178, 202)"
-								}
-						}
-					}
-				]
-			}
-
-
-
-		for size in sizes:
-			for strand in ['-', '+']:
-				key = str(size) + strand
-
-				subadapter = {
-								"name": key,
-								"type": "BigWigAdapter",
-								"bigWigLocation": {
-									"name": f"{key}.bigwig",
-									"locationType": "UriLocation",
-									"uri": f"{genome_name}/{od_name}_coverages/{key}.bigwig"
-									},
-								"color": color_d[size]
-							}
-				d['adapter']['subadapters'].append(subadapter)
-
-		return(d)
-
-
-	def backup_config():
-		now = datetime.now()
-		backup_dir = Path(jbrowse_directory, "config_backups", now.strftime("%Y.%m.%d"))
-		backup_dir.mkdir(parents=True, exist_ok=True)
-		backup_file = Path(backup_dir, "config_" + str(round(time())) + ".json")
-		copyfile(input_config, backup_file)
-
-		print(f"  Backing up config: {backup_file}")
-
-
-	def read_config(input_config, overwrite):
-		print()
-		if not input_config or overwrite:
-			print("Making config.json de novo")
-			return({})
-		with open(input_config, 'r') as f:
-			print(f"Reading from input config.json: {input_config}")
-			data = json.load(f)
-			backup_config()
-		return(data)
-
-	config_d = read_config(input_config, overwrite_config)
 
 
 
 
-
-	if 'plugins' not in config_d:
-		config_d['plugins'] = []
-
-	names = [c['name'] for c in config_d['plugins']]
-	if 'MyNoBuildPlugin' not in names:
-		print(f"  adding plugins: {color.BOLD}MyNoBuildPlugin{color.END}")
-		config_d['plugins'].append(make_plugins_object())
+	
+	cc.add_track(gene_annotation_file, gene_annotation=True)
+	cc.add_track(Path(output_directory, 'tradeoff', "loci.gff3"),    f"{project_name}_loci")
+	cc.add_track(Path(output_directory, 'tradeoff', "regions.gff3"), f"{project_name}_regions")
+	cc.add_track(Path(output_directory, 'tradeoff', "revised_regions.gff3"), f"{project_name}_revised_regions")
 	
 
-
-	## Assemblies
-
-	if 'assemblies' not in config_d:
-		config_d['assemblies'] = []
-
-	names = [c['name'] for c in config_d['assemblies']]
-	if genome_name not in names:
-		print(f"  adding assembly: {color.BOLD}{genome_name}{color.END}")
-		config_d['assemblies'].append(make_assembly_object())
-		
+	for sub_name, gff in tradeoff_annotations:
+		cc.add_track(gff, f"{project_name}_loci_{sub_name}")
 
 
-	#### Tracks
-
-	if 'tracks' not in config_d:
-		config_d['tracks'] = []
-
-	names = [c['name'] for c in config_d['tracks']]
-
-	## Gene annotation
-	if gene_annotation_file:
-		name = gene_annotation_file.stem #.rstrip('.gff3').rstrip(".gff").split("/")[-1]
-		if name not in names:
-			print(f"  adding track: {color.BOLD}{name}.gff{color.END}")
-			at = make_annotation_track(
-				name=name,
-				uri=f"{genome_name}/{name}.gff")
-			config_d['tracks'].append(at)
-
-	## sRNA loci
-	if f"{od_name}_Loci" not in names:
-		print(f"  adding track: {color.BOLD}{od_name}_Loci{color.END}")
-		at = make_annotation_track(
-			name=f'{od_name}_Loci', 
-			uri=f"{genome_name}/{od_name}_annotations/loci.gff3")
-		config_d['tracks'].append(at)
-
-
-	## sRNA loci
-	if f"{od_name}_annotations" not in names:
-		if isfile(Path(output_directory, "shortstack3/ShortStack_All.gff3")):
-			print(f"  adding track: {color.BOLD}{od_name}_annotations{color.END}")
-			at = make_annotation_track(
-				name=f'{od_name}_shortstack3', 
-				uri=f"{genome_name}/{od_name}_annotations/shortstack3.gff3")
-			config_d['tracks'].append(at)
-
-	if f"{od_name}_annotations" not in names:
-
-		if isfile(Path(output_directory, "shortstack4/Results.gff3")):
-			print(f"  adding track: {color.BOLD}{od_name}_annotations{color.END}")
-			at = make_annotation_track(
-				name=f'{od_name}_shortstack4', 
-				uri=f"{genome_name}/{od_name}_annotations/shortstack4.gff3")
-			config_d['tracks'].append(at)
+	cc.add_track(Path(output_directory, "shortstack3/ShortStack_All.gff3"), f"{project_name}_shortstack3")
+	cc.add_track(Path(output_directory, "shortstack4/Results.gff3"), f"{project_name}_shortstack4")
 
 
 
-	## sRNA regions
-	if f"{od_name}_Regions" not in names:
-		print(f"  adding track: {color.BOLD}{od_name}_Regions{color.END}")
-		at = make_annotation_track(
-			name=f'{od_name}_Regions', 
-			uri=f"{genome_name}/{od_name}_annotations/regions.gff3")
-		config_d['tracks'].append(at)
+
+	# if len(removes) > 0:
+	# 	print()
+	# 	print("Deleting entries specified by option -x:")
+	# 	print(" ", removes)
+	# 	print()
+	# 	for name in removes:
+
+	# 		terms = [name + t for t in ['_Loci','_Regions','_Coverage']]
+	# 		tracks_to_remove = []
+
+	# 		# print(terms)
+
+	# 		for i,track in enumerate(config_d['tracks']):
+	# 			if track['name'] in terms:
+	# 				print(f"  {color.BOLD}x{color.END}", track['name'])
+	# 				tracks_to_remove.append(i)
 
 
-	if f"{od_name}_Revised_Regions" not in names:
-		print(f"  adding track: {color.BOLD}{od_name}_Revised_Regions{color.END}")
-		at = make_annotation_track(
-			name=f'{od_name}_Revised_Regions', 
-			uri=f"{genome_name}/{od_name}_annotations/revised_regions.gff3")
-		config_d['tracks'].append(at)
+	# 		for i in tracks_to_remove[::-1]:
+	# 			del config_d['tracks'][i]
+	# 		# print(track[name + '_Coverage'])
+
+	# 	# pprint(type(config_d['tracks']))
+	# 	# pprint(len(config_d['tracks']))
+
+	# 	# print(name)
 
 
-	## Coverages
-	if f"{od_name}_Coverage" not in names:
-		print(f"  adding track: {color.BOLD}{od_name}_Coverage{color.END}")
-		config_d['tracks'].append(make_bigwig_track())
-
-
-
-	if len(removes) > 0:
-		print()
-		print("Deleting entries specified by option -x:")
-		print(" ", removes)
-		print()
-		for name in removes:
-
-			terms = [name + t for t in ['_Loci','_Regions','_Coverage']]
-			tracks_to_remove = []
-
-			# print(terms)
-
-			for i,track in enumerate(config_d['tracks']):
-				if track['name'] in terms:
-					print(f"  {color.BOLD}x{color.END}", track['name'])
-					tracks_to_remove.append(i)
-
-
-			for i in tracks_to_remove[::-1]:
-				del config_d['tracks'][i]
-			# print(track[name + '_Coverage'])
-
-		# pprint(type(config_d['tracks']))
-		# pprint(len(config_d['tracks']))
-
-		# print(name)
-
-	config_file = Path(output_directory, 'jbrowse','config.json')
-	with open(config_file, 'w') as outf:
-		outf.write(json.dumps(config_d, indent=2))
 
 
 	# sys.exit()
@@ -576,30 +617,7 @@ def jbrowse(**params):
 	## Copying key files to jbrowse folder
 
 
-	print()
-	print("Copying data to jbrowse folder...")
-
-	def copy_it(src, des):
-		if force or not isfile(des) or recopy:
-			if not isfile(src):
-				print(f"Warning: source {src} could not be found and copied to jbrowse directory.")
-			else:
-				print(f"  {src.name}")
-				copyfile(src, des)
-
-	copy_it(Path(output_directory, "tradeoff/loci.gff3"), Path(ann_dir, "loci.gff3"))
-	copy_it(Path(output_directory, "tradeoff/regions.gff3"), Path(ann_dir, "regions.gff3"))
-	copy_it(Path(output_directory, "tradeoff/revised_regions.gff3"), Path(ann_dir, "revised_regions.gff3"))
-
-
-	copy_it(Path(output_directory, "shortstack3/ShortStack_All.gff3"), Path(ann_dir, "shortstack3.gff3"))
-	copy_it(Path(output_directory, "shortstack4/Results.gff3"), Path(ann_dir, "shortstack4.gff3"))
-
-	copy_it(genome_file, Path(output_directory, "jbrowse", genome_name, f"{genome_name}.fa"))
-	copy_it(Path(str(genome_file).replace(".fa", ".fa.fai")), Path(output_directory, "jbrowse", genome_name, f"{genome_name}.fa.fai"))
-	if gene_annotation_file:
-		copy_it(gene_annotation_file, Path(output_directory, "jbrowse", genome_name, gene_annotation_file.name))
-
+	cov_dir = Path(output_directory, "jbrowse", genome_file.stem, f"{output_directory.name}_coverages")
 
 	print()
 	print(f"Calculating coverage for sizes {min_size} to {max_size}...")
@@ -610,6 +628,11 @@ def jbrowse(**params):
 		for s in ['-','+']:
 			key = f"{r}{s}"
 			keys.append(key)
+
+
+	cc.add_coverages()
+	cc.write()
+	cc.copy_files()
 
 
 
@@ -703,14 +726,14 @@ def jbrowse(**params):
 		print()
 		print('Copying to jbrowse_directory with rsync...')
 
-
-		p = Popen(['rsync', '-arv', f'{output_directory}/jbrowse/', jbrowse_directory], 
+		call = ['rsync', '-arv', '--update', f'{output_directory}/jbrowse/', jbrowse_directory]
+		print(" ".join(map(str, call)))
+		p = Popen(call, 
 			stdout=PIPE, encoding=ENCODING)
 
 		for l in p.stdout:
 			print(" ", l.strip())
 		p.wait()
-
 
 
 
