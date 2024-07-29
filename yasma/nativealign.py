@@ -113,20 +113,33 @@ def nativealign(**params):
 		p.wait()
 
 
+	def get_rg(lib):
+		extensions = "".join(lib.suffixes)
+		return str(lib.name.removesuffix(extensions))
+
+
 	start = time.time()
 
 
 	def get_lib_sizes():
 		lib_sizes = []
 
-		call = ['wc', '-l'] + [str(l) for l in trimmed_libraries]
-		p = Popen(call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
+		for lib in trimmed_libraries:
+			if lib.suffix == ".gz":
+				call = ['gzip', '-cd', lib]
+				p0 = Popen(call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
 
-		while len(lib_sizes) < len(trimmed_libraries):
+				call = ['wc', '-l']
+				p = Popen(call, encoding=ENCODING, stdin=p0.stdout, stdout=PIPE, stderr=PIPE)
+
+
+			else:
+				call = ['wc', '-l', lib] 
+				p = Popen(call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
+
 			line = p.stdout.readline()
-			if len(line) > 0:
-				lib_sizes.append(round(int(line.strip().split()[0])/4))
-		p.wait()
+			lib_sizes.append(round(int(line.strip())/4))
+			p.wait()
 
 		return(lib_sizes)
 
@@ -208,7 +221,8 @@ def nativealign(**params):
 
 		header['RG'] = []
 		for lib in trimmed_libraries:
-			rg = lib.stem
+
+			rg = get_rg(lib)
 			header['RG'].append({'ID' : rg})
 
 		return header
@@ -229,13 +243,13 @@ def nativealign(**params):
 
 		to_print = '  libraries:\n'
 		for lib in trimmed_libraries:
-			if lib.stem in done_rgs:
+			if get_rg(lib) in done_rgs:
 				done = 'x'
-			elif rg == lib.stem:
+			elif rg == get_rg(lib):
 				done = '~'
 			else:
 				done = ' '
-			to_print += f"    [{done}] {lib.stem}     \n"
+			to_print += f"    [{done}] {get_rg(lib)}     \n"
 
 		to_print += f'''  
   current read:\t{read_i} ({read_p}%)       
@@ -264,7 +278,7 @@ def nativealign(**params):
 		done_rgs = set()
 
 		for lib in trimmed_libraries:
-			rg = lib.stem
+			rg = get_rg(lib)
 			# print(rg)
 
 
