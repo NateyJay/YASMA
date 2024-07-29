@@ -2,6 +2,7 @@
 
 import click
 from click_option_group import optgroup
+import sys
 
 class customClickClass(click.Group):
 	'''A custom class designed to add 4 features, based on SE posts from the developer of click. 
@@ -48,6 +49,7 @@ class customClickClass(click.Group):
 
 		return wrapper
 
+
 	def format_commands(self, ctx, formatter):
 		# Modified fom the base class method
 
@@ -56,6 +58,7 @@ class customClickClass(click.Group):
 			cmd = self.get_command(ctx, subcommand)
 			if not (cmd is None or cmd.hidden):
 				commands.append((subcommand, cmd))
+
 
 		if commands:
 			longest = max(len(cmd[0]) for cmd in commands)
@@ -74,32 +77,34 @@ class customClickClass(click.Group):
 					with formatter.section(group_name):
 						formatter.write_dl(rows)
 
+
 	def parse_args(self, ctx, args):
-		if len(args) <= 1:
-			args.append(self.help_flag)
 
-		glob_options = set(["-tl", '--trimmed_libraries', "-ul", '--untrimmed_libraries'])
+		if len(args) == 0:
+			args.append("-h")
 
-		last_is_glob = False
-		new_args = []
+
+
+		# merge_options = set(["-tl", '--trimmed_libraries', "-ul", '--untrimmed_libraries', '-s', '--srrs'])
+
+		first = False
+		out_args = [args.pop(0)]
+
 		for arg in args:
 
 			if arg.startswith("-"):
-				new_args.append(arg)
-				if arg in glob_options:
-					last_is_glob = True
-					new_args.append("")
-				else:
-					last_is_glob = False
+				opt = arg
+				out_args.append(opt)
+				first = True
+
 
 			else:
+				if not first:
+					out_args.append(opt)
+				out_args.append(arg)
+				first = False
 
-				if last_is_glob:
-					new_args[-1] += " " + arg
-				else:
-					new_args.append(arg)
-
-		return super(customClickClass, self).parse_args(ctx, new_args)
+		return super(customClickClass, self).parse_args(ctx, out_args)
 
 
 
