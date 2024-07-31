@@ -87,6 +87,12 @@ class configClass():
 			uri = Path(self.genome_name, f"{self.project_name}_annotations", file.name)
 
 
+		if uri.name == "ShortStack_All.gff3":
+			uri = uri.with_name("shortstack3.gff3")
+		elif uri.name == "Results.gff3":
+			uri = uri.with_name("shortstack4.gff3")
+
+
 
 		names = [c['name'] for c in self.config_d['tracks']]
 
@@ -277,6 +283,12 @@ class configClass():
 	def copy_files(self):
 
 		def copy_it(src, des):
+
+			if des.name == "ShortStack_All.gff3":
+				des = des.with_name("shortstack3.gff3")
+			elif des.name == "Results.gff3":
+				des = des.with_name("shortstack4.gff3")
+
 			if self.params['force'] or not isfile(des) or self.params['recopy']:
 				if not isfile(src):
 					print(f"Warning: source {src} could not be found and copied to jbrowse directory.")
