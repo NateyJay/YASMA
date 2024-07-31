@@ -686,62 +686,52 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 		averages = []
 		table    = []
 
-		total_genomic_space = genome_length
-
-		total_read_space    = sum(read_c.values())
-
-		genp_thresholds  = []
-		readp_thresholds = []
+		total_genomic_space  = genome_length
+		total_possible_space = genome_length - gen_c[0]
+		total_read_space     = sum(read_c.values())
+		genp_thresholds      = []
+		adj_genp_thresholds  = []
+		readp_thresholds     = []
 
 		for depth_threshold in found_depths:
 
 			total_genomic_space -= gen_c[depth_threshold]
 			total_read_space    -= read_c[depth_threshold]
 
+
+
 			# print(depth_threshold, total_genomic_space, sep='\t')
 
-			gen_score = total_genomic_space/genome_length
-			read_score = total_read_space/aligned_read_count
+			gen_score     = total_genomic_space / genome_length
+			adj_gen_score = total_genomic_space / total_possible_space
+			read_score    = total_read_space / aligned_read_count
 
 			genp_thresholds.append((gen_score, depth_threshold))
+			adj_genp_thresholds.append((adj_gen_score, depth_threshold))
 			readp_thresholds.append((read_score, depth_threshold))
 
 			## unweighted avg
 			avg_score = ((1-gen_score) + read_score) / 2
 
-			## weight avg
 
-			# weight_score = ((1-gen_score) * (1-params['tradeoff_weight'])) + (read_score * params['tradeoff_weight'])
+			## weight avg
 			weight_score = ((1-gen_score) * params['genome_weight'] + read_score * params['read_weight']) / sum([params['genome_weight'], params['read_weight']])
 
 
 
 			geom_score = math.sqrt(((1-gen_score) * read_score))
 
-			# if not out and avg_score < last_avg:
-			# 	peak = "1"
-			# 	out = {
-			# 		'depth_threshold' : depth_threshold,
-			# 		'gen_score' : gen_score,
-			# 		'read_score' : read_score,
-			# 		'avg_score' : avg_score
-			# 	}
 
-			# else:
-			# 	peak = '0'
-			# last_avg = avg_score
-
-			# averages.append(round(avg_score, params['tradeoff_round']))
 			averages.append(round(weight_score, params['tradeoff_round']))
 
-			table.append([depth_threshold, total_genomic_space, round(gen_score,4),
+			table.append([depth_threshold, total_genomic_space, round(gen_score,4), round(adj_gen_score, 4),
 				total_read_space, round(total_read_space/aligned_read_count,4),
 				round(avg_score, 4), round(geom_score, 4), round(weight_score, 4)])
 
 		peak_index = averages.index(max(averages))
 
 		with open(Path(out_dir, 'thresholds.txt'), 'w') as outf:
-			print('depth\tannotated_space\tp_genome\tannotated_reads\tp_reads\taverage_score\tgeom_score\tweighted_avg\tpeak', file=outf)
+			print('depth\tannotated_space\tp_genome\tadj_p_genome\tannotated_reads\tp_reads\taverage_score\tgeom_score\tweighted_avg\tpeak', file=outf)
 			for i,t in enumerate(table):
 
 				if i == peak_index:
@@ -749,9 +739,10 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 					out = {
 						'depth_threshold' : t[0],
 						'gen_score' : t[2],
-						'read_score' : t[4],
-						'avg_score' : t[5],
-						'weighted_avg' : t[7]
+						'adj_gen_score' : t[3],
+						'read_score' : t[5],
+						'avg_score' : t[6],
+						'weighted_avg' : t[8]
 						}
 				else:
 					peak = 0
@@ -865,7 +856,7 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 	help=f"along with --read_weight, these determine the weighted averages for considering the tradeoff proportion of reads and genome annotated. By default, this is weighted 2 for pReads and 1 for pGenome, meaning that the annotator tries do place more reads at the expense of more genome annotated. Default 1.")
 
 @optgroup.option("--read_weight",
-	default=2,
+	default=1,
 	help=f"Default 2. See above.")
 
 # @optgroup.option("--tradeoff_weight",
@@ -1244,6 +1235,7 @@ def tradeoff(**params):
 
 		depth_threshold = threshold_stats['depth_threshold']
 		gen_score       = threshold_stats['gen_score']
+		adj_gen_score   = threshold_stats['adj_gen_score']
 		read_score      = threshold_stats['read_score']
 
 		print(" annotation parameters...")
@@ -1390,6 +1382,15 @@ def tradeoff(**params):
 	# del peak_c
 	# del pos_c
 	# del kernel_c
+
+
+
+
+
+
+
+
+
 
 	def expand_region(claim_d, region):
 
@@ -1631,6 +1632,254 @@ def tradeoff(**params):
 			claim_d[chrom][r] = name
 
 
+	class reviseClass():
+		def __init__(self, region):
+
+			self.locus_name, self.chrom, self.start, self.stop = region
+
+			self.coords  = f"{self.chrom}:{self.start}-{self.stop}"
+			# self.claim_d = claim_d
+
+			self.strands = Counter()
+			self.sizes   = sizeClass(minmax=read_minmax)
+			self.names   = set()
+
+
+			for p in range(self.start, self.stop+1):
+				try:
+					self.strands['+'] += pos_strand_d[self.chrom][p][0]
+					self.strands['-'] += pos_strand_d[self.chrom][p][1]
+					self.sizes.update(pos_size_d[self.chrom][p])
+				except TypeError:
+					pass
+				except IndexError:
+					print(p, "<- index error 2")
+					pass
+
+
+			try:
+				self.frac_top = self.strands['+'] / sum(self.strands.values())
+			except ZeroDivisionError:
+				print(self.region)
+
+				sys.exit()
+
+
+			self.r_depth = sum(self.strands.values())
+
+
+
+
+
+
+
+		def expand(self):
+			# print(region)
+			# print("boundaries outward")
+			# boundaries outward - coarse
+			window_size = 250
+			# print("  right outward")
+			new_stop  = self.find_outer_boundaries(self.window_gen(start=self.stop,  size=window_size, direction=1,  increment=30, inset=True))[1]
+			# print("  left outward")
+			new_start = self.find_outer_boundaries(self.window_gen(start=self.start, size=window_size, direction=-1, increment=30, inset=True))[0]
+
+			self.cleanup(new_start, new_stop)
+
+			return(new_start, new_stop)
+
+		def trim(self):
+			# print("boundaries inward")
+			## boundaries inward - fine
+			window_size = 50
+			# print("  right inward")
+			new_stop  = self.find_inner_boundaries(self.window_gen(start=self.stop,  size=window_size, direction=-1, increment=5))[1]
+			# print("  left inward")
+			new_start = self.find_inner_boundaries(self.window_gen(start=self.start, size=window_size, direction=1,  increment=5))[0]
+
+			if new_stop < self.start + window_size or new_start > self.stop - window_size:
+				# print(f"  warning: trim error {self.locus_name}")
+				return(self.start, self.stop)
+
+			self.cleanup(new_start, new_stop)
+
+			return(new_start, new_stop)
+
+
+		def cleanup(self, new_start, new_stop):
+
+			## cleaning up claims if locus shrank
+			for p in range(self.start, new_start+1):
+				claim_d[self.chrom][p] = None
+			for p in range(new_stop, self.stop+1):
+				claim_d[self.chrom][p] = None
+
+			## adding claims if locus expanded
+			for p in range(new_start, self.start+1):
+				claim_d[self.chrom][p] = self.locus_name
+			for p in range(self.stop, new_stop+1):
+				claim_d[self.chrom][p] = self.locus_name
+
+
+
+
+
+
+		def window_gen(self, start, size, direction, increment, inset=False):
+
+			if inset:
+				start = start - size * direction
+
+			if start < 0:
+				start = 0
+
+			if start >= chromosome_max_lengths[chrom]:
+				start = chromosome_max_lengths[chrom]
+
+			while True:
+				end =  start + size * direction
+
+				if start < 0:
+					yield sorted([0,end])
+					return
+
+				if end < 0:
+					yield sorted([0, start])
+					return
+
+				if start >= chromosome_max_lengths[chrom]:
+					yield sorted([end, chromosome_max_lengths[chrom]-1])
+					return
+
+				if end >= chromosome_max_lengths[chrom]:
+					yield sorted([start, chromosome_max_lengths[chrom]-1])
+					return
+
+				yield sorted([start,end])
+
+				start += increment * direction
+
+
+		def test_extend(self, window, expand=False):
+
+			window_start, window_end = window
+
+			if window_start < self.start or window_end > self.stop:
+				return(False, ['outofbounds'])
+
+
+			window = list(range(window_start, window_end)) 
+			window_size = len(window)
+
+			w_strands = Counter()
+			w_sizes   = sizeClass(minmax=read_minmax)
+			w_depths  = 0
+
+			for w in window:
+				# print(w)
+
+				# print(w)
+				try:
+					depth = pos_depth_d[chrom][w]
+				except IndexError:
+					print(w)
+					print(window_start, window_end)
+					print(chromosome_max_lengths[chrom])
+					sys.exit()
+
+				w_depths += depth
+
+				if depth > 0:
+					w_strands["+"] += pos_strand_d[chrom][w][0]
+					w_strands["-"] += pos_strand_d[chrom][w][1]
+					w_sizes.update(pos_size_d[chrom][w])
+
+				# print(' ', w, depth)
+
+				if expand: 
+					## trimming doesnt worry about hitting other loci
+					if w in claim_d[chrom] and claim_d[chrom][w] != name:
+						# print('claim break')
+						return(False, ['claim'])
+
+			try:
+				w_fractop = w_strands['+'] / sum(w_strands.values())
+			except ZeroDivisionError:
+				w_fractop = 1
+
+
+			expand_fails = []
+
+			if w_depths == 0:
+				# pprint(w_strands)
+				# print('empty break')
+				# sys.exit()
+
+				expand_fails.append('empty')
+
+			else:
+
+				if expand:
+					## trimming doesnt consider fractop or size distributions (smaller windows make this challenging)
+
+					if not abs(self.frac_top - w_fractop) < 0.5:
+						# print('strand break')
+						expand_fails.append('strand')
+					
+
+					if not w_sizes == self.sizes:
+						# print('size break')
+						expand_fails.append('size')
+
+
+				# print(r_depth, region_size, w_depths, window_size)
+				# print(round(r_depth / region_size * window_size, 1), "read threshold")
+				if w_depths/window_size < self.r_depth/(self.stop - self.start) * 0.05:
+					# print('depth break')
+					expand_fails.append('depth')
+
+			# print("pass")
+
+			if len(expand_fails) > 0:
+				return(False, expand_fails)
+
+			return(True, [])
+
+
+
+
+		def find_outer_boundaries(self, gen):
+
+			last_window = next(gen)
+			for window in gen:
+				test, fail_list = self.test_extend(window, expand=True)
+
+				# print(" ", window, test, fail_list)
+
+				if not test:
+					return(last_window)
+
+				last_window = window
+			return last_window
+
+
+
+		def find_inner_boundaries(self, gen):
+
+			for window in gen:
+				test, fail_list = self.test_extend(window)
+
+
+				# print(" ", window, test, fail_list)
+
+				if 'outofbounds' in fail_list:
+					print(self.start, self.stop)
+					sys.exit()
+
+				if test:
+					return(window)
+			return window
+
+
 	## revising regions
 	
 	print()
@@ -1646,7 +1895,10 @@ def tradeoff(**params):
 			name, chrom, start, stop = region
 
 			# print(region)
-			new_start, new_stop, claim_d = expand_region(claim_d, region)
+
+
+			rc = reviseClass(region)
+			new_start, new_stop = rc.expand()
 
 			if new_stop > chromosome_max_lengths[chrom]:
 				new_stop = chromosome_max_lengths[chrom] - 1
@@ -1901,7 +2153,7 @@ def tradeoff(**params):
 						del regions[c]
 
 						if show_warnings:
-							print(f"Warning: bad locus {c_name} removed")
+							print(f"Warning: bad locus {c_name} removed                      ")
 
 
 				considered_regions = get_considered_regions(locus_i)
@@ -2222,6 +2474,13 @@ def tradeoff(**params):
 
 		last_stop = 0
 		for i,locus in enumerate(regions):
+
+			# print()
+			# print(locus)
+
+			rc = reviseClass(locus)
+			locus[2], locus[3] = rc.trim()
+			# print(locus)
 
 			old_name = locus[0]
 			regions_name_i += 1
