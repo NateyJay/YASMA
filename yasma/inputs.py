@@ -48,12 +48,12 @@ from shutil import copyfile
 	type=click.UNPROCESSED, callback=validate_path,
 	help='Alignment file input (bam or cram).')
 
-@optgroup.option('-r', '--annotation_readgroups', 
-	required=False,
-	default=None,
-	multiple=True,
-	# type=list,
-	help="List of read groups (RGs, libraries) to be considered for the annotation. 'ALL' uses all readgroups for annotation, but often pertainent RGs will need to be specified individually.")
+# @optgroup.option('-r', '--annotation_readgroups', 
+# 	required=False,
+# 	default=None,
+# 	multiple=True,
+# 	# type=list,
+# 	help="List of read groups (RGs, libraries) to be considered for the annotation. 'ALL' uses all readgroups for annotation, but often pertainent RGs will need to be specified individually.")
 
 
 
@@ -101,8 +101,16 @@ from shutil import copyfile
 	multiple=True,
 	help='NCBI SRA codes for libraries. These will almost certainly start with SRR or ERR.')
 
+
+@optgroup.option("-r", "--replicate_groups", 
+	required=False, 
+	multiple=True,
+	type=click.UNPROCESSED, callback=validate_rep_group,
+	help='Values denoting replicate groups (sets of replicate libraries) for projects with multiple conditions/tissues/treatments. Can be entered here as space sparated duplexes, with the library base_name and replicate_group delimited by a colon. E.g. SRR8280355:WT SRR8280356:WT SRR8280357:mut SRR8280358:mut')
+
 def inputs(**params):
 	'''A tool to log inputs, which will be referenced by later tools.'''
+
 
 	rc = requirementClass()
 	rc.add_samtools()
