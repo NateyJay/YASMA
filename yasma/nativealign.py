@@ -109,7 +109,7 @@ def nativealign(**params):
 	if not bowtie_build_index.is_file():
 		call = ['bowtie-build', genome_file, genome_file.with_suffix('')]
 
-		p = Popon(call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
+		p = Popen(call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
 		p.wait()
 
 
