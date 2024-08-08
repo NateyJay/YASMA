@@ -91,6 +91,7 @@ class customClickClass(click.Group):
 		out_args = [args.pop(0)]
 
 		for arg in args:
+			# print(arg)
 
 			if arg.startswith("-"):
 				opt = arg
