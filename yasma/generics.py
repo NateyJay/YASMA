@@ -130,6 +130,89 @@ class trackClass():
 		# 	sys.exit()
 
 
+class bigwigClass():
+	'''A class to handle producing rpm bigwig files from a counter object c[pos] = depth'''
+
+	def __init__(self, file, total_reads, chromosomes, strand= "+", name=''):
+		self.file = str(file)
+		# self.file = f"./{output_directory}/Coverages/{file}.wig"
+		self.bw = pyBigWig.open(self.file, 'w')
+
+		self.total_reads   = total_reads
+
+		self.bw.addHeader(chromosomes)
+
+		if strand == "+":
+			self.strand = 1
+		elif strand == "-":
+			self.strand = -1 
+
+		self.name= name
+
+
+	def reset(self, chrom_length):
+		# self.last_depth_pos = 1
+		self.last_pos = 1
+		# self.last_depth = 0
+		# self.span = 0
+		self.depths = [0] * chrom_length
+
+
+	def add(self, pos, length):
+
+		for r in range(pos, pos+length+1):
+			try:
+				self.depths[r] += 1
+			except IndexError:
+				# print(f"WARNING: position {r:,} is longer than the total chromosome length")
+				pass
+
+		self.last_pos = r
+
+	def rle(self, chrom):
+		last_depth = 0
+		span = 1
+		last_pos = 0
+
+		starts = []
+		ends   = []
+		values = []
+
+
+		for pos, depth in enumerate(self.depths):
+
+			if depth == last_depth:
+				span += 1
+
+			else:
+
+
+				ends.append(pos)
+				starts.append(last_pos)
+				values.append(round(last_depth / self.total_reads * 1000000, 8) * self.strand)
+
+				# print(self.name, chrom, last_pos, "->", pos, depth, sep='\t')
+
+				last_depth = depth
+				last_pos   = pos
+				span       = 1
+
+		if last_pos < pos:
+			ends.append(pos)
+			starts.append(last_pos)
+			values.append(round(last_depth / self.total_reads * 1000000, 8) * self.strand)
+
+
+		if starts[0] == ends[0]:
+			starts.remove(0)
+			ends.remove(0)
+			values.remove(0)
+
+		self.bw.addEntries([chrom] * len(values), starts, ends=ends, values=values)
+
+	def close(self):
+		self.bw.close()
+
 
 
 class requirementClass():
@@ -306,7 +389,7 @@ class inputClass():
 		self.file = Path(output_directory, "inputs.json")
 
 
-		self.inputs = {'project_name' : project_name}
+		self.inputs = {'project_name' : None}
 
 
 		self.input_list = [
@@ -315,12 +398,14 @@ class inputClass():
 			"trimmed_libraries",
 			"adapter",
 			"alignment_file",
-			'annotation_readgroups',
+			# 'annotation_readgroups',
+			"replicate_groups",
 			'genome_file',
 			'jbrowse_directory',
 			'gene_annotation_file'
 			]
 
+		self.rep_groups = {}
 
 		self.paths = [
 			"untrimmed_libraries",
@@ -331,9 +416,9 @@ class inputClass():
 			'gene_annotation_file'
 			]
 
+
 		for i in self.input_list:
 			self.inputs[i] = None
-
 
 
 		if isfile(self.file):
@@ -343,7 +428,7 @@ class inputClass():
 				print("DECODER ERROR!")
 				pass
 
-		self.inputs['project_name'] = self.output_directory.name
+		self.inputs['project_name'] = project_name
 
 		self.parse(params)
 		self.check_paired_end()
@@ -370,17 +455,13 @@ class inputClass():
 	def encode_inputs(self):
 
 		od = self.output_directory
-		# print("OD:", od)
 
-		def encode_path(path):
+		def encode_path(p):
 
-
-			path = str(path.absolute())
-
-			if "/"+str(od)+"/" in path:
-				path = "<OD>/" + path.split(str(od)+"/")[-1]
-
-			return(path)
+			if p.is_relative_to(od):
+				return(str(p.relative_to(od)))
+			else:
+				return(str(p.absolute()))
 
 
 		for p in ["untrimmed_libraries", "trimmed_libraries"]:
@@ -395,28 +476,12 @@ class inputClass():
 
 
 
-
-
 	def decode_inputs(self):
 		od = self.output_directory
 
+		def decode_path(p):
+			return(Path(od, p))
 
-		def decode_path(path):
-			# print(path)
-			if "<OD>/" in path:
-				path = path.split("<OD>/")[-1]
-				path = Path(od, path)
-				# print(path)
-			elif "<OUTPUT_DIRECTORY>/" in path:
-				path = path.split("<OUTPUT_DIRECTORY>/")[-1]
-				path = Path(od, path)
-				# print(path)
-			else:
-				path = Path(path)
-
-
-			# path = Path(os.path.relpath(path))
-			return(path)
 
 		for p in ["untrimmed_libraries", "trimmed_libraries"]:
 			if self.inputs[p]:
@@ -426,24 +491,22 @@ class inputClass():
 
 		for p in ["alignment_file", 'genome_file', 'jbrowse_directory', 'gene_annotation_file']:
 			if self.inputs[p]:
-
 				self.inputs[p] = decode_path(self.inputs[p])
 
 
 
 
+
 	def parse(self, params):
-		# self.params = params
 
-
-
-
-		for p in ['annotation_readgroups', 'trimmed_libraries','untrimmed_libraries']:
+		## list type parameters
+		for p in ['trimmed_libraries','untrimmed_libraries', 'srrs']:
 			if p in params:
 				try:
 					params[p] = list(params[p])
 				except TypeError:
 					pass
+
 
 		for option in self.input_list:
 
@@ -451,6 +514,8 @@ class inputClass():
 				value = params[option]
 			except KeyError:
 				value = None
+
+			# print(option, "->", value)
 
 			if option in self.paths and value:
 
@@ -461,6 +526,8 @@ class inputClass():
 
 				else:
 					value = Path(value)
+
+
 
 			self.add(option, value)
 
@@ -675,9 +742,10 @@ class inputClass():
 
 
 
+
+
 			
 def validate_glob_path(ctx, param, value):
-
 
 
 	if len(value) == 0:
@@ -685,7 +753,7 @@ def validate_glob_path(ctx, param, value):
 		# raise click.UsageError("Error: Missing or empty option '-l'")
 		return(None)
 
-	paths = list(value[0])
+	paths = list(value)
 
 	full_paths = []
 	for path in paths:
@@ -712,6 +780,35 @@ def validate_path(ctx, param, value):
 	full_path = str(Path(path).absolute())
 
 	return(full_path)		
+
+def validate_rep_group(ctx, param, input_tuple):
+
+	if not input_tuple:
+		return(None)
+
+	d = {}
+	rep_groups = set()
+
+	for entry in input_tuple:
+		if entry.count(":") != 1:
+			raise click.BadParameter(f"replicate groups must contain a single colon: {entry}\nexample: SRR123456:WT")
+
+
+		val, key = entry.split(":")
+
+		if val in rep_groups:
+			raise click.BadParameter(f"library base-names can only be mentioned once: {entry}")
+
+		rep_groups.add(val)
+
+		try:
+			d[key].append(val)
+		except KeyError:
+			d[key] = [val]
+
+
+
+	return(d)		
 
 
 TOP_READS_HEADER = "cluster\tseq\trank\tdepth\trpm\tlocus_prop"
@@ -1440,122 +1537,122 @@ class color:
 	END = ''
 
 
-class bigwigClass():
-	'''A class to handle producing rpm bigwig files from a counter object c[pos] = depth'''
+# class bigwigClass():
+# 	'''A class to handle producing rpm bigwig files from a counter object c[pos] = depth'''
 
-	def __init__(self, file, rpm_threshold, total_reads, chromosomes, strand= "+"):
-		self.file = file
-		# self.file = f"./{output_directory}/Coverages/{file}.wig"
-		self.bw = pyBigWig.open(self.file, 'w')
+# 	def __init__(self, file, rpm_threshold, total_reads, chromosomes, strand= "+"):
+# 		self.file = file
+# 		# self.file = f"./{output_directory}/Coverages/{file}.wig"
+# 		self.bw = pyBigWig.open(self.file, 'w')
 
-		self.rpm_threshold = rpm_threshold
-		self.total_reads   = total_reads
+# 		self.rpm_threshold = rpm_threshold
+# 		self.total_reads   = total_reads
 
-		self.bw.addHeader(chromosomes)
+# 		self.bw.addHeader(chromosomes)
 
-		if strand == "+":
-			self.strand = 1
-		elif strand == "-":
-			self.strand = -1 
+# 		if strand == "+":
+# 			self.strand = 1
+# 		elif strand == "-":
+# 			self.strand = -1 
 
 
-	def add_chrom(self, c, chrom, chrom_length, peaks_only=False):
+# 	def add_chrom(self, c, chrom, chrom_length, peaks_only=False):
 	
-		depths = [0.0000]
+# 		depths = [0.0000]
 
-		for p in range(chrom_length):
+# 		for p in range(chrom_length):
 
-			depth = round(c[p] / self.total_reads * 1000000, 4) * self.strand
+# 			depth = round(c[p] / self.total_reads * 1000000, 4) * self.strand
 
-			if peaks_only and depth < self.rpm_threshold:
-				depth = 0
+# 			if peaks_only and depth < self.rpm_threshold:
+# 				depth = 0
 
-			if depth != depths[-1]:
-				# chr19 49302000 49302300 -1.0
-				# print(f"variableStep  chrom={chrom}  span={len(depths)}")
-				# print(f"{p-len(depths)+2} {depths[-1]}")
+# 			if depth != depths[-1]:
+# 				# chr19 49302000 49302300 -1.0
+# 				# print(f"variableStep  chrom={chrom}  span={len(depths)}")
+# 				# print(f"{p-len(depths)+2} {depths[-1]}")
 
-				# self.bw.addEntries(chrom, [p-len(depths)+2], values=[depths[-1]], span=len(depths))
-				# print(chrom, p-len(depths)+2, p+2, depths[-1], sep='\t')
-
-
-				# self.bw.addEntries([chrom], [p-len(depths)+2], [p+2], values=[depths[-1]])
-				self.bw.addEntries(chrom, [p-len(depths)+2], values=[depths[-1]], span=len(depths))
-
-				depths = []
-
-			depths.append(depth)
+# 				# self.bw.addEntries(chrom, [p-len(depths)+2], values=[depths[-1]], span=len(depths))
+# 				# print(chrom, p-len(depths)+2, p+2, depths[-1], sep='\t')
 
 
-class wiggleClass():
-	'''A class to handle producing rpm wig/bigwig files from a counter object c[pos] = depth'''
+# 				# self.bw.addEntries([chrom], [p-len(depths)+2], [p+2], values=[depths[-1]])
+# 				self.bw.addEntries(chrom, [p-len(depths)+2], values=[depths[-1]], span=len(depths))
 
-	def __init__(self, file, rpm_threshold, total_reads):
-		self.file = file
-		# self.file = f"./{output_directory}/Coverages/{file}.wig"
-		self.outf = open(self.file, 'w')
+# 				depths = []
 
-		self.rpm_threshold = rpm_threshold
-		self.total_reads   = total_reads
+# 			depths.append(depth)
 
 
+# class wiggleClass():
+# 	'''A class to handle producing rpm wig/bigwig files from a counter object c[pos] = depth'''
 
-	def add_chrom(self, c, chrom, chrom_length, peaks_only=False):
+# 	def __init__(self, file, rpm_threshold, total_reads):
+# 		self.file = file
+# 		# self.file = f"./{output_directory}/Coverages/{file}.wig"
+# 		self.outf = open(self.file, 'w')
+
+# 		self.rpm_threshold = rpm_threshold
+# 		self.total_reads   = total_reads
+
+
+
+# 	def add_chrom(self, c, chrom, chrom_length, peaks_only=False):
 	
-		depths = [0.0000]
+# 		depths = [0.0000]
 
-		for p in range(chrom_length):
+# 		for p in range(chrom_length):
 
-			depth = round(c[p] / self.total_reads * 1000000, 4)
+# 			depth = round(c[p] / self.total_reads * 1000000, 4)
 
-			if peaks_only and depth < self.rpm_threshold:
-				depth = 0
+# 			if peaks_only and depth < self.rpm_threshold:
+# 				depth = 0
 
-			if depth != depths[-1]:
-				# chr19 49302000 49302300 -1.0
-				print(f"variableStep  chrom={chrom}  span={len(depths)}", file=self.outf)
-				print(f"{p-len(depths)+2} {depths[-1]}", file=self.outf)
+# 			if depth != depths[-1]:
+# 				# chr19 49302000 49302300 -1.0
+# 				print(f"variableStep  chrom={chrom}  span={len(depths)}", file=self.outf)
+# 				print(f"{p-len(depths)+2} {depths[-1]}", file=self.outf)
 
-				depths = []
+# 				depths = []
 
-			depths.append(depth)
+# 			depths.append(depth)
 
-	# def add(self, val, pos, chrom):
+# 	# def add(self, val, pos, chrom):
 
-	# 	if val != self.val:
-	# 		span = pos - self.start_pos
+# 	# 	if val != self.val:
+# 	# 		span = pos - self.start_pos
 
-	# 		if span > 0:
+# 	# 		if span > 0:
 
-	# 			print(f"variableStep chrom={chrom} span={span}", file=self.outf)
-	# 			print(f"{self.start_pos} {self.val}", file=self.outf)
+# 	# 			print(f"variableStep chrom={chrom} span={span}", file=self.outf)
+# 	# 			print(f"{self.start_pos} {self.val}", file=self.outf)
 
-	# 			self.val = val
-	# 			self.start_pos = pos
+# 	# 			self.val = val
+# 	# 			self.start_pos = pos
 
-	def convert(self, output_directory, cleanup=False):
+# 	def convert(self, output_directory, cleanup=False):
 
-		self.outf.close()
+# 		self.outf.close()
 
-		wig = self.file
+# 		wig = self.file
 
-		bigwig = wig.replace(".wig", ".bigwig")
+# 		bigwig = wig.replace(".wig", ".bigwig")
 
-		print(f"  {wig} -> {bigwig}", flush=True)
+# 		print(f"  {wig} -> {bigwig}", flush=True)
 
-		call = f"wigToBigWig {wig} ./{output_directory}/ChromSizes.txt {bigwig}"
+# 		call = f"wigToBigWig {wig} ./{output_directory}/ChromSizes.txt {bigwig}"
 
-		p = Popen(call.split(), stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+# 		p = Popen(call.split(), stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
-		out, err= p.communicate()
+# 		out, err= p.communicate()
 
-		if out.strip() + err.strip() != "":
+# 		if out.strip() + err.strip() != "":
 
-			print(out)
-			print(err)
+# 			print(out)
+# 			print(err)
 
-		if cleanup:
-			os.remove(wig)
+# 		if cleanup:
+# 			os.remove(wig)
 
 # def wig_to_bigwig(wig, output_directory):#, cleanup=True):
 

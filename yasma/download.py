@@ -54,8 +54,10 @@ def download(**params):
 	untrimmed_dir = Path(output_directory, "untrimmed")
 	untrimmed_dir.mkdir(parents=True, exist_ok=True)
 
+	download_dir = Path(output_directory, "download")
 
-	call = ['prefetch'] + srrs
+
+	call = ['prefetch', "-O", str(download_dir)] + srrs
 
 	print("calling: ", " ".join(call))
 
@@ -66,7 +68,7 @@ def download(**params):
 
 
 
-	call = ['fasterq-dump'] + srrs + ['-O', str(untrimmed_dir)]
+	call = ['fasterq-dump'] + [str(Path(download_dir, s)) for s in srrs] + ['-O', str(untrimmed_dir)]
 
 	print()
 	print()
@@ -97,6 +99,8 @@ def download(**params):
 			with open(unzipped_file, 'rb') as unzippedf:
 				with gzip.open(zipped_file, 'wb') as zippedf:
 					zippedf.writelines(unzippedf)
+
+			unzipped_file.unlink()
 
 	else:
 		for i,srr in enumerate(srrs):

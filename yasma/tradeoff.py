@@ -792,11 +792,11 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 	type=click.UNPROCESSED, callback=validate_path,
 	help='Alignment file input (bam or cram).')
 
-@optgroup.option('-r', '--annotation_readgroups', 
+@optgroup.option('-ar', '--annotation_replicates', 
 	required=False,
 	multiple=True,
-	default=['all'],
-	help="List of read groups (RGs, libraries) to be considered for the annotation. 'ALL' uses all readgroups for annotation, but often pertainent RGs will need to be specified individually.")
+	default=None,
+	help="List of replicate group names which will be included in the annotation. Defaults to use all libraries, though this is likely not what you want if you have multiple groups.")
 
 @optgroup.option("-o", "--output_directory", 
 	# default=f"Annotation_{round(time())}", 
@@ -809,6 +809,13 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 	required=False,
 	type=str,
 	help="Optional name alignment. Useful if comparing annotations.")
+
+
+@optgroup.option("-r", "--replicate_groups", 
+	required=False, 
+	multiple=True,
+	type=click.UNPROCESSED, callback=validate_rep_group,
+	help='Values denoting replicate groups (sets of replicate libraries) for projects with multiple conditions/tissues/treatments. Can be entered here as space sparated duplexes, with the library base_name and replicate_group delimited by a colon. E.g. SRR1111111:WT SRR1111112:WT SRR1111113:mut SRR1111114:mut')
 
 
 
@@ -856,7 +863,7 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 	help=f"along with --read_weight, these determine the weighted averages for considering the tradeoff proportion of reads and genome annotated. By default, this is weighted 2 for pReads and 1 for pGenome, meaning that the annotator tries do place more reads at the expense of more genome annotated. Default 1.")
 
 @optgroup.option("--read_weight",
-	default=1,
+	default=2,
 	help=f"Default 2. See above.")
 
 # @optgroup.option("--tradeoff_weight",
@@ -945,13 +952,14 @@ def tradeoff(**params):
 	rc.check()
 
 	ic = inputClass(params)
-	ic.check(['alignment_file', 'annotation_readgroups'])
+	ic.check(['alignment_file'])
 
 	output_directory        = str(ic.output_directory)
 	alignment_file          = ic.inputs["alignment_file"]
-	annotation_readgroups   = ic.inputs['annotation_readgroups']
+	replicate_groups        = ic.inputs['replicate_groups']
 	project_name            = ic.inputs['project_name']
 
+	annotation_replicates   = params['annotation_replicates']
 	clump_dist              = params['merge_dist']
 	clump_strand_similarity = params['merge_strand_similarity']
 	min_locus_length        = params['min_locus_length']
@@ -968,6 +976,8 @@ def tradeoff(**params):
 
 	if annotation_name:
 		dir_name = f"tradeoff_{annotation_name}"
+	elif annotation_replicates:
+		dir_name = f"tradeoff_{"_".join(annotation_replicates)}"
 	else:
 		dir_name = 'tradeoff'
 
@@ -1014,6 +1024,25 @@ def tradeoff(**params):
 
 	chromosomes, bam_rgs = get_chromosomes(alignment_file)
 
+
+	if annotation_replicates:
+		new_rgs = []
+		for key in annotation_replicates:
+
+			if key not in replicate_groups:
+				sys.exit(f"Error: {key} not found in replicate_groups entry.")
+
+
+			for rg in replicate_groups[key]:
+				new_rgs.append(rg)
+				if rg not in bam_rgs:
+					sys.exit(f"Error: {rg} not found in bam readgroups.")
+
+		bam_rgs = new_rgs
+		del new_rgs
+
+
+
 	chromosome_max_lengths = {}
 	for c,l in chromosomes:
 		chromosome_max_lengths[c] = l
@@ -1030,7 +1059,7 @@ def tradeoff(**params):
 	genome_length = sum([l for c,l in chromosomes])
 
 	# print(alignment_file)
-	annotation_readgroups = check_rgs(annotation_readgroups, bam_rgs)
+	annotation_readgroups = check_rgs(bam_rgs, bam_rgs)
 	params['annotation_readgroups'] = annotation_readgroups
 
 	print()
