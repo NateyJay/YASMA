@@ -36,23 +36,9 @@ from random import sample, seed, shuffle
 import pysam
 
 
-# import git
-
-
 
 
 ENCODING='cp850'
-# ENCODING=ENCODING
-
-# def make_bash_safe_path(path):
-
-# 	print(path)
-# 	print(os.path.relpath(path))
-# 	sys.exit()
-
-# 	string = str(path)
-# 	string = string.replace(" ", "\ ")
-# 	return(string)
 
 
 
@@ -233,20 +219,20 @@ class requirementClass():
 
 		self.reqs.append(('cutadapt', found, version))
 
-	def add_samtools(self):
-		try:
-			p = Popen(['samtools'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
-			out,err = p.communicate()
-			err = err.split("\n")
-			# print(err)
-			found=True
-			version = err[2].split()[1]
+	# def add_samtools(self):
+	# 	try:
+	# 		p = Popen(['samtools'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+	# 		out,err = p.communicate()
+	# 		err = err.split("\n")
+	# 		# print(err)
+	# 		found=True
+	# 		version = err[2].split()[1]
 
-		except FileNotFoundError:
-			found=False
-			version=''
+	# 	except FileNotFoundError:
+	# 		found=False
+	# 		version=''
 
-		self.reqs.append(('samtools', found, version))
+	# 	self.reqs.append(('samtools', found, version))
 
 	def add_shortstack(self):
 		try:
@@ -399,7 +385,8 @@ class inputClass():
 			"adapter",
 			"alignment_file",
 			# 'annotation_readgroups',
-			"replicate_groups",
+			"conditions",
+			"annotation_conditions",
 			'genome_file',
 			'jbrowse_directory',
 			'gene_annotation_file'
@@ -500,7 +487,7 @@ class inputClass():
 	def parse(self, params):
 
 		## list type parameters
-		for p in ['trimmed_libraries','untrimmed_libraries', 'srrs']:
+		for p in ['trimmed_libraries','untrimmed_libraries', 'srrs', 'annotation_conditions']:
 			if p in params:
 				try:
 					params[p] = list(params[p])
@@ -543,15 +530,21 @@ class inputClass():
 		if not saved_value:
 			self.inputs[option] = value
 
-		elif not value:
-			pass
+		if not value:
+			return
 
 		# elif saved_value != value and self.override:
-		else:
-			print(f"  Override!")
-			print(f"  Replace: ... '{self.inputs[option]}'")
-			print(f"  with: ...... '{value}'")
-			self.inputs[option] = value
+
+		if saved_value == value:
+			return
+
+		# print((self.inputs[option], value))
+		# print(f"  Override!")
+		print(f"  Input value '{option}'")
+		print(f"      changed: '{saved_value}' -> ")
+		print(f"               '{value}'")
+		print()
+		self.inputs[option] = value
 
 		# elif saved_value != value:
 		# 	print(f"  Warning: input for option '{color.BOLD}{option}{color.END}' does not match logged value")
@@ -633,24 +626,14 @@ class inputClass():
 		genome_chromosomes = set()
 		if self.inputs['genome_file']:
 			genome_file = self.inputs['genome_file']
-			genome_index_file = genome_file.parent / (genome_file.name + ".fai")
-
-			if not isfile(genome_file):
-				sys.exit(f"Error: genome_file not found {genome_file}")
 
 
-			if not isfile(genome_index_file):
-				call = ['samtools', 'faidx', str(genome_file)]
-				print(" ".join(call))
-				p = Popen(call, stdout=PIPE, stderr=PIPE)
-				p.wait()
+			genf = pysam.FastaFile(self.inputs['genome_file'])
 
-			with open(genome_index_file, 'r') as f:
+			genome_chromosomes = genf.references
 
-				for line in f:
-					genome_chromosomes.add(line.split()[0])
+			genf.close()
 
-			# print(genome_chromosomes)
 
 
 		gene_annotation_chromosomes = set()
@@ -672,17 +655,12 @@ class inputClass():
 		alignment_chromosomes = set()
 		if self.inputs['alignment_file']:
 
-			if not isfile(self.inputs['alignment_file']):
-				sys.exit(f"Error: alignment_file not found {self.inputs['alignment_file']}")
+			with pysam.AlignmentFile(self.inputs['alignment_file'], 'rb') as bamf:
+				header = bamf.header.to_dict()
 
-			p = Popen(['samtools', 'view', '-H', self.inputs['alignment_file']],
-				stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+			for entry in header['SQ']:
+				alignment_chromosomes.add(entry['SN'])
 
-			for line in p.stdout:
-				if line.startswith("@SQ"):
-					alignment_chromosomes.add(line.split("\t")[1][3:])
-
-			p.wait()
 
 			# print(alignment_chromosomes)
 		all_chroms = set()
@@ -698,6 +676,7 @@ class inputClass():
 			else:
 				return("  ")
 
+		print()
 		print("Checking chromosome/scaffold/contig overlaps between inputs...")
 		print()
 		print('genome', 'align', 'gene', 'chrom/scaffold', sep='\t')
@@ -779,9 +758,9 @@ def validate_path(ctx, param, value):
 
 	full_path = str(Path(path).absolute())
 
-	return(full_path)		
+	return(full_path)
 
-def validate_rep_group(ctx, param, input_tuple):
+def validate_condition(ctx, param, input_tuple):
 
 	if not input_tuple:
 		return(None)
@@ -790,8 +769,21 @@ def validate_rep_group(ctx, param, input_tuple):
 	rep_groups = set()
 
 	for entry in input_tuple:
+
+		if Path(entry).is_file():
+
+			with open(entry, 'r') as f:
+				for line in f:
+					val, key = line.strip().split('\t')
+					try:
+						d[key].append(val)
+					except KeyError:
+						d[key] = [val]
+
+			continue
+
 		if entry.count(":") != 1:
-			raise click.BadParameter(f"replicate groups must contain a single colon: {entry}\nexample: SRR123456:WT")
+			raise click.BadParameter(f"conditions groups must be a valid path or contain a single colon: {entry}\nexample: SRR123456:WT")
 
 
 		val, key = entry.split(":")
@@ -1283,171 +1275,54 @@ def samtools_view(bam, rgs='all', contig=None, start=None, stop=None, threads=4,
 	if boundary_rule == 'tight' and start and stop:
 
 		for read in bamf.fetch(contig=contig, start=start, stop=stop):
+			if not read.get_tag("RG") in rgs:
+				continue
+
+			if read.is_unmapped:
+				continue
+
 			read_length = read.infer_read_length()
 
-			if read.get_tag("RG") in rgs and read.is_mapped and read.overlap == read_length:
-				strand = "-" if read.is_reverse else "+"
+			if read.overlap != read_length:
+				continue
 
-				# if read_length >= read_minmax[0] and read_length <= read_minmax[-1]:
+			strand = "-" if read.is_reverse else "+"
 
-				yield(strand, 
-					read_length, 
-					False, 
-					read.reference_start, 
-					read.reference_name, 
-					read.get_tag("RG"), 
-					read.get_forward_sequence().replace("T","U"), 
-					read.query_name)
+			# if read_length >= read_minmax[0] and read_length <= read_minmax[-1]:
+
+			yield(strand, 
+				read_length, 
+				False, 
+				read.reference_start, 
+				read.reference_name, 
+				read.get_tag("RG"), 
+				read.get_forward_sequence().replace("T","U"), 
+				read.query_name)
 	else:
 
 		for read in bamf.fetch(contig=contig, start=start, stop=stop):
 
+			if not read.get_tag("RG") in rgs:
+				continue
+
+			if read.is_unmapped:
+				continue
+
 			read_length = read.infer_read_length()
 
-			if read.get_tag("RG") in rgs and read.is_mapped:
-				strand = "-" if read.is_reverse else "+"
+			strand = "-" if read.is_reverse else "+"
 
-				# if read_length >= read_minmax[0] and read_length <= read_minmax[-1]:
-				yield(strand, 
-					read_length, 
-					False, 
-					read.reference_start, 
-					read.reference_name, 
-					read.get_tag("RG"), 
-					read.get_forward_sequence().replace("T","U"), 
-					read.query_name)
+			# if read_length >= read_minmax[0] and read_length <= read_minmax[-1]:
+			yield(strand, 
+				read_length, 
+				False, 
+				read.reference_start, 
+				read.reference_name, 
+				read.get_tag("RG"), 
+				read.get_forward_sequence().replace("T","U"), 
+				read.query_name)
 
 	bamf.close()
-
-# def samtools_view(bam, dcr_range=False, non_range=False, locus=False, rgs=[], boundary_rule='loose', subsample=None, reverse=False, reverse_chunk = 100):
-
-
-
-
-# 	if boundary_rule == 'tight':
-# 		lbound = int(locus.split(":")[-1].split("-")[0])
-# 		rbound = int(locus.split(":")[-1].split("-")[1])+1
-# 	else:
-# 		lbound = False
-
-
-# 	# call = f"samtools view -@ 4 -F 4 {bam}"
-# 	call = ['samtools', 'view', '-F', '4']
-	
-# 	for rg in rgs:
-# 		call += ['-r', rg]
-
-# 	if subsample:
-# 		call += ['--subsample', str(subsample)]
-
-# 	call += [str(bam)]
-
-# 	size=False
-
-
-
-
-# 	# print(" ".join(map(str,call)))
-		
-# 	# print(call)
-
-# 	def parse_line(line):
-# 		read_id = line[0]
-# 		flag = line[1]
-# 		seq = line[9]
-
-# 		if flag == "16":
-# 			strand = '-'
-# 		elif flag == '0':
-# 			strand = "+"
-# 		else:
-# 			strand = False
-
-# 		length = int(line[5].rstrip("M"))
-
-# 		sam_pos = int(line[3])
-# 		sam_chrom = line[2]
-
-# 		seq = seq.replace("T", "U")
-
-# 		rg = line[18].lstrip("RG:Z:")
-# 		size=False
-
-
-
-# 		return(strand, length, size, sam_pos, sam_chrom, rg, seq, read_id)
-
-# 	if not reverse:
-# 		if locus:
-# 			call.append(locus)
-
-# 		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
-
-# 		for i,line in enumerate(p.stdout):
-
-# 			line = line.strip().split()
-
-# 			# read_id, flag, sam_chrom, sam_pos, _, length, _, _, _, _,_,_,_,_,_,_,_,_,rg= line
-# 			strand, length, size, sam_pos, sam_chrom, rg, seq, read_id = parse_line(line)
-
-# 			if lbound and boundary_rule == 'tight':
-# 				if sam_pos >= lbound and sam_pos + length + 1 <= rbound:
-# 					yield(strand, length, size, sam_pos, sam_chrom, rg, seq, read_id)
-
-# 			else:
-# 				yield(strand, length, size, sam_pos, sam_chrom, rg, seq, read_id)
-
-# 		p.wait()
-
-# 	else:
-# 		chrom = locus.split(":")[0]
-
-# 		coords = locus.split(":")[1].split("-")
-
-# 		if len(coords) == 2:
-# 			left, right = map(int, coords)
-
-# 		elif len(coords) == 1:
-# 			left = False
-# 			right = int(coords[0])
-# 		# start, stop = map(int, locus.split(":")[1].split("-")[1]
-
-
-
-# 		read_set=set()
-# 		chunk_r = right
-# 		while chunk_r > left:
-
-# 			chunk = []
-# 			chunk_l = chunk_r - reverse_chunk
-
-# 			locus = f"{chrom}:{chunk_l}-{chunk_r}"
-
-# 			sub_call = call.copy()
-# 			sub_call.append(locus)
-
-# 			p = Popen(sub_call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
-
-# 			for i,line in enumerate(p.stdout):
-
-# 				line = line.strip().split()
-# 				if line[0] not in read_set:
-# 					chunk.append(line)
-# 					read_set.add(line[0])
-
-
-# 			p.wait()
-
-# 			for line in chunk[::-1]:
-# 				strand, length, size, sam_pos, sam_chrom, rg, seq, read_id = parse_line(line)
-
-# 				yield(strand, length, size, sam_pos, sam_chrom, rg, seq, read_id)
-
-# 			chunk_r -= reverse_chunk
-
-
-
-
 
 
 
@@ -1456,60 +1331,22 @@ def get_chromosomes(file):
 	rgs = []
 	# call = f"samtools view -@ 4 -H {file}"
 
-	call = ['samtools','view','-H', file]
-	# print(" ".join(call))
+	with pysam.AlignmentFile(file, 'rb') as bamf:
+		header = bamf.header.to_dict()
 
-	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
-	out, err = p.communicate()
+	# pprint(header['SQ'])
+	# sys.exit()
 
+	chromosomes = []
+	for entry in header['SQ']:
+		chromosomes.append((entry['SN'], entry['LN']))
 
-	for o in out.strip().split("\n"):
-		o = o.strip().split('\t')
-		if o[0] == "@SQ":
-			name = o[1].split(":")[-1]
-			length = int(o[2].split(":")[-1])
-			chromosomes.append((name,length))
-		if o[0] == "@RG":
-			rgs.append(o[1].split(":")[-1])
-
-
-	# if output_directory:
-	# 	with open(f"./{output_directory}/chrom_sizes.txt", 'w') as outf:
-	# 		for chrom, size in chromosomes:
-	# 			print(chrom, size, sep='\t', file=outf)
+	rgs = []
+	for entry in header['RG']:
+		rgs.append(entry['ID'])
 
 	return(chromosomes, rgs)
 
-# def get_chromosome_depths(bam_file):
-# 	print("reading chromosome depths from idxstats...")
-# 	print()
-
-# 	p = Popen(['samtools', 'idxstats', bam_file], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
-
-# 	chrom_depths = Counter()
-# 	for line in p.stdout:
-# 		line = line.strip().split("\t")
-# 		chrom_depths[line[0]] += int(line[2])
-# 		# print(line)
-
-# 	p.wait()
-
-# 	return(chrom_depths)
-
-
-
-# def check_rgs(annotation_readgroups, bam_rgs):
-
-# 	if annotation_readgroups[0].lower() == 'all':
-# 		annotation_readgroups = bam_rgs
-# 	else:
-# 		for rg in annotation_readgroups:
-# 			if rg not in bam_rgs:
-# 				sys.exit(f"Error: provided readgroup '{rg}' not found within bamfile header:\n{bam_rgs}")
-
-# 	annotation_readgroups = set(annotation_readgroups)
-# 	return(annotation_readgroups)
-	# def get(self):
 
 
 class color:
@@ -1536,143 +1373,6 @@ class color:
 	UNDERLINE = ''
 	END = ''
 
-
-# class bigwigClass():
-# 	'''A class to handle producing rpm bigwig files from a counter object c[pos] = depth'''
-
-# 	def __init__(self, file, rpm_threshold, total_reads, chromosomes, strand= "+"):
-# 		self.file = file
-# 		# self.file = f"./{output_directory}/Coverages/{file}.wig"
-# 		self.bw = pyBigWig.open(self.file, 'w')
-
-# 		self.rpm_threshold = rpm_threshold
-# 		self.total_reads   = total_reads
-
-# 		self.bw.addHeader(chromosomes)
-
-# 		if strand == "+":
-# 			self.strand = 1
-# 		elif strand == "-":
-# 			self.strand = -1 
-
-
-# 	def add_chrom(self, c, chrom, chrom_length, peaks_only=False):
-	
-# 		depths = [0.0000]
-
-# 		for p in range(chrom_length):
-
-# 			depth = round(c[p] / self.total_reads * 1000000, 4) * self.strand
-
-# 			if peaks_only and depth < self.rpm_threshold:
-# 				depth = 0
-
-# 			if depth != depths[-1]:
-# 				# chr19 49302000 49302300 -1.0
-# 				# print(f"variableStep  chrom={chrom}  span={len(depths)}")
-# 				# print(f"{p-len(depths)+2} {depths[-1]}")
-
-# 				# self.bw.addEntries(chrom, [p-len(depths)+2], values=[depths[-1]], span=len(depths))
-# 				# print(chrom, p-len(depths)+2, p+2, depths[-1], sep='\t')
-
-
-# 				# self.bw.addEntries([chrom], [p-len(depths)+2], [p+2], values=[depths[-1]])
-# 				self.bw.addEntries(chrom, [p-len(depths)+2], values=[depths[-1]], span=len(depths))
-
-# 				depths = []
-
-# 			depths.append(depth)
-
-
-# class wiggleClass():
-# 	'''A class to handle producing rpm wig/bigwig files from a counter object c[pos] = depth'''
-
-# 	def __init__(self, file, rpm_threshold, total_reads):
-# 		self.file = file
-# 		# self.file = f"./{output_directory}/Coverages/{file}.wig"
-# 		self.outf = open(self.file, 'w')
-
-# 		self.rpm_threshold = rpm_threshold
-# 		self.total_reads   = total_reads
-
-
-
-# 	def add_chrom(self, c, chrom, chrom_length, peaks_only=False):
-	
-# 		depths = [0.0000]
-
-# 		for p in range(chrom_length):
-
-# 			depth = round(c[p] / self.total_reads * 1000000, 4)
-
-# 			if peaks_only and depth < self.rpm_threshold:
-# 				depth = 0
-
-# 			if depth != depths[-1]:
-# 				# chr19 49302000 49302300 -1.0
-# 				print(f"variableStep  chrom={chrom}  span={len(depths)}", file=self.outf)
-# 				print(f"{p-len(depths)+2} {depths[-1]}", file=self.outf)
-
-# 				depths = []
-
-# 			depths.append(depth)
-
-# 	# def add(self, val, pos, chrom):
-
-# 	# 	if val != self.val:
-# 	# 		span = pos - self.start_pos
-
-# 	# 		if span > 0:
-
-# 	# 			print(f"variableStep chrom={chrom} span={span}", file=self.outf)
-# 	# 			print(f"{self.start_pos} {self.val}", file=self.outf)
-
-# 	# 			self.val = val
-# 	# 			self.start_pos = pos
-
-# 	def convert(self, output_directory, cleanup=False):
-
-# 		self.outf.close()
-
-# 		wig = self.file
-
-# 		bigwig = wig.replace(".wig", ".bigwig")
-
-# 		print(f"  {wig} -> {bigwig}", flush=True)
-
-# 		call = f"wigToBigWig {wig} ./{output_directory}/ChromSizes.txt {bigwig}"
-
-# 		p = Popen(call.split(), stdout=PIPE, stderr=PIPE, encoding=ENCODING)
-
-# 		out, err= p.communicate()
-
-# 		if out.strip() + err.strip() != "":
-
-# 			print(out)
-# 			print(err)
-
-# 		if cleanup:
-# 			os.remove(wig)
-
-# def wig_to_bigwig(wig, output_directory):#, cleanup=True):
-
-# 	bigwig = wig.replace(".wig", ".bigwig")
-
-# 	call = f"wigToBigWig {wig} ./{output_directory}/ChromSizes.txt {bigwig}"
-
-# 	print(call)
-
-# 	p = Popen(call.split(), stdout=PIPE, stderr=PIPE, encoding=ENCODING)
-
-# 	out, err= p.communicate()
-
-# 	if out.strip() + err.strip() != "":
-
-# 		print(out)
-# 		print(err)
-
-	# if cleanup:
-	# 	os.remove(wig)
 
 class Logger(object):
 	def __init__(self, file_name):
@@ -1777,106 +1477,8 @@ def complement(s):
 
 
 
-# def samtools_view(bam, dcr_range=False, non_range=False, locus=False):
-
-# 	if not isfile(f"{bam}.bai"):
-# 		# call = f"samtools index {bam}"
-# 		call= ['samtools','index',bam]
-# 		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
-# 		out,err=p.communicate()
-# 		# print(out)
-# 		# print(err)
-
-
-# 	# call = f"samtools view -@ 4 -F 4 {bam}"
-# 	call = ['samtools', 'view', '-F', '4', bam]
-
-
-# 	if locus:
-# 		call.append(locus)
-		
-# 	# print(call)
-# 	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
-
-# 	for i,line in enumerate(p.stdout):
-
-# 		line = line.strip().split()
-
-# 		# read_id, flag, sam_chrom, sam_pos, _, length, _, _, _, _,_,_,_,_,_,_,_,_,rg= line
-
-# 		read_id = line[0]
-# 		flag = line[1]
-# 		seq = line[9]
-
-# 		if flag == "16":
-# 			strand = '-'
-# 		elif flag == '0':
-# 			strand = "+"
-# 		else:
-# 			strand = False
-
-# 		# print(line)
-# 		length = int(line[5].rstrip("M"))
-# 		# sam_pos = int(sam_pos)
-
-# 		# length = len(line[9])
-
-# 		sam_pos = int(line[3])
-# 		sam_chrom = line[2]
-
-# 		seq = seq.replace("T", "U")
-
-# 		rg = line[18].lstrip("RG:Z:")
-
-# 		if dcr_range and non_range:
-# 			if length in dcr_range:
-# 				size = 'dcr'
-# 			elif length in non_range:
-# 				size = 'non'
-# 			else:
-# 				size = False
-# 		else:
-# 			size = False
-
-
-
-# 		yield(strand, length, size, sam_pos, sam_chrom, rg, seq)
-
-# 	p.wait()
-
-# def get_chromosomes(file,output_directory):
-# 	chromosomes = []
-# 	rgs = []
-# 	# call = f"samtools view -@ 4 -H {file}"
-
-# 	call = ['samtools','view','-H', file]
-# 	# print(call)
-
-# 	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
-# 	out, err = p.communicate()
-
-# 	for o in out.strip().split("\n"):
-# 		o = o.strip().split('\t')
-# 		if o[0] == "@SQ":
-# 			name = o[1].split(":")[-1]
-# 			length = int(o[2].split(":")[-1])
-# 			chromosomes.append((name,length))
-# 		if o[0] == "@RG":
-# 			rgs.append(o[1].split(":")[-1])
-
-
-# 	with open(f"./{output_directory}/ChromSizes.txt", 'w') as outf:
-# 		for chrom, size in chromosomes:
-# 			print(chrom, size, sep='\t', file=outf)
-
-# 	return(chromosomes, rgs)
-
 
 def check_rgs(annotation_readgroups, bam_rgs):
-
-
-	# print(bam_rgs)
-
 
 	if annotation_readgroups[0].lower() == 'all':
 		annotation_readgroups = bam_rgs
@@ -1890,28 +1492,6 @@ def check_rgs(annotation_readgroups, bam_rgs):
 	# def get(self):
 
 
-# class Logger(object):
-# 	def __init__(self, file_name):
-# 		self.terminal = sys.stdout
-# 		self.file_name = file_name
-# 		self.log = open(file_name, "w")
-# 		# with open(file_name, "w") as outf:
-# 		# 	outf.write("")
-
-# 	def clear_ansi(self, message):
-# 		return(message.replace("\033[1m", "").replace("\033[0m",""))
-
-# 	def write(self, message):
-# 		self.terminal.write(message)
-# 		# with open(self.file_name, 'a') as outf:
-# 		# 	outf.write(message)  
-# 		self.log.write(self.clear_ansi(message))
-
-# 	def flush(self):
-# 		self.terminal.flush()
-# 		self.log.flush()
-
-
 
 def inf_counter():
 	i = 1
@@ -1920,14 +1500,14 @@ def inf_counter():
 		i += 1
 
 
-def subsample(total_aligned_reads, base_alignment_file, params):
+def subsample(total_aligned_reads, base_alignment_file, params, inputs):
 
 	from random import sample, seed, shuffle
 
 	seed(params['subsample_seed'])
 
-	target_depth = params['subsample']
-	seed         = params['subsample_seed']
+	target_depth          = params['subsample']
+	seed                  = params['subsample_seed']
 
 	seed_string  = f"s{seed}"
 
