@@ -31,6 +31,7 @@ class peakClass():
 	def __init__(self,
 		project, 
 		alignment_file, 
+		libraries,
 		min_size=15, 
 		max_size=35, 
 		candidate_threshold=1.0, 
@@ -41,6 +42,7 @@ class peakClass():
 		self.sizes               = list(range(min_size,max_size))
 		self.candidate_threshold = candidate_threshold
 		self.extension_threshold = extension_threshold
+		self.bam_rgs             = libraries
 
 		self.master = dict()
 		self.master['sizes'] = self.sizes
@@ -51,7 +53,6 @@ class peakClass():
 
 	def calc_proportions(self):
 
-		chromosomes, bam_rgs = get_chromosomes(self.alignment_file)
 		rg_size_c = get_global_depth(self.alignment_file, aggregate_by=['rg','length'])
 		rg_c = get_global_depth(self.alignment_file, aggregate_by=['rg'])
 
@@ -383,7 +384,7 @@ def size_profile(**params):
 
 
 	rc = requirementClass()
-	rc.add_samtools()
+	# rc.add_samtools()
 	rc.check()
 
 
@@ -391,12 +392,17 @@ def size_profile(**params):
 
 	alignment_file          = ic.inputs['alignment_file']
 	output_directory        = ic.output_directory
+	conditions              = ic.inputs['conditions']
+	annotation_conditions   = ic.inputs['annotation_conditions']
 
 
+	chromosomes, bam_rgs = get_chromosomes(alignment_file)
 
-	pc = peakClass(ic.inputs['project_name'], alignment_file)
+	libraries = []
+	for a in annotation_conditions:
+		libraries += conditions[a]
 
-
+	pc = peakClass(ic.inputs['project_name'], alignment_file, libraries=libraries)
 
 	pc.peak_table(alignment_file.with_suffix(".peak_table.txt"))
 	pc.summarize_peaks(alignment_file.with_suffix(".peak_summary.txt"))
