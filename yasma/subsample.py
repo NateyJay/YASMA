@@ -114,7 +114,7 @@ def subsample_module(**params):
 	'''Utility to subsample libraries to a specific read-count.'''
 
 	rc = requirementClass()
-	rc.add_samtools()
+	# rc.add_samtools()
 	rc.check()
 
 	ic = inputClass(params)
