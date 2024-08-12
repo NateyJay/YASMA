@@ -50,7 +50,7 @@ def coverage(**params):
 	"""Produces bigwig coverage files for use in jbrowse."""
 
 	rc = requirementClass()
-	rc.add_samtools()
+	# rc.add_samtools()
 	rc.check()
 
 	ic = inputClass(params)
