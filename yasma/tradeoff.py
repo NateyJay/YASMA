@@ -792,11 +792,11 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 	type=click.UNPROCESSED, callback=validate_path,
 	help='Alignment file input (bam or cram).')
 
-@optgroup.option('-ar', '--annotation_replicates', 
+@optgroup.option('-ac', '--annotation_conditions', 
 	required=False,
 	multiple=True,
 	default=None,
-	help="List of replicate group names which will be included in the annotation. Defaults to use all libraries, though this is likely not what you want if you have multiple groups.")
+	help="List of conditions names which will be included in the annotation. Defaults to use all libraries, though this is likely not what you want if you have multiple groups.")
 
 @optgroup.option("-o", "--output_directory", 
 	# default=f"Annotation_{round(time())}", 
@@ -811,11 +811,11 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 	help="Optional name alignment. Useful if comparing annotations.")
 
 
-@optgroup.option("-r", "--replicate_groups", 
+@optgroup.option("-c", "--conditions", 
 	required=False, 
 	multiple=True,
-	type=click.UNPROCESSED, callback=validate_rep_group,
-	help='Values denoting replicate groups (sets of replicate libraries) for projects with multiple conditions/tissues/treatments. Can be entered here as space sparated duplexes, with the library base_name and replicate_group delimited by a colon. E.g. SRR1111111:WT SRR1111112:WT SRR1111113:mut SRR1111114:mut')
+	type=click.UNPROCESSED, callback=validate_condition,
+	help='Values denoting condition groups (sets of replicate libraries) for projects with multiple tissues/treatments/genotypes. Can be entered here as space sparated duplexes, with the library base_name and condition groups delimited by a colon. E.g. SRR1111111:WT SRR1111112:WT SRR1111113:mut SRR1111114:mut')
 
 
 
@@ -948,7 +948,7 @@ def tradeoff(**params):
 	'''Annotator using large coverage window and prec/sens tradeoff.'''
 
 	rc = requirementClass()
-	rc.add_samtools()
+	# rc.add_samtools()
 	rc.check()
 
 	ic = inputClass(params)
@@ -956,10 +956,10 @@ def tradeoff(**params):
 
 	output_directory        = str(ic.output_directory)
 	alignment_file          = ic.inputs["alignment_file"]
-	replicate_groups        = ic.inputs['replicate_groups']
+	conditions              = ic.inputs['conditions']
 	project_name            = ic.inputs['project_name']
+	annotation_conditions   = ic.inputs['annotation_conditions']
 
-	annotation_replicates   = params['annotation_replicates']
 	clump_dist              = params['merge_dist']
 	clump_strand_similarity = params['merge_strand_similarity']
 	min_locus_length        = params['min_locus_length']
@@ -976,11 +976,10 @@ def tradeoff(**params):
 
 	if annotation_name:
 		dir_name = f"tradeoff_{annotation_name}"
-	elif annotation_replicates:
-		dir_name = f"tradeoff_{"_".join(annotation_replicates)}"
+	elif annotation_conditions:
+		dir_name = f"tradeoff_{'_'.join(annotation_conditions)}"
 	else:
 		dir_name = 'tradeoff'
-
 
 
 	if params['target_genome_perc'] and params['target_read_perc']:
@@ -1025,15 +1024,15 @@ def tradeoff(**params):
 	chromosomes, bam_rgs = get_chromosomes(alignment_file)
 
 
-	if annotation_replicates:
+	if annotation_conditions:
 		new_rgs = []
-		for key in annotation_replicates:
+		for key in annotation_conditions:
 
-			if key not in replicate_groups:
-				sys.exit(f"Error: {key} not found in replicate_groups entry.")
+			if key not in conditions:
+				sys.exit(f"Error: {key} not found in conditions entry.")
 
 
-			for rg in replicate_groups[key]:
+			for rg in conditions[key]:
 				new_rgs.append(rg)
 				if rg not in bam_rgs:
 					sys.exit(f"Error: {rg} not found in bam readgroups.")
@@ -1063,7 +1062,12 @@ def tradeoff(**params):
 	params['annotation_readgroups'] = annotation_readgroups
 
 	print()
-	print(" Annotation readgroups:", annotation_readgroups)
+
+	if annotation_conditions:
+		print(f" Annotation conditions: {annotation_conditions}")
+	else:
+		print(f" Annotation conditions: {annotation_conditions} (all libraries used)")
+	print(" Annotation libraries:", annotation_readgroups)
 
 	# chromosomes = [c for c in chromosomes if c[0] == 'NC_037320.1']
 

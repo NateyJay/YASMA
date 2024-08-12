@@ -101,19 +101,25 @@ from shutil import copyfile
 	multiple=True,
 	help='NCBI SRA codes for libraries. These will almost certainly start with SRR or ERR.')
 
-
-@optgroup.option("-r", "--replicate_groups", 
+@optgroup.option("-c", "--conditions", 
 	required=False, 
 	multiple=True,
-	type=click.UNPROCESSED, callback=validate_rep_group,
-	help='Values denoting replicate groups (sets of replicate libraries) for projects with multiple conditions/tissues/treatments. Can be entered here as space sparated duplexes, with the library base_name and replicate_group delimited by a colon. E.g. SRR8280355:WT SRR8280356:WT SRR8280357:mut SRR8280358:mut')
+	type=click.UNPROCESSED, callback=validate_condition,
+	help='Values denoting condition groups (sets of replicate libraries) for projects with multiple tissues/treatments/genotypes. Can be entered here as space sparated duplexes, with the library base_name and condition groups delimited by a colon. E.g. SRR1111111:WT SRR1111112:WT SRR1111113:mut SRR1111114:mut')
+
+@optgroup.option('-ac', '--annotation_conditions', 
+	required=False,
+	multiple=True,
+	default=None,
+	help="List of conditions names which will be included in the annotation. Defaults to use all libraries, though this is likely not what you want if you have multiple groups.")
+
 
 def inputs(**params):
 	'''A tool to log inputs, which will be referenced by later tools.'''
 
 
 	rc = requirementClass()
-	rc.add_samtools()
+	# rc.add_samtools()
 	rc.check()
 
 	ic = inputClass(params)
