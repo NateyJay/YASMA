@@ -138,7 +138,7 @@ def nativealign(**params):
 				p = Popen(call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
 
 			line = p.stdout.readline()
-			lib_sizes.append(round(int(line.strip())/4))
+			lib_sizes.append(round(int(line.strip().split()[0])/4))
 			p.wait()
 
 		return(lib_sizes)
