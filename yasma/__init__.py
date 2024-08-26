@@ -7,7 +7,7 @@ from .adapter import *
 from .jbrowse import *
 from .inputs import *
 from .trim import *
-from .align import *
+# from .align import *
 from .other import *
 from .size_profile import *
 from .shortstack3 import *
@@ -16,6 +16,7 @@ from .subsample import *
 from .nativealign import *
 from .download import *
 from .coverage import *
+from .jenks import *
 
 
 ## Functionality to add:

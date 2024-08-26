@@ -60,7 +60,7 @@ import time
 
 
 
-def nativealign(**params):
+def align(**params):
 	'''Native aligner'''
 
 
