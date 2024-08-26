@@ -61,7 +61,7 @@ import time
 
 
 def align(**params):
-	'''Native aligner'''
+	'''Aligner based on shortstack3'''
 
 
 	rc = requirementClass()
