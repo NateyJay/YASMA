@@ -351,6 +351,8 @@ def align(**params):
 								try:
 									unique_d[a.reference_name]
 								except KeyError:
+
+									## this is a strange error. No contig name, but supposedly is an alignment. What is going on?
 									print("line:")
 									print(line)
 									print("r:", r)
