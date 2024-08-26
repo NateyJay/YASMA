@@ -351,10 +351,15 @@ def align(**params):
 								try:
 									unique_d[a.reference_name]
 								except KeyError:
+									print("line:")
 									print(line)
+									print("r:", r)
+									print("alignment:")
 									print(a)
+									print("reference_name:")
 									print(a.reference_name)
-									sys.exit("WEIRD ERROR CAPTURE - report to nate please!!!")
+									print("WEIRD ERROR - report to nate please!!!")
+									sys.exit()
 								alns.append(a)
 
 
