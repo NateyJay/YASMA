@@ -16,7 +16,7 @@ from .subsample import *
 from .nativealign import *
 from .download import *
 from .coverage import *
-from .jenks import *
+# from .jenks import *
 
 
 ## Functionality to add:
