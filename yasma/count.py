@@ -91,7 +91,7 @@ def init(l, r, a, o, ):
 
 @optgroup.option("-a", "--annotation_file", 
 	required=False, 
-	type=click.Path(exists=True),
+	type=click.UNPROCESSED, callback=validate_path,
 	default = Path("tradeoff", "loci.gff3"),
 	multiple=False,
 	help='Locus annotation in gff, gff3, bed, or tabular format. Tabular requires locus_name and contig:start-stop in the first two columns (tab-delimited, "#" escape char). Defaults to tradeoff/loci.gff3, but that may not be prefered if alignment includes conditions.')
@@ -121,7 +121,7 @@ def count(** params):
 	alignment_file       = ic.inputs['alignment_file']
 	conditions           = ic.inputs['conditions']
 
-	annotation_file      = params['annotation_file']
+	annotation_file      = Path(params['annotation_file'])
 	include_zeros        = params['include_zeros']
 	name                 = params['name']
 
