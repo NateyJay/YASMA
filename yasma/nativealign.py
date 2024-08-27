@@ -151,58 +151,6 @@ def align(**params):
 	print(f"  total_reads: {total_reads:,}")
 	print()
 
-	def get_unique_weighting():
-		## unique alignment
-
-		unique_d = dict()
-		with open(genome_file.with_suffix(genome_file.suffix + ".fai"), 'r') as f:
-			for line in f:
-
-				ref, length, _, _, _ = line.strip().split()
-
-				unique_d[ref] = [0] * int(length)
-
-
-		for lib in trimmed_libraries:
-			print(" ", str(lib))
-			# print()
-
-
-			call = ['bowtie', '-q', '-v', '1', '-p', str(cores), '-S', '-m', '1', '--best', '--strata', '-x', str(genome_file.with_suffix('')), str(lib)]
-			# print(" ".join(call))
-
-			p = Popen(call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
-
-			for r in range(len(unique_d.keys())+2):
-				p.stdout.readline()
-
-
-
-			for line in p.stdout:
-
-				line = line.strip().split('\t')
-				# print(line)
-				# input()
-
-				flag = line[1]
-				if flag != '4':
-
-					ref  = line[2]
-					loc  = int(line[3])
-					size = int(line[5][:-1])
-
-					for r in range(loc-half_locality, loc+half_locality+size):
-						try:
-							unique_d[ref][r] += 1
-						except IndexError:
-							pass
-
-
-		return(unique_d)
-
-
-	print("Getting unique neighborhood weighting... (ShortStack-U)")
-	unique_d = get_unique_weighting()
 
 
 
@@ -232,6 +180,70 @@ def align(**params):
 
 
 	bamfile = pysam.AlignmentFile(unsorted_bam, "wb", header=header)
+
+
+
+	def get_unique_weighting():
+		'''returns a double dictionary which has the unique read count by [contig][pos]'''
+		## unique alignment
+
+		unique_d = dict()
+		with open(genome_file.with_suffix(genome_file.suffix + ".fai"), 'r') as f:
+			for line in f:
+
+				ref, length, _, _, _ = line.strip().split()
+
+				unique_d[ref] = [0] * int(length)
+
+
+		for lib in trimmed_libraries:
+			print(" ", str(lib))
+			# print()
+
+
+			call = ['bowtie', '-q', '-v', '1', '-p', str(cores), '-S', '-m', '1', '--best', '--strata', '-x', str(genome_file.with_suffix('')), str(lib)]
+			# print(" ".join(call))
+
+			p = Popen(call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
+
+
+			## removing header and getting first line
+			while True:
+				line = p.stdout.readline()
+				if not line.startswith("@"):
+					a = pysam.AlignedSegment()
+					a = a.fromstring(line.strip(), bamfile.header)
+					break
+
+			while True:
+
+				
+				if a.is_mapped:
+
+					left  = a.query_alignment_start - half_locality
+					right = a.query_alignment_end   + half_locality
+
+					for r in range(left, right):
+						try:
+							unique_d[a.reference_name][r] += 1
+						except IndexError:
+							pass
+
+				line = p.stdout.readline()
+				try:
+					a = pysam.AlignedSegment()
+					a = a.fromstring(line.strip(), bamfile.header)
+				except ValueError:
+					break
+
+		return(unique_d)
+
+
+	print("Getting unique neighborhood weighting... (ShortStack-U)")
+	unique_d = get_unique_weighting()
+
+
+
 
 
 	def print_progress(read_i, map_c, rg, done_rgs, terminal_only=False):
@@ -282,24 +294,29 @@ def align(**params):
 			# print(rg)
 
 
-			call = ['bowtie', '-q', '-v', '1', '-p', str(cores), '-S', '-a', '-m', str(max_multi), '--best', '--strata', '-x', str(genome_file.with_suffix('')), str(lib)]
+			call = ['bowtie', '-q', '-v', '1', '-p', str(cores), '-S', '-a', '-m', str(max_multi), '--best', '--strata', 
+			'-x', str(genome_file.with_suffix('')), str(lib)]
 
-			# print()
-			# print(" ".join(call))
-			# print()
+			print()
+			print(" ".join(call))
+			print()
 
 			p = Popen(call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
 
 
-			for r in range(len(unique_d.keys())+3):
-				p.stdout.readline()
+			## removing header and getting first line
+			while True:
+				line = p.stdout.readline()
+				if not line.startswith("@"):
+					a = pysam.AlignedSegment()
+					a = a.fromstring(line.strip(), bamfile.header)
+					break
 
+			while True:
 
-			for line in p.stdout:
 				read_i += 1
+				qname = a.query_name
 
-				a = pysam.AlignedSegment()
-				a= a.fromstring(line.strip(), bamfile.header)
 
 				## some useful pysam properties
 				# a.flag
@@ -312,7 +329,9 @@ def align(**params):
 				# a.query_alignment_end
 
 
+				read_count = 1
 
+				# print(a)
 
 				if a.flag == 4:
 					## non-mappers and excluded
@@ -325,8 +344,13 @@ def align(**params):
 					a.set_tag("XZ",0.0,'f')
 
 				else:
-					alignment_count = a.get_tag("XM")-1
+					weight  = max([unique_d[a.reference_name][a.query_alignment_start], unique_d[a.reference_name][a.query_alignment_end]])
+					weights = [weight]
 
+					alns    = [a]
+
+					# print("", read_count, a.query_name, f"{a.reference_name}:{a.query_alignment_start}", weight, sep='\t')
+					alignment_count = a.get_tag("XM")-1
 
 					if alignment_count == 1:
 						a.set_tag("XY","U","Z")
@@ -334,40 +358,53 @@ def align(**params):
 
 					else:
 
-						weight  = max([unique_d[a.reference_name][a.query_alignment_start], unique_d[a.reference_name][a.query_alignment_end]])
-
-						weights = [weight]
-
-						# alns.append((ref, loc))
-
-						for r in range(alignment_count):
-							if r == 0:
-								alns = [a]
-								weights = []
-
-							else:
-								line = p.stdout.readline().strip()
-								a = a.fromstring(line, bamfile.header)
-								try:
-									unique_d[a.reference_name]
-								except KeyError:
-
-									## this is a strange error. No contig name, but supposedly is an alignment. What is going on?
-									print("line:")
-									print(line)
-									print("r:", r)
-									print("alignment:")
-									print(a)
-									print("reference_name:")
-									print(a.reference_name)
-									print("WEIRD ERROR - report to nate please!!!")
-									sys.exit()
-								alns.append(a)
+						for r in range(alignment_count-1):
 
 
-							weight = max([unique_d[a.reference_name][a.query_alignment_start], unique_d[a.reference_name][a.query_alignment_end]])
+							line = p.stdout.readline().strip()
+							a = a.fromstring(line, bamfile.header)
+
+							read_count += 1
+							weight  = max([unique_d[a.reference_name][a.query_alignment_start], unique_d[a.reference_name][a.query_alignment_end]])
 							weights.append(weight)
+
+							# print("  ", read_count, a.query_name, f"{a.reference_name}:{a.query_alignment_start}", weight, sep='\t')
+							alns.append(a)	
+
+
+							if a.query_name != qname:
+								# break
+								print("qname mismatch!")
+								print(f"expected: {qname}")
+								print(f"found:    {a.query_name}")
+								print(a)
+								print("WEIRD ERROR 1 - please report to nate!")
+								sys.exit()
+		
+
+
+							# try:
+							# 	unique_d[a.reference_name]
+							# 	alns.append(a)
+
+							# except KeyError:
+
+							# 	## this is a strange error. No contig name, but supposedly is an alignment. What is going on?
+							# 	## it seems like bowtie is sometimes reporting more alignments than it actually finds. I will just silence this with a weight 0
+
+							# 	# print("line:")
+							# 	# print(line)
+							# 	# print("r:", r)
+							# 	# print("alignment:")
+							# 	# print(a)
+							# 	# print("reference_name:")
+							# 	# print(a.reference_name)
+							# 	# print("WEIRD ERROR - report to nate please!!!")
+							# 	# sys.exit()
+							# 	pass
+
 							# alns.append((new_ref, new_loc))
+
 
 
 						same_weight = len(set(weights)) == 1
@@ -382,6 +419,8 @@ def align(**params):
 							if sum(weights) == 0:
 								weights = [1] * len(weights)
 
+		
+
 							choice = random.choices(range(alignment_count), weights, k=1)[0]
 							a = alns[choice]
 
@@ -394,8 +433,6 @@ def align(**params):
 								a.set_tag("XZ",round(weights[choice]/sum(weights),3), 'f')
 
 
-							# print(choice)
-							# print(weights)
 
 				map_c[a.get_tag("XY")] += 1
 				lib_c[(rg, a.get_tag("XY"))] += 1
@@ -410,7 +447,22 @@ def align(**params):
 
 					print_progress(read_i, map_c, rg, done_rgs, terminal_only=True)
 
+
+				## getting a new line
+				line = p.stdout.readline()
+
+				try:
+					a = pysam.AlignedSegment()
+					a = a.fromstring(line.strip(), bamfile.header)
+				except ValueError:
+					break
+
 			done_rgs.add(rg)
+
+
+			p.wait()
+
+
 
 		bamfile.close()
 
