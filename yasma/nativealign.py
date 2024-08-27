@@ -297,9 +297,9 @@ def align(**params):
 			call = ['bowtie', '-q', '-v', '1', '-p', str(cores), '-S', '-a', '-m', str(max_multi), '--best', '--strata', 
 			'-x', str(genome_file.with_suffix('')), str(lib)]
 
-			print()
-			print(" ".join(call))
-			print()
+			# print()
+			# print(" ".join(call))
+			# print()
 
 			p = Popen(call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
 
