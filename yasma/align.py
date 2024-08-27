@@ -140,7 +140,7 @@ def get_log_details(output_directory):
 
 
 
-def align(**params):
+def shortstack_align(**params):
 	'''Wrapper for alignment using ShortStack/bowtie.'''
 
 
