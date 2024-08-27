@@ -7,7 +7,7 @@ from .adapter import *
 from .jbrowse import *
 from .inputs import *
 from .trim import *
-# from .align import *
+from .align import *
 from .other import *
 from .size_profile import *
 from .shortstack3 import *
