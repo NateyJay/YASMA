@@ -306,10 +306,17 @@ def align(**params):
 
 			## removing header and getting first line
 			while True:
-				line = p.stdout.readline()
+				line = p.stdout.readline().strip()
 				if not line.startswith("@"):
 					a = pysam.AlignedSegment()
-					a = a.fromstring(line.strip(), bamfile.header)
+					try:
+						a = a.fromstring(line, bamfile.header)
+					except ValueError as err:
+						print(err)
+						print(f'call: {call}')
+						print(f'line: {line}')
+						raise 
+
 					break
 
 			while True:
