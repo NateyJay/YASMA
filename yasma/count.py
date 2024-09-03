@@ -78,7 +78,7 @@ def init(l, r, a, o, ):
 	help='Alignment file input (bam or cram).')
 
 @optgroup.option("-o", "--output_directory", 
-	required=False,
+	required=True,
 	type=click.Path(),
 	help="Directory name for annotation output")
 
@@ -92,9 +92,9 @@ def init(l, r, a, o, ):
 @optgroup.option("-a", "--annotation_file", 
 	required=False, 
 	type=click.UNPROCESSED, callback=validate_path,
-	default = Path("tradeoff", "loci.gff3"),
+	default = "tradeoff/loci.gff3",
 	multiple=False,
-	help='Locus annotation in gff, gff3, bed, or tabular format. Tabular requires locus_name and contig:start-stop in the first two columns (tab-delimited, "#" escape char). Defaults to tradeoff/loci.gff3, but that may not be prefered if alignment includes conditions.')
+	help='Locus annotation in gff, gff3, bed, or tabular format. Tabular requires contig:start-stop and locus_namein the first two columns (tab-delimited, "#" escape char). Defaults to tradeoff/loci.gff3, but that may not be prefered if alignment includes conditions.')
 
 @optgroup.option("-n", "--name", 
 	required=False,
@@ -141,12 +141,15 @@ def count(** params):
 
 	def process_annotation(file):
 		with open(file, 'r') as f:
+			if file.suffix == '.txt':
+				f.readline()
+
 			for i,line in enumerate(f):
 				if not line.startswith("#"):
 					line = line.strip().split("\t")
 
 					if file.suffix == ".txt":
-						name, coords = line[:2]
+						coords, name = line[:2]
 						coords = coords.replace("..", '-')
 
 					elif file.suffix == '.gff' or file.suffix == '.gff3':
