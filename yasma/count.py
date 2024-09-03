@@ -217,8 +217,13 @@ def count(** params):
 		for v in vs:
 			rev_conditions[v] = k
 
-
-	cond_rgs = [f"{rev_conditions[r]}.{r}" for r in rgs]
+	try:
+		cond_rgs = [f"{rev_conditions[r]}.{r}" for r in rgs]
+	except Exception as err:
+    	print(f"Unexpected {err=}, {type(err)=}")
+    	print("rgs:", rgs)
+    	print("rev_conditions:", rev_conditions)
+   		raise
 
 	with open(counts_file, 'w') as outf:
 		print('name','locus', "\t".join(cond_rgs), sep='\t', file=outf)
