@@ -21,7 +21,7 @@ import time
 
 @optgroup.option('-tl', "--trimmed_libraries", 
 	required=False, 
-	type=click.UNPROCESSED, callback=validate_glob_path,
+	type=click.UNPROCESSED, callback=validate_library_paths,
 	multiple=True,
 	help='Path to trimmed libraries. Accepts wildcards (*).')
 
@@ -108,6 +108,10 @@ def align(**params):
 
 	if not bowtie_build_index.is_file():
 		call = ['bowtie-build', genome_file, genome_file.with_suffix('')]
+		print(f"bowtie index file not found '{bowtie_build_index}'")
+		print(f"building de novo...")
+
+		print(" ".join(map(str, call)))
 
 		p = Popen(call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
 		p.wait()
@@ -131,7 +135,6 @@ def align(**params):
 
 				call = ['wc', '-l']
 				p = Popen(call, encoding=ENCODING, stdin=p0.stdout, stdout=PIPE, stderr=PIPE)
-
 
 			else:
 				call = ['wc', '-l', lib] 
@@ -209,10 +212,20 @@ def align(**params):
 
 			## removing header and getting first line
 			while True:
-				line = p.stdout.readline()
+				line = p.stdout.readline().strip()
 				if not line.startswith("@"):
 					a = pysam.AlignedSegment()
-					a = a.fromstring(line.strip(), bamfile.header)
+
+					try:
+						a = a.fromstring(line, bamfile.header)
+					except ValueError as err:
+						print(err)
+						print(f'call: {call}')
+						print(f'line: {line}')
+
+						print(f"bowtie err: {p.stderr.readlines()}")
+						raise 
+
 					break
 
 			while True:

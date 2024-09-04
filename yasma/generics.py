@@ -742,7 +742,41 @@ def validate_glob_path(ctx, param, value):
 			raise click.BadParameter(f"path not found: {path}")
 
 	full_paths = tuple(full_paths)
-	return(full_paths)		
+	return(full_paths)
+
+def validate_library_paths(ctx, param, value):
+
+	paths = validate_glob_path(ctx, param, value)
+
+	for path in paths:
+		path = Path(path)
+
+
+		if not set(['.fa','.fna','.fasta']).isdisjoint(set(path.suffixes)):
+			print("fasta")
+			first_char = ">"
+		elif not set(['.fq','.fastq']).isdisjoint(set(path.suffixes)):
+			print("fastq")
+			first_char = "@"
+		else:
+			sys.exit(f"FileTypeError: '{str(path)}' does not look like a library (allowed: .fa, .fna, .fasta, .fq, .fastq)")
+
+
+		if ".gz" in path.suffixes:
+			import gzip
+			f = gzip.open(str(path), 'rb')
+			line = f.readline().decode(ENCODING)
+
+		else:
+			f = open(str(path), 'r')
+			line = f.readline()
+
+		if not line.startswith(first_char):
+			sys.exit(f"FileTypeError: '{str(path)}' does not start with the expected character '{first_char}'. Are you sure this file is OK?")
+
+		f.close()
+
+	return(paths)
 
 
 def validate_path(ctx, param, value):
