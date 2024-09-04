@@ -719,6 +719,17 @@ class inputClass():
 
 
 
+def reverse_conditions(c):
+
+	d = {}
+
+	for cond, libs in c.items():
+		for lib in libs:
+			d[lib] = cond
+
+	return(d)
+
+
 
 
 
