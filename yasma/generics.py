@@ -219,20 +219,20 @@ class requirementClass():
 
 		self.reqs.append(('cutadapt', found, version))
 
-	# def add_samtools(self):
-	# 	try:
-	# 		p = Popen(['samtools'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
-	# 		out,err = p.communicate()
-	# 		err = err.split("\n")
-	# 		# print(err)
-	# 		found=True
-	# 		version = err[2].split()[1]
+	def add_samtools(self):
+		try:
+			p = Popen(['samtools'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+			out,err = p.communicate()
+			err = err.split("\n")
+			# print(err)
+			found=True
+			version = err[2].split()[1]
 
-	# 	except FileNotFoundError:
-	# 		found=False
-	# 		version=''
+		except FileNotFoundError:
+			found=False
+			version=''
 
-	# 	self.reqs.append(('samtools', found, version))
+		self.reqs.append(('samtools', found, version))
 
 	def add_shortstack(self):
 		try:
