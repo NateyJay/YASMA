@@ -93,11 +93,11 @@ conda install pybigwig -c conda-forge -c bioconda
 #### System modules:
 Most of these are required for basic functions - each module will inform you if you are missing something. Yasma expects each of these executable from the PATH.
 
-* [`samtools`](https://www.htslib.org/)
-* [`bowtie` (1)](https://bowtie-bio.sourceforge.net/index.shtml)
-* [`ShortStack` (3 or 4)](https://github.com/MikeAxtell/ShortStack)
-* `rnafold` from the [ViennaRNA](https://www.tbi.univie.ac.at/RNA/) package.
-* [`cutadapt`](https://cutadapt.readthedocs.io/en/stable/)
+* ~~[`samtools`](https://www.htslib.org/)~~ this is now managed with pysam
+* align -> [`bowtie` (1)](https://bowtie-bio.sourceforge.net/index.shtml)
+* ~~[`ShortStack` (3 or 4)](https://github.com/MikeAxtell/ShortStack)~~ this is now only required for running ShortStack through yasma.
+* hairpin -> `rnafold` from the [ViennaRNA](https://www.tbi.univie.ac.at/RNA/) package.
+* trim -> [`cutadapt`](https://cutadapt.readthedocs.io/en/stable/)
 
 
 
