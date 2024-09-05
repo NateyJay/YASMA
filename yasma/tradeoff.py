@@ -808,7 +808,7 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 	# default=f"Annotation_{round(time())}", 
 	required=False,
 	type=str,
-	help="Optional name alignment. Useful if comparing annotations.")
+	help="Optional name for annotation. Useful if comparing annotations.")
 
 
 @optgroup.option("-c", "--conditions", 
@@ -933,6 +933,15 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 	help="")
 
 
+@optgroup.option("--min_abundance",
+	default=50,
+	type=int,
+	help="Min reads in a locus")
+
+@optgroup.option("--min_abundance_density",
+	default=100,
+	type=int,
+	help="Min reads per 1000 nucleotides in a locus")
 
 
 @optgroup.group('\n Other options',
@@ -1174,6 +1183,11 @@ def tradeoff(**params):
 	merge_file = Path(output_directory, dir_name, 'merges.txt')
 	with open(merge_file, 'w') as outf:
 		outf.write('')
+
+
+	filter_file = Path(output_directory, dir_name, 'filtered_loci.txt')
+	with open(filter_file, 'w') as outf:
+		print('coords\tabd\tpass_abd\tabd_dens\tpass_abd_dens\tcomplexity\tpass_complexity\tskew\tpass_skew', sep='\t', file=outf)
 
 
 	stats_file = f"{output_directory}/{dir_name}/stats_by_ref.txt"
@@ -2017,9 +2031,15 @@ def tradeoff(**params):
 	total_region_space = 0
 	regions_name_i = 0
 	total_annotated_reads = 0
+
+	# Some filter counters
 	complexity_filter = 0
 	skew_filter       = 0
-
+	abd_filter        = 0
+	abd_dens_filter   = 0
+	
+	annotated_space = 0
+	annotated_reads = 0
 
 	for chrom_count, chrom_and_length in enumerate(chromosomes):
 
@@ -2505,6 +2525,7 @@ def tradeoff(**params):
 		perc = percentageClass(increment=5, total=len(regions))
 
 
+
 		last_stop = 0
 		for i,locus in enumerate(regions):
 
@@ -2537,19 +2558,45 @@ def tradeoff(**params):
 			sizecall = sizecall_d[name]
 			read_c   = seq_d[name]
 
+			abd = sum(read_c.values())
+			length = stop-start
+
 			complexity = len(read_c.keys()) / (stop - start)
 			skew       = read_c.most_common(1)[0][1] / sum(read_c.values())
 
+			pass_complexity = complexity >= params['min_complexity']
+			pass_skew       = skew <= params['max_skew']
+			pass_abd        = sum(read_c.values()) >= params['min_abundance']
+			pass_abd_dens   = sum(read_c.values()) / (stop-start) * 1000 >= params['min_abundance_density']
 
-			if complexity < params['min_complexity']:
+			if not pass_complexity:
 				complexity_filter += 1
 
-			if skew > params['max_skew']:
+			if not pass_skew:
 				skew_filter += 1
+
+			if not pass_abd:
+				abd_filter += 1
+
+			if not pass_abd_dens:
+				abd_dens_filter += 1
 
 			# if complexity < params['min_complexity'] or skew > params['max_skew']:
 			# 	regions_name_i -= 1
 			# 	continue
+
+			if not pass_abd or not pass_abd_dens:
+				regions_name_i -= 1
+				with open(filter_file, 'a') as outf:
+					print(coords, abd, pass_abd, abd/length*1000, pass_abd_dens, complexity, pass_complexity, skew, pass_skew, sep='\t', file=outf)
+				continue
+
+			
+			annotated_space += length
+			annotated_reads += abd
+
+			# print(f"{length} ({annotated_space})\t{abd} ({annotated_reads})")
+			# print()
 
 
 			results_line, gff_line = assessClass().format(locus, read_c, strand_c, sizecall, sum(chrom_depth_c.values()), last_stop)
@@ -2640,9 +2687,14 @@ def tradeoff(**params):
 	print()
 	print(f"{complexity_filter} loci have low complexity (< {params['min_complexity']})")
 	print(f"{skew_filter} loci are extremely skewed (> {params['max_skew']})")
+	print(f"{abd_filter} loci are below min abundance (< {params['min_abundance']})")
+	print(f"{abd_dens_filter} loci are below min abundance per 1000nt (< {params['min_abundance_density']})")
 	print()
+	print(f"{regions_name_i:,} regions passing filter")
 	print()
-
+	print(f"{annotated_space:,} genomic nt ({round(annotated_space / genome_length * 100, 1)}%) in regions")
+	print(f"{annotated_reads:,} reads ({round(annotated_reads / aligned_read_count * 100, 1)}%) in regions")
+	print()
 
 	with open(overall_file, 'a') as outf:
 
