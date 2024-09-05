@@ -81,6 +81,11 @@ python3 -m pip install click
 python3 -m pip install click-option-group
 ```
 
+```
+[`pysam`]([https://github.com/deeptools/pyBigWig](https://pypi.org/project/pysam/)) allows samtools stand-alone in python.
+python3 -m pip install pysam
+```
+
 [`pyBigWig`](https://github.com/deeptools/pyBigWig) allows python-native functions with bigwig files.
 ```
 python3 -m pip install pyBigWig
@@ -93,14 +98,11 @@ conda install pybigwig -c conda-forge -c bioconda
 #### System modules:
 Most of these are required for basic functions - each module will inform you if you are missing something. Yasma expects each of these executable from the PATH.
 
-* [`samtools`](https://www.htslib.org/)
-* [`bowtie` (1)](https://bowtie-bio.sourceforge.net/index.shtml)
-* [`ShortStack` (3 or 4)](https://github.com/MikeAxtell/ShortStack)
-* `rnafold` from the [ViennaRNA](https://www.tbi.univie.ac.at/RNA/) package.
-* [`cutadapt`](https://cutadapt.readthedocs.io/en/stable/)
-
-
-
+* ~~[`samtools`](https://www.htslib.org/)~~ this is now managed with pysam
+* align -> [`bowtie` (1)](https://bowtie-bio.sourceforge.net/index.shtml)
+* ~~[`ShortStack` (3 or 4)](https://github.com/MikeAxtell/ShortStack)~~ this is now only required for running ShortStack through yasma.
+* hairpin -> `rnafold` from the [ViennaRNA](https://www.tbi.univie.ac.at/RNA/) package.
+* trim -> [`cutadapt`](https://cutadapt.readthedocs.io/en/stable/)
 
 
 # Yasma Modules
@@ -115,8 +117,13 @@ Commands:
 
   Processing:
     adapter                   Tool to check untrimmed-libraries for 3'...
+    download                  Tool to check untrimmed-libraries for 3'...
     trim                      Wrapper for trimming using cutadapt.
-    align                     Wrapper for alignment using ShortStack/bowtie.
+    align                     Aligner based on shortstack3
+    shortstack-align          Wrapper for alignment using ShortStack/bowtie.
+
+  Utilites:
+    merge                     Tool for merging multiple alignments with...
 
   Annotation:
     tradeoff                  Annotator using large coverage window and...
@@ -126,6 +133,7 @@ Commands:
     count                     Gets counts for all readgroups, loci, strand,...
     hairpin                   Evaluates annotated loci for hairpin or miRNA...
     jbrowse                   Tool to build coverage and config files for...
+    coverage                  Produces bigwig coverage files for use in...
 
   Utilities:
     subsample                 Utility to subsample libraries to a specific...
@@ -144,7 +152,7 @@ Commands:
 
 To help with ease of use, Yasma orients all of its analyses around a directory. Files produced and referenced by yasma are all stored in the `config.json` file, using relative paths. Analyses that produce outputs will automatically update this file, meaning you need not manually transmit information from one module to the next (for example: finding an adapter sequence, then trimming the libraries with it). 
 
-`config.json` is human-readable and can be pretty easily modified manually, though not normally advisable.
+`inputs.json` is human-readable and can be pretty easily modified manually, though not normally advisable.
 
 All modules will automatically produce `config.json` if it is not found, and use lazy evaluation looking for included values. This makes it easy to jump in at a later step if you have done prior analyses separately.
 
@@ -207,6 +215,58 @@ We love [shortstack](https://github.com/MikeAxtell/ShortStack) here. Consdering 
 ### Other stuff
 
 `utilities` includes several other functions, most of which have been used primarily for testing. Probably not relevant as of now to wider use.
+
+
+
+## YASMA cookbook
+```
+## Using the following hypothetical libraries from the corresponding conditions
+# lib_1.fa -> hyphae
+# lib_2.fa -> hyphae
+# lib_3.fa -> conidia
+# lib_4.fa -> conidia
+# lib_5.fa -> conidia
+
+## supplying all input information for the analysis
+yasma.py inputs -o full_analysis \
+-ul lib_1.fa lib_2.fa lib_3.fa lib_4.fa lib_5.fa \
+-g path_to_your_genome.fa \
+-c lib_1:hyphae lib_2:hyphae lib_3:conidia lib_4:conidia lib_5:conidia
+
+## basic call
+yasma.py adapter -o .
+yasma.py trim -o .
+yasma.py align -o .
+yasma.py tradeoff -o . ## this will annotate with all conditions
+yasma.py count -o .
+
+
+
+## to perform the annotation with a specific condition(s)
+yasma.py tradeoff -o . -ac hyphae
+
+
+## using pre-trimmed libraries
+yasma.py inputs -o full_analysis \
+-tl lib_1.fa lib_2.fa lib_3.fa lib_4.fa lib_5.fa \
+-g path_to_your_genome.fa \
+-c lib_1:hyphae lib_2:hyphae lib_3:conidia lib_4:conidia lib_5:conidia
+
+yasma.py align -o .
+yasma.py tradeoff -o .
+yasma.py count -o .
+
+
+## using an alignment as input (note, this must contain the @RG flag to indicate source libraries.
+yasma.py inputs -o full_analysis \
+-a path_to_alignment.bam \ 
+-c lib_1:hyphae lib_2:hyphae lib_3:conidia lib_4:conidia lib_5:conidia
+
+yasma.py tradeoff -o .
+yasma.py count -o .
+```
+
+
 
 
 
