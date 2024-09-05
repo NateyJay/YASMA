@@ -758,6 +758,8 @@ def validate_glob_path(ctx, param, value):
 def validate_library_paths(ctx, param, value):
 
 	paths = validate_glob_path(ctx, param, value)
+	if not paths:
+		return
 
 	for path in paths:
 		path = Path(path)
