@@ -89,6 +89,12 @@ def align(**params):
 	max_random = 3
 
 
+	for tool, _, version in rc.reqs:
+		if tool == 'bowtie':
+			bowtie_version = float(version.replace(".",""))/100
+
+
+
 
 	align_folder = Path(output_directory, 'nativealign')
 	align_folder.mkdir(parents=True, exist_ok=True)
@@ -204,7 +210,12 @@ def align(**params):
 			# print()
 
 
-			call = ['bowtie', '-q', '-v', '1', '-p', str(cores), '-S', '-m', '1', '--best', '--strata', '-x', str(genome_file.with_suffix('')), str(lib)]
+			if bowtie_version >= 1.3:
+				call = ['bowtie', '-q', '-v', '1', '-p', str(cores), '-S', '-m', '1', '--best', '--strata', '-x', str(genome_file.with_suffix('')), str(lib)]
+			else:
+				call = ['bowtie', '-q', '-v', '1', '-p', str(cores), '-S', '-m', '1', '--best', '--strata', str(genome_file.with_suffix('')), str(lib)]
+
+
 			# print(" ".join(call))
 
 			p = Popen(call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
