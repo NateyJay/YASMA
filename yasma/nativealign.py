@@ -234,7 +234,9 @@ def align(**params):
 						print(f'call: {call}')
 						print(f'line: {line}')
 
-						print(f"bowtie err: {p.stderr.readlines()}")
+						print(f"bowtie err:")
+						for e in bowtie.stderr:
+							print(" ", e.strip())
 						raise 
 
 					break
