@@ -22,7 +22,6 @@ import shutil
 from .generics import *
 from .cli import cli
 
-from tqdm import tqdm
 
 
 
