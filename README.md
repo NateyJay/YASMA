@@ -84,9 +84,9 @@ python3 -m pip install pyBigWig
 python3 -m pip install GitPython
 python3 -m pip install levenshtein
 ```
-some of the less standard ones:  
+Some of the less standard ones:  
 [`click`](https://click.palletsprojects.com/) is required, as it manages the cli interface for the tool.  
-[`pysam`]([https://github.com/deeptools/pyBigWig](https://pypi.org/project/pysam/)) allows samtools stand-alone in python.  
+[`pysam`](https://github.com/deeptools/pyBigWig) allows samtools stand-alone in python.  
 [`pyBigWig`](https://github.com/deeptools/pyBigWig) allows python-native functions with bigwig files.
 
 #### System modules:
