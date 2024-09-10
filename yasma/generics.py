@@ -452,7 +452,7 @@ class inputClass():
 				else:
 					return(str(p.absolute()))
 			except AttributeError:
-				print("warning: python 3.9+ required for path functions. Using compatibility function.")
+				print("Warning: python 3.9+ required for Path.is_relative_to(). Using compatibility function.")
 				return(str(p.absolute()))
 
 
