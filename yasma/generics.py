@@ -445,9 +445,14 @@ class inputClass():
 
 		def encode_path(p):
 
-			if p.is_relative_to(od):
-				return(str(p.relative_to(od)))
-			else:
+			## is_relative_to() was added in python 3.9.
+			try:
+				if p.is_relative_to(od):
+					return(str(p.relative_to(od)))
+				else:
+					return(str(p.absolute()))
+			except AttributeError:
+				print("warning: python 3.9+ required for path functions. Using compatibility function.")
 				return(str(p.absolute()))
 
 
