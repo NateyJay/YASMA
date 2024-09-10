@@ -412,8 +412,12 @@ def size_profile(**params):
 	chromosomes, bam_rgs = get_chromosomes(alignment_file)
 
 	libraries = []
-	for a in annotation_conditions:
-		libraries += conditions[a]
+
+	if len(annotation_conditions) == 0:
+		libraries = bam_rgs
+	else:
+		for a in annotation_conditions:
+			libraries += conditions[a]
 
 	pc = peakClass(ic.inputs['project_name'], alignment_file, libraries=libraries)
 
