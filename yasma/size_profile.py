@@ -66,7 +66,7 @@ class peakClass():
 
 		for size in self.master['sizes']:
 			self.master['prop'].append(0)
-			for rg in bam_rgs:
+			for rg in self.bam_rgs:
 				count = rg_size_c[(rg, str(size))]
 				prop  = count / rg_c[rg]
 				# print(rg, size, count, prop, sep='\t')
