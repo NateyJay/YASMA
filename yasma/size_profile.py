@@ -58,7 +58,7 @@ class peakClass():
 
 		# props = list()  ## a list of all proportions in order
 		# prop_d = dict() ## a dictionary of proportions by size
-		for rg in bam_rgs:
+		for rg in self.bam_rgs:
 			self.master[rg] = list()
 
 		self.master['prop'] = list()
