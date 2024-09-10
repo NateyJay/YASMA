@@ -60,7 +60,7 @@ def list_readgroups(** params):
 			cond = f"\t-> {conditions[rg]}"
 		except KeyError:
 			cond = ''
-		except NoneType:
+		except NameError:
 			cond = ''
 
 		print("  ", rg, cond, sep='')
