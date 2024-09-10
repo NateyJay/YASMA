@@ -60,9 +60,9 @@ def list_readgroups(** params):
 			cond = f"\t-> {conditions[rg]}"
 		except KeyError:
 			cond = ''
-		except NonteType:
+		except NoneType:
 			cond = ''
-			
+
 		print("  ", rg, cond, sep='')
 
 	missing_libs = []
