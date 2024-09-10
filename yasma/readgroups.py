@@ -60,16 +60,18 @@ def list_readgroups(** params):
 			cond = f"\t-> {conditions[rg]}"
 		except KeyError:
 			cond = ''
-		except AttributeError:
+		except TypeError:
 			cond = ''
 
 		print("  ", rg, cond, sep='')
 
 	missing_libs = []
-	for lib, cond in conditions.items():
 
-		if lib not in rgs:
-			missing_libs.append(lib)
+	if conditions:
+		for lib, cond in conditions.items():
+
+			if lib not in rgs:
+				missing_libs.append(lib)
 
 	if len(missing_libs) > 0:
 		print()
