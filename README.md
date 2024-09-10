@@ -74,26 +74,19 @@ Yasma makes use of many tools through wrappers, as well as several non-standard 
 
 #### Python modules:
 
-[`click`](https://click.palletsprojects.com/) is required, as it manages the cli interface for the tool
 
 ```
+python3 -m pip install numpy
 python3 -m pip install click
 python3 -m pip install click-option-group
-```
-
-```
-[`pysam`]([https://github.com/deeptools/pyBigWig](https://pypi.org/project/pysam/)) allows samtools stand-alone in python.
 python3 -m pip install pysam
-```
-
-[`pyBigWig`](https://github.com/deeptools/pyBigWig) allows python-native functions with bigwig files.
-```
 python3 -m pip install pyBigWig
-
-# or 
-
-conda install pybigwig -c conda-forge -c bioconda
+python3 -m pip install GitPython
 ```
+some of the less standard ones:
+[`click`](https://click.palletsprojects.com/) is required, as it manages the cli interface for the tool
+[`pysam`]([https://github.com/deeptools/pyBigWig](https://pypi.org/project/pysam/)) allows samtools stand-alone in python.
+[`pyBigWig`](https://github.com/deeptools/pyBigWig) allows python-native functions with bigwig files.
 
 #### System modules:
 Most of these are required for basic functions - each module will inform you if you are missing something. Yasma expects each of these executable from the PATH.
