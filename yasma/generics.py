@@ -726,6 +726,9 @@ class inputClass():
 
 def reverse_conditions(c):
 
+	if not c:
+		return(None)
+
 	d = {}
 
 	for cond, libs in c.items():
