@@ -1460,7 +1460,7 @@ class Logger(object):
 
 	def overwrite_lines(self, n=None, text=None):
 		if not n:
-			n = text.count("\n")
+			n = text.count("\n")+1
 		## used to be called write_over_terminal_lines()
 		for r in range(n):
 			self.write("\x1b[1A\x1b[2K", terminal_only = True)
