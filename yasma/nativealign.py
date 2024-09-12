@@ -44,7 +44,7 @@ import time
 @optgroup.group('\n  Bowtie options',
 				help='')
 
-@optgroup.option('-c', '--cores',
+@optgroup.option('--cores',
 	default=4,
 	help='Number of cores to use for alignment with bowtie.')
 
@@ -272,14 +272,14 @@ def align(**params):
 
 
 
-	def print_progress(read_i, map_c, rg, done_rgs, terminal_only=False):
+	def print_progress(call, read_i, map_c, rg, done_rgs, terminal_only=False):
 		read_p = round(read_i / total_reads * 100,1)
 
 		counts = [map_c[c] for c in ['U','P','R','Q','H','N']]
 		percs  = [round(c/read_i*100,1) for c in counts]
 
 
-		to_print = '  libraries:\n'
+		to_print = f'\n  command:\n    {" ".join(call)}\n\n  libraries:\n'
 		for lib in trimmed_libraries:
 			if get_rg(lib) in done_rgs:
 				done = 'x'
@@ -290,6 +290,7 @@ def align(**params):
 			to_print += f"    [{done}] {get_rg(lib)}     \n"
 
 		to_print += f'''  
+
   current read:\t{read_i} ({read_p}%)       
                                    maptag\tmapcat\t perc\treads
   (unique mappers) ............... XY:Z:U\tumap\t {percs[0]}%\t{counts[0]:,}         
@@ -478,7 +479,7 @@ def align(**params):
 					if threshold_i > total_reads:
 						threshold_i = total_reads
 
-					print_progress(read_i, map_c, rg, done_rgs, terminal_only=True)
+					print_progress(call, read_i, map_c, rg, done_rgs, terminal_only=True)
 
 
 				## getting a new line
@@ -499,7 +500,7 @@ def align(**params):
 
 		bamfile.close()
 
-		print_progress(read_i, map_c, None, done_rgs)
+		print_progress(call, read_i, map_c, None, done_rgs)
 
 		# print()
 		# pprint(map_c)
