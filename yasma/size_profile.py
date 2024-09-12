@@ -383,7 +383,7 @@ class peakClass():
 	default=None,
 	help="List of conditions names which will be included in the profile. Defaults to use all libraries, though this is likely not what you want if you have multiple groups.")
 
-
+@optgroup.option('--all', is_flag=True, default=False, help='Override any annotation conditions and use all libraries for size-profiling.')
 
 @optgroup.group('\n  Optional',
 				help='')
@@ -412,11 +412,19 @@ def size_profile(**params):
 
 	libraries = []
 
-	if len(annotation_conditions) == 0:
+	if len(annotation_conditions) == 0 or params['all']:
 		libraries = bam_rgs
 	else:
 		for a in annotation_conditions:
-			libraries += conditions[a]
+			try:
+				libraries += conditions[a]
+			except KeyError:
+				print(f"KeyError: condition '{a}' not found in conditions:")
+				pprint(list(conditions.keys()))
+				sys.exit()
+
+	if len(libraries) == 0:
+		sys.exit("Error: no libraries included in size profile. Try yasma.py readgroups to confirm you have the correct conditions and can detect library readgroups")
 
 	pc = peakClass(ic.inputs['project_name'], alignment_file, libraries=libraries)
 
