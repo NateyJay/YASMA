@@ -135,6 +135,7 @@ def align(**params):
 		lib_sizes = []
 
 		for lib in trimmed_libraries:
+			lib = Path(lib)
 			if lib.suffix == ".gz":
 				call = ['gzip', '-cd', lib]
 				p0 = Popen(call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
