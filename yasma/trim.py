@@ -73,6 +73,12 @@ from .cli import cli
 	help= 'Maxiumum allowed size for a trimmed read. (default 50)')
 
 
+@optgroup.option("--cores",
+	default = 1,
+	type=int,
+	help= 'Number of CPU cores to use. 0 has cutadapt "autodetect" the number of cores (default 1)')
+
+
 
 
 def trim(**params):
@@ -129,7 +135,7 @@ def trim(**params):
 
 		# cutadapt -a [adapter] --minimum-length 15--maximum-length 50-O 4 --max-n 0 --trimmed-only -o [out_file] [file]
 
-		call = ["cutadapt", "-a", adapter, "--minimum-length", str(min_length), "--maximum-length", str(max_length), "-O", "4", "--max-n", "0", "--trimmed-only", "-o", out_file, file]
+		call = ["cutadapt", "-a", adapter, "--minimum-length", str(min_length), "--maximum-length", str(max_length), '-j', str(params['cores']), "-O", "4", "--max-n", "0", "--trimmed-only", "-o", out_file, file]
 
 		p = Popen(call, stdout=PIPE, encoding=ENCODING)
 
