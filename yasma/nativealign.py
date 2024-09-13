@@ -124,6 +124,7 @@ def align(**params):
 
 
 	def get_rg(lib):
+		print((lib))
 		extensions = "".join(lib.suffixes)
 
 		while Path(lib).suffix in {'.gz', '.zip', '.t', '.fastq', '.fq', '.fasta', '.fq', '.fna'}:
