@@ -128,7 +128,7 @@ def align(**params):
 		extensions = "".join(lib.suffixes)
 
 		while lib.suffix in {'.gz', '.zip', '.t', '.fastq', '.fq', '.fasta', '.fq', '.fna'}:
-			return str(lib.name.with_suffix(''))
+			return str(lib.with_suffix(''))
 
 
 	start = time.time()
