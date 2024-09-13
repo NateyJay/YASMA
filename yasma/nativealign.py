@@ -125,7 +125,9 @@ def align(**params):
 
 	def get_rg(lib):
 		extensions = "".join(lib.suffixes)
-		return str(lib.name.removesuffix(extensions))
+
+		while Path(lib).suffix in {'.gz', '.zip', '.t', '.fastq', '.fq', '.fasta', '.fq', '.fna'}:
+			return str(Path(lib).name.with_suffix(''))
 
 
 	start = time.time()
@@ -135,7 +137,6 @@ def align(**params):
 		lib_sizes = []
 
 		for lib in trimmed_libraries:
-			lib = Path(lib)
 			if lib.suffix == ".gz":
 				call = ['gzip', '-cd', lib]
 				p0 = Popen(call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
