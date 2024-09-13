@@ -11,6 +11,7 @@ from .generics import *
 from .cli import cli
 
 import gzip
+from shutil import rmtree
 
 
 @cli.command(group='Processing', help_priority=2)
@@ -55,6 +56,13 @@ def download(**params):
 	untrimmed_dir.mkdir(parents=True, exist_ok=True)
 
 	download_dir = Path(output_directory, "download")
+
+	for srr in srrs:
+		prefetch_file = Path(download_dir, srr, f"{srr}.sra.lock")
+
+		if prefetch_file.is_file():
+			rmtree(str(Path(download_dir, srr)))
+
 
 
 	call = ['prefetch', "-O", str(download_dir)] + srrs
