@@ -96,7 +96,7 @@ def align(**params):
 
 
 
-	align_folder = Path(output_directory, 'nativealign')
+	align_folder = Path(output_directory, 'align')
 	align_folder.mkdir(parents=True, exist_ok=True)
 
 	unsorted_bam = Path(align_folder, "alignment.unsorted.bam")
@@ -105,7 +105,7 @@ def align(**params):
 	project_table = Path(align_folder, "project_stats.txt")
 	library_table = Path(align_folder, "library_stats.txt")
 
-	log_file = Path(output_directory,"nativealign/log.txt")
+	log_file = Path(output_directory,"align/log.txt")
 	sys.stdout = Logger(log_file)
 
 
