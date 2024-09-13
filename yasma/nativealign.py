@@ -567,6 +567,7 @@ def align(**params):
 	ic.inputs['alignment_file'] = sorted_bam.absolute()
 	ic.write()
 	print()
+	print("alignment complete!")
 			# input()
 
 
