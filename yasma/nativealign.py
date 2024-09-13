@@ -124,11 +124,11 @@ def align(**params):
 
 
 	def get_rg(lib):
-		print((lib))
+		lib = Path(lib)
 		extensions = "".join(lib.suffixes)
 
-		while Path(lib).suffix in {'.gz', '.zip', '.t', '.fastq', '.fq', '.fasta', '.fq', '.fna'}:
-			return str(Path(lib).name.with_suffix(''))
+		while lib.suffix in {'.gz', '.zip', '.t', '.fastq', '.fq', '.fasta', '.fq', '.fna'}:
+			return str(lib.name.with_suffix(''))
 
 
 	start = time.time()
