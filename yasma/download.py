@@ -89,6 +89,21 @@ def download(**params):
 	if not params['unzipped']:
 		for i,srr in enumerate(srrs):
 
+			try:
+				Path(untrimmed_dir, f"{srr}_1.fastq").rename(f"{srr}.fastq")
+			except:
+				pass
+
+			try:
+				Path(untrimmed_dir, f"{srr}_2.fastq").unlink()
+			except:
+				pass
+
+			try:
+				Path(untrimmed_dir, f"{srr}_3.fastq").unlink()
+			except:
+				pass
+
 			unzipped_file = Path(untrimmed_dir, f"{srr}.fastq")
 			zipped_file   = Path(untrimmed_dir, f"{srr}.fq.gz")
 			untrimmed_libraries.append(zipped_file)
