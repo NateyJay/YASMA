@@ -58,9 +58,10 @@ def download(**params):
 	download_dir = Path(output_directory, "download")
 
 	for srr in srrs:
-		prefetch_file = Path(download_dir, srr, f"{srr}.sra.lock")
+		lock_file_1 = Path(download_dir, srr, f"{srr}.sra.lock")
+		lock_file_2 = Path(download_dir, srr, f"{srr}.sralite.lock")
 
-		if prefetch_file.is_file():
+		if lock_file_1.is_file() or lock_file_2.is_file():
 			rmtree(str(Path(download_dir, srr)))
 
 
