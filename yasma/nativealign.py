@@ -238,7 +238,7 @@ def align(**params):
 						print(f'line: {line}')
 
 						print(f"bowtie err:")
-						for e in bowtie.stderr:
+						for e in p.stderr:
 							print(" ", e.strip())
 						raise 
 
