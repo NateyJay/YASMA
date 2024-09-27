@@ -921,23 +921,27 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 @optgroup.group('\n  Locus options',
 				help='')
 
+
+@optgroup.option('--filter_skew/--no_filter_skew', default=False, help='filter highly skewed loci (default: False)')
+
 @optgroup.option("--max_skew",
 	default=0.90,
 	type=float,
-	help="A filter to help remove loci which are skewed toward only one sequence in abundance. By default (0.95), if more than 1 in 20 reads for a locus are a single sequence, they are excluded from the annotation.")
+	help="Filter value for loci which are skewed toward only one sequence in abundance. By default (0.95), if more than 1 in 20 reads for a locus are a single sequence, they are excluded from the annotation.")
 
-
+@optgroup.option('--filter_complexity/--no_filter_complexity', is_flag=True, default=False, help='filter low complexity loci (default: False)')
 @optgroup.option("--min_complexity",
-	default=0.01,
-	type=float,
-	help="")
+	default=10,
+	type=int,
+	help="Filter value for locus complexity. This is defined as the number of unique-reads / 1000 nt (default: 10).")
 
-
+@optgroup.option('--filter_abundance/--no_filter_abundance', is_flag=True, default=True, help='filter low abundance loci (default: True). This is meant to remove loci which have not reached an absolute level of abundance.')
 @optgroup.option("--min_abundance",
 	default=50,
 	type=int,
 	help="Min reads in a locus")
 
+@optgroup.option('--filter_abundance_density/--no_filter_abundance_density', is_flag=True, default=True, help='filter low abundance loci (default: True). This is meant to remove loci which have not reached an absolute level of abundance.')
 @optgroup.option("--min_abundance_density",
 	default=100,
 	type=int,
@@ -1187,7 +1191,7 @@ def tradeoff(**params):
 
 	filter_file = Path(output_directory, dir_name, 'filtered_loci.txt')
 	with open(filter_file, 'w') as outf:
-		print('coords\tabd\tpass_abd\tabd_dens\tpass_abd_dens\tcomplexity\tpass_complexity\tskew\tpass_skew', sep='\t', file=outf)
+		print('coords\tlength\tabd\tpass_abd\tabd_dens\tpass_abd_dens\tcomplexity\tpass_complexity\tskew\tpass_skew', sep='\t', file=outf)
 
 
 	stats_file = f"{output_directory}/{dir_name}/stats_by_ref.txt"
@@ -2037,7 +2041,7 @@ def tradeoff(**params):
 	skew_filter       = 0
 	abd_filter        = 0
 	abd_dens_filter   = 0
-	
+
 	annotated_space = 0
 	annotated_reads = 0
 
@@ -2561,7 +2565,7 @@ def tradeoff(**params):
 			abd = sum(read_c.values())
 			length = stop-start
 
-			complexity = len(read_c.keys()) / (stop - start)
+			complexity = len(read_c.keys()) / length * 1000
 			skew       = read_c.most_common(1)[0][1] / sum(read_c.values())
 
 			pass_complexity = complexity >= params['min_complexity']
@@ -2569,26 +2573,30 @@ def tradeoff(**params):
 			pass_abd        = sum(read_c.values()) >= params['min_abundance']
 			pass_abd_dens   = sum(read_c.values()) / (stop-start) * 1000 >= params['min_abundance_density']
 
+
+			pass_all_filters = 0
+
 			if not pass_complexity:
 				complexity_filter += 1
+				pass_all_filters += int(params['filter_complexity'])
 
 			if not pass_skew:
 				skew_filter += 1
+				pass_all_filters += int(params['filter_skew'])
 
 			if not pass_abd:
 				abd_filter += 1
+				pass_all_filters += int(params['filter_abundance'])
 
 			if not pass_abd_dens:
 				abd_dens_filter += 1
+				pass_all_filters += int(params['filter_abundance_density'])
 
-			# if complexity < params['min_complexity'] or skew > params['max_skew']:
-			# 	regions_name_i -= 1
-			# 	continue
 
-			if not pass_abd or not pass_abd_dens:
+			if pass_all_filters > 0:
 				regions_name_i -= 1
 				with open(filter_file, 'a') as outf:
-					print(coords, abd, pass_abd, abd/length*1000, pass_abd_dens, complexity, pass_complexity, skew, pass_skew, sep='\t', file=outf)
+					print(coords, length, abd, pass_abd, round(abd/length*1000,4), pass_abd_dens, round(complexity,4), pass_complexity, skew, pass_skew, sep='\t', file=outf)
 				continue
 
 			
@@ -2684,16 +2692,24 @@ def tradeoff(**params):
 		print()
 
 
+	def bool_to_check(val):
+		if val:
+			return "[x]"
+		else:
+			return "[ ]"
+
 	print()
-	print(f"{complexity_filter} loci have low complexity (< {params['min_complexity']})")
-	print(f"{skew_filter} loci are extremely skewed (> {params['max_skew']})")
-	print(f"{abd_filter} loci are below min abundance (< {params['min_abundance']})")
-	print(f"{abd_dens_filter} loci are below min abundance per 1000nt (< {params['min_abundance_density']})")
+	print(f"locus filters:  (x = filter activated)")
+	print(f"  {bool_to_check(params['filter_skew'])} {skew_filter} loci are extremely skewed (> {params['max_skew']} prop. abundance is a single sequence)")
+	print(f"  {bool_to_check(params['filter_complexity'])} {complexity_filter} loci have low complexity (< {params['min_complexity']} unique reads per 1000 nt)")
+	print(f"  {bool_to_check(params['filter_abundance'])} {abd_filter} loci are below min abundance (< {params['min_abundance']} aligned reads)")
+	print(f"  {bool_to_check(params['filter_abundance_density'])} {abd_dens_filter} loci are below min abundance density (< {params['min_abundance_density']} aligned reads / 1000 nt)")
 	print()
-	print(f"{regions_name_i:,} regions passing filter")
+	print(f"  {regions_name_i:,} loci passing activated filter(s)")
 	print()
-	print(f"{annotated_space:,} genomic nt ({round(annotated_space / genome_length * 100, 1)}%) in regions")
-	print(f"{annotated_reads:,} reads ({round(annotated_reads / aligned_read_count * 100, 1)}%) in regions")
+	print(f"final annotation metrics:")
+	print(f"  {annotated_space:,} genomic nt ({round(annotated_space / genome_length * 100, 1)}%) in loci")
+	print(f"  {annotated_reads:,} reads ({round(annotated_reads / aligned_read_count * 100, 1)}%) in loci")
 	print()
 
 	with open(overall_file, 'a') as outf:
