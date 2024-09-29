@@ -17,12 +17,14 @@ from Levenshtein import distance
 
 
 class foldClass():
-	def __init__(self, name, seq, alignment_file, locus, strand, mas, output_directory):
+	def __init__(self, name, seq, alignment_file, locus, strand, mas, output_directory, hairpin_dir):
 
 		self.name    = name
 		self.seq     = seq
 		self.locus   = locus
 		self.strand  = strand
+
+		self.hairpin_dir = hairpin_dir
 
 		self.mas = mas
 
@@ -125,7 +127,7 @@ class foldClass():
 		out, err = p.communicate(f">{temp_name}\n{self.seq}")
 
 
-		self.fold_file = f"{self.output_directory}/hairpin/folds/{self.name}_unannotated.eps"
+		self.fold_file = Path(self.output_directory, self.hairpin_dir, "folds", f"{self.name}_unannotated.eps")
 
 		# print(self.fold_file)
 		os.rename(f"{temp_name}_ss.ps", self.fold_file)
@@ -207,7 +209,7 @@ class foldClass():
 
 	def write(self):
 
-		outf = open(f"{self.output_directory}/hairpin/folds/{self.name}.eps", 'w')
+		outf = open(Path(self.output_directory, self.hairpin_dir, "folds", f"{self.name}.eps", 'w')
 
 		for line in self.lines:
 
@@ -559,7 +561,7 @@ class hairpinClass():
 			else:
 				self.valid = True
 
-				Path(f'./{self.output_directory}/hairpin/folds').mkdir(parents=True, exist_ok=True)
+				Path(self.output_directory, hairpin_dir, 'folds').mkdir(parents=True, exist_ok=True)
 				fold = foldClass(self.name, self.seq, self.alignment_file, self.locus, self.strand, self.mas, self.output_directory)
 
 				self.assess_miRNA()
@@ -1041,6 +1043,9 @@ class hairpinClass():
 
 @click.option("-a", "--annotation_folder")
 
+@click.option("-n", "--name",
+	default=False)
+
 # @click.option("--method", 
 # 	default="Poisson", 
 # 	help="Annotator algorithm used (Poisson or Dicer)")
@@ -1064,6 +1069,15 @@ def hairpin(**params):
 
 	ignore_replication   = params['ignore_replication']
 	max_length           = params['max_length']
+
+	name = params['name']
+
+	if name:
+		hairpin_dir = Path(output_directory, f'hairpin_{name}')
+	else:
+		hairpin_dir = Path(output_directory, f'hairpin')
+
+	hairpin_dir.mkdir(parents=True, exist_ok=True)
 
 
 	# def get_genome_file():
@@ -1143,8 +1157,8 @@ def hairpin(**params):
 
 	header_line = "name\tlocus\tstrand\tstranded\tlength\tshort_enough\tseq\tfold\tmfe\tmas\tstar\tduplex_mas\tduplex_fold\tduplex_star\tvalid_fold\truling\tmfe_per_nt\tmismatches_asymm\tmismatches_total\tno_mas_structures\tno_star_structures\tprecision\tstar_found"
 
-	Path(output_directory+ "/hairpin/folds").mkdir(parents=True, exist_ok=True)
-	hairpin_file = f"{output_directory}/hairpin/hairpins.txt"
+	Path(output_directory, hairpin_dir, "folds").mkdir(parents=True, exist_ok=True)
+	hairpin_file = Path(output_directory, hairpin_dir, "hairpins.txt")
 	with open(hairpin_file, 'w') as outf:
 		print(header_line, file=outf)
 
