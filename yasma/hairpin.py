@@ -441,7 +441,7 @@ setfont
 
 
 class hairpinClass():
-	def __init__(self, stranded, short_enough, name, locus, strand, input_mas, genome_file, alignment_file, output_directory):
+	def __init__(self, stranded, short_enough, name, locus, strand, input_mas, genome_file, alignment_file, output_directory, hairpin_dir):
 
 
 		self.valid   = False
@@ -458,6 +458,7 @@ class hairpinClass():
 		self.genome_file = genome_file
 		self.alignment_file = alignment_file
 		self.output_directory = output_directory.rstrip("/")
+		self.hairpin_dir = hairpin_dir
 
 		self.chrom = self.locus.split(":")[0]
 		self.start = int(self.locus.split(":")[-1].split("-")[0])
@@ -561,8 +562,8 @@ class hairpinClass():
 			else:
 				self.valid = True
 
-				Path(self.output_directory, self.hairpin_dir, 'folds').mkdir(parents=True, exist_ok=True)
-				fold = foldClass(self.name, self.seq, self.alignment_file, self.locus, self.strand, self.mas, self.output_directory)
+				# Path(self.output_directory, self.hairpin_dir, 'folds').mkdir(parents=True, exist_ok=True)
+				fold = foldClass(self.name, self.seq, self.alignment_file, self.locus, self.strand, self.mas, self.output_directory, self.hairpin_dir)
 
 				self.assess_miRNA()
 
@@ -1226,7 +1227,7 @@ v vv vv v v""")
 
 		input_mas = input_mas_d[name]
 
-		hpc = hairpinClass(stranded, short_enough, name,locus, strand, input_mas, genome_file, alignment_file, output_directory)
+		hpc = hairpinClass(stranded, short_enough, name,locus, strand, input_mas, genome_file, alignment_file, output_directory, hairpin_dir)
 		hpc.table()
 
 		if hpc.valid:
