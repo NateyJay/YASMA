@@ -1244,7 +1244,7 @@ v vv vv v v""")
 			trimmed_locus = trim_hairpin(hpc)
 
 
-			trimmed_hpc = hairpinClass(stranded, short_enough, name+"-t", trimmed_locus, strand, input_mas, genome_file, alignment_file, output_directory)
+			trimmed_hpc = hairpinClass(stranded, short_enough, name+"-t", trimmed_locus, strand, input_mas, genome_file, alignment_file, output_directory, hairpin_dir)
 			if trimmed_hpc.valid:
 				print(f"{trimmed_hpc.ruling}\t\033[1m{name}\033[0m", len(trimmed_hpc.seq), sizecall, 'trimmed', sep='\t')
 
