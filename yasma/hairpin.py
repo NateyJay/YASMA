@@ -209,7 +209,7 @@ class foldClass():
 
 	def write(self):
 
-		outf = open(Path(self.output_directory, self.hairpin_dir, "folds", f"{self.name}.eps", 'w'))
+		outf = open(Path(self.output_directory, self.hairpin_dir, "folds", f"{self.name}.eps"), 'w')
 
 		for line in self.lines:
 
