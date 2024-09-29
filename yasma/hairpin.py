@@ -1044,8 +1044,7 @@ class hairpinClass():
 
 @click.option("-a", "--annotation_folder")
 
-@click.option("-n", "--name",
-	default=False)
+@click.option("-n", "--name")
 
 # @click.option("--method", 
 # 	default="Poisson", 
