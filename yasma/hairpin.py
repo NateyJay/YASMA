@@ -1039,7 +1039,7 @@ class hairpinClass():
 	default=300,
 	help='Maximum hairpin size (default 300). Longer loci will not be considered for miRNA analysis.')
 
-@click.option("-l", "--loci")
+@click.option("-a", "--annotation_folder")
 
 # @click.option("--method", 
 # 	default="Poisson", 
@@ -1118,13 +1118,15 @@ def hairpin(**params):
 
 	# genome_file = get_genome_file()
 
-	results_file = params['loci']
+	results_file = Path(output_directory, params['annotation_folder'], "loci.txt")
+	# results_file = f"{output_directory}/tradeoff/loci.txt"
 
 	# results_file = f"{output_directory}/tradeoff/loci.txt"
 	assert isfile(results_file), f"results_file {results_file} not found... (Have you run annotation with this directory?)"
 
 	input_mas_d = {}
-	tops_file = f"{output_directory}/tradeoff/reads.txt"
+	# tops_file = f"{output_directory}/tradeoff/reads.txt"
+	tops_file = Path(output_directory, params['annotation_folder'], "reads.txt")
 	with open(tops_file, 'r') as f:
 		header = f.readline()
 		for line in f:
