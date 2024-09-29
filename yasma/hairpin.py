@@ -1169,7 +1169,7 @@ v vv vv v v""")
 
 
 
-	for entry in read_loci(params):
+	for entry in read_loci(results_file):
 
 		name     = entry['name']
 		locus    = entry['locus']
