@@ -561,7 +561,7 @@ class hairpinClass():
 			else:
 				self.valid = True
 
-				Path(self.output_directory, hairpin_dir, 'folds').mkdir(parents=True, exist_ok=True)
+				Path(self.output_directory, self.hairpin_dir, 'folds').mkdir(parents=True, exist_ok=True)
 				fold = foldClass(self.name, self.seq, self.alignment_file, self.locus, self.strand, self.mas, self.output_directory)
 
 				self.assess_miRNA()
