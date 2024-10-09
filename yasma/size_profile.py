@@ -150,9 +150,12 @@ class peakClass():
 						rang = range(c-1, -1, -1)
 
 					for r in rang:
+
+						## Breaks if the position does not meet the minimum proportion for a peak based on median-k.
 						if r not in extensions:
 							print(f'({r}) not a candidate')
 							break
+							
 						# print(r)
 						p_curr = props[r]
 						p_change = round((p_curr - p_last) / p_last  * 100,1)
@@ -160,13 +163,19 @@ class peakClass():
 
 
 						p_last = p_curr
-						if p_max < max_threshold and p_change > change_threshold:
-							print(f"({r}) below {max_threshold}% of max peak and above {change_threshold} change_threshold")
-							break
+
+						## This filter helps to separate close peaks. I have disabled it because I believe it tends to split peaks which are likely connected.
+
+						# if p_max < max_threshold and p_change > change_threshold:
+						# 	print(f"({r}) below {max_threshold}% of max peak and above {change_threshold} change_threshold")
+						# 	break
+
+						## This makes a peak cutoff if the peak increases (saying this is likely a different peak)
 						if p_change > 0:
 							print(f'({r}) peak growing')
 							break
 
+						## Breaks if the peak is extending into an already established peak
 						if self.master['peak'][r]:
 							print(f"({r}) pos in peak")
 							break
