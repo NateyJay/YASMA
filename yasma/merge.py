@@ -15,7 +15,7 @@ from .cli import cli
 
 
 
-@cli.command(group='Annotation', help_priority=2)
+@cli.command(group='Utilites', help_priority=2)
 
 
 @optgroup.group('\n  Basic options',
