@@ -379,7 +379,7 @@ def get_bin_threshold(cdf_c, to_save=False, to_print=False):
 
 
 
-def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
+def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, chromosomes, out_dir):
 	""" Produces coverages for alignment based off a kernel density estimation. 
 
 	Sum of all reads within the user defined kernel bandwith are used to generate a coverage. This is meant to normalize the effect of read length on coverage.
@@ -415,8 +415,11 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 
 	print(" processing alignment...")
 
+	libraries = list(lib_d.keys())
+
 	for chrom, chrom_length in chromosomes:
-		pos_depth_d[chrom]  = [0] * chrom_length
+		# pos_depth_d[chrom]  = np.ndarray(shape=(chrom_length, len(libraries)), dtype='uint16')
+		pos_depth_d[chrom]  = np.ndarray(shape=(chrom_length, len(libraries)), dtype='float16')
 		pos_strand_d[chrom] = [None] * chrom_length
 		pos_size_d[chrom]   = [None] * chrom_length
 
@@ -438,12 +441,17 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 	aligned_read_count = 0
 	for i, read in enumerate(reads):
 		aligned_read_count+=1
-		strand, length, _, pos, chrom, _, _, _ = read
+		strand, length, _, pos, chrom, lib, _, _ = read
 
 		pos += math.floor(length / 2)
 
 
-		pos_depth_d[chrom][pos] += 1
+		pos_depth_d[chrom][pos, libraries.index(lib)] += lib_d[lib]['rpm']
+		# pos_depth_d[chrom][pos, libraries.index(lib)] += 1
+
+
+
+
 
 		try:
 			pos_strand_d[chrom][pos][int(strand=="+")] += 1
@@ -469,6 +477,7 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 			sys.stdout.write(f"    encoding reads ............... {perc_out}%\t {i+1:,} reads   \n", terminal_only=True)
 			sys.stdout.flush()
 			sys.stdout.overwrite_lines(1)
+
 
 		# bin_c[int((chrom_index[chrom] + pos) / params['kernel_window'])] += 1
 
@@ -522,12 +531,14 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 			self.bw.close()
 
 
+
+
 	def numpy_method():
 		ec = elapsedClass()
 
 		gen_c = Counter() # a counter of kernel depths at positions in the genome 
 		## sum(gen_c) = genome_length
-		read_c = Counter() # a counter of the max kernel depth across the span of a read.
+		read_p = dict() # a counter of the max kernel depth across the span of a read.
 
 
 
@@ -538,19 +549,57 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 		for chrom_i, chromosome_entry in enumerate(chromosomes):
 			chrom, chrom_length = chromosome_entry
 
-			sys.stdout.write(f"    computing coverage ........... {chrom_i+1}/{len(chromosomes)} {chrom}                \n", terminal_only=True)
+			sys.stdout.write(f"      computing coverage ........... {chrom_i+1}/{len(chromosomes)} {chrom}                \n", terminal_only=True)
 			sys.stdout.flush()
 			sys.stdout.overwrite_lines(1)
 
-			coverage = np.sum(sliding_window_view(np.asarray(pos_depth_d[chrom]), cov_window), -1)
+			print("    rpm array...")
+			rpms = np.array([d['rpm'] for d in lib_d.values()], dtype='float16')
+
+			print("    calc coverage...")
+			coverage = np.sum(pos_depth_d[chrom], axis=1)
+			coverage = np.sum(sliding_window_view(coverage, cov_window), -1)
+
 			coverage = np.concatenate(
-				(np.array(coverage[0], half_cov_window), 
-				coverage, 
-				np.array(coverage[-1], half_cov_window-1)), 
+				(np.array([coverage[0]] * half_cov_window), 
+					coverage, 
+					np.array([coverage[-1]] * (half_cov_window-1))), 
 				axis=0)
 
+			# coverage = np.concatenate(
+			# 	(np.zeros((half_cov_window, len(libraries))), 
+			# 		coverage, 
+			# 		np.zeros((half_cov_window-1, len(libraries)))), 
+			# 	axis=0)
+
+
+			print("    calc kernel...")
 			kernel  = np.max(sliding_window_view(coverage, ker_window), -1)
-			kernel = np.concatenate((np.array([kernel[0]] * half_ker_window), kernel, np.array([kernel[-1]] * (half_ker_window-1))), axis=0)
+
+			kernel = np.concatenate(
+				(np.array([kernel[0]] * half_cov_window), 
+					kernel, 
+					np.array([kernel[0]] * (half_cov_window-1))), 
+				axis=0)
+
+
+			print("    aggregate read threshold cdf...")
+			prop_by_rpm = np.unique(np.floor(np.sum(np.multiply(pos_depth_d[chrom], rpms), axis=1)), return_counts=True)
+
+			# print("i:")
+			# print(prop_by_rpm[0])
+			# print("n_reads:")
+			# print(prop_by_rpm[1])
+			tab = np.cumsum(np.divide(prop_by_rpm[1], np.sum(prop_by_rpm[1])))
+			# print(tab)
+
+
+			for i, floor_depth in enumerate(prop_by_rpm[0]):
+				# print(prop_by_rpm[0][i], prop_by_rpm[1][i], tab[i])
+				read_p[int(i)] = tab[i] 
+
+
+			print("    write bigwigs...")
 
 			for i, c in enumerate(coverage):
 				cov_track.add(chrom, i+1, c)
@@ -558,11 +607,16 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 			for i, k in enumerate(kernel):
 				ker_track.add(chrom, i+1, k)
 
-			gen_c.update(kernel)
+			gen_c.update(np.floor(kernel))
 
-			for i, d in enumerate(pos_depth_d[chrom]):
-				if d > 0:
-					read_c[kernel[i]] += d
+
+			# for i in np.argwhere(positions > 0):
+			# 	print(i, pos_depth_d[chrom][i], positions[i])
+			# 	input()
+			# 	# sys.exi/t()
+			# for i, d in enumerate(pos_depth_d[chrom]):
+			# 	if d > 0:
+			# 		read_c[ceiling(kernel[i])] += d
 
 		print(f"    computing coverage ........... {chrom_i+1}/{len(chromosomes)} {chrom}                ", end='\n', flush=True)
 
@@ -574,7 +628,7 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 		print(ec)
 		print()
 
-		return(gen_c, read_c)
+		return(gen_c, read_p)
 
 	# gen_c[rolling_max] += 1
 	
@@ -1104,6 +1158,14 @@ def tradeoff(**params):
 	aligned_read_count = sum(chrom_depth_c.values())
 
 
+	### getting RPM equivalents for all the libraries
+	lib_d = {}
+	for lib, dep in get_global_depth(alignment_file, aggregate_by=['rg']).items():
+		print(lib, dep)
+		lib_d[lib] = {'depth':dep, "rpm":dep / 1000000}
+
+
+
 
 
 	if params['subsample']:
@@ -1217,6 +1279,9 @@ def tradeoff(**params):
 	read_equivalent = 1 / sum(chrom_depth_c.values()) * 1000000
 
 
+
+
+
 	## iterating through chromosomes and reads
 
 	print()
@@ -1239,6 +1304,7 @@ def tradeoff(**params):
 		rgs=annotation_readgroups, 
 		params=params, 
 		chrom_depth_c=chrom_depth_c,
+		lib_d=lib_d,
 		chromosomes=chromosomes,
 		out_dir=Path(output_directory, dir_name))
 
