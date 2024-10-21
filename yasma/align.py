@@ -163,7 +163,6 @@ def shortstack_align(**params):
 	compression             = params['compression']
 
 
-
 	temp_folder = Path(output_directory, "align", f"temp_{time()}")
 	align_folder = Path(output_directory, 'align')
 	align_folder.mkdir(parents=True, exist_ok=True)
