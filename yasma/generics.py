@@ -723,7 +723,6 @@ class inputClass():
 
 
 
-
 def reverse_conditions(c):
 
 	if not c:
