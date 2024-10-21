@@ -10,9 +10,14 @@ from pprint import pprint
 from .generics import *
 from .cli import cli
 
+def format_call(call):
+	call = [str(c).replace(" ", "\ ") for c in call]
+	call = " ".join(call)
+	return(call)
+
 @cli.command(group='Calculation', help_priority=3)
 
-@click.option("-g", "--gene_annotation_file", 
+@click.option("-ga", "--gene_annotation_file", 
 	required=False, 
 	type=click.UNPROCESSED, callback=validate_path,
 	help='Gene annotation file in gff3 format. Tested with NCBI annotation formats.')
@@ -21,6 +26,12 @@ from .cli import cli
 	required=True, 
 	type=click.Path(),
 	help="Directory name for annotation output")
+
+@click.option("-n", "--annotation_name", 
+	required=False, 
+	default=None,
+	type=str,
+	help="Annotation name for context comparison (tradeoff_[name]). Defaults to no name (tradeoff).")
 
 
 @click.option("--intergenic_distance", 
@@ -53,19 +64,34 @@ def context(**params):
 
 	force                   = params['force']
 	intergenic_distance     = params['intergenic_distance']
+	annotation_name         = params['annotation_name']
 
 
+	if annotation_name:
+		annotation_dir = Path(output_directory, f"tradeoff_{annotation_name}")
+	else:
+		annotation_dir = Path(output_directory, f"tradeoff")
 
 
-	ann_file = f"{output_directory}/peak/loci.gff3"
+	ann_file = Path(annotation_dir, 'loci.gff3')
+	res_file = Path(annotation_dir, 'loci.txt')
 
 	if not isfile(ann_file):
 		sys.exit(f"Annotation file {ann_file} does not exist. Are you sure the output folder contains an annotation?")
 
-	results_file = f"{output_directory}/peak/loci.txt"
+	if not isfile(res_file):
+		sys.exit(f"results file ({res_file}) not found")
 
-	if not isfile(results_file):
-		sys.exit(f"results file ({results_file}) not found")
+
+	sRNA_annotation_count = 0
+	with open(ann_file, 'r') as f:
+		for line in f:
+			if not line.startswith('#'):
+				sRNA_annotation_count += 1
+
+	if sRNA_annotation_count == 0:
+		sys.exit("Error: No annotations found in yasma annotation. Stopping...")
+
 
 	# 1) make subfiles
 	# 2) find closest mRNA
@@ -82,7 +108,22 @@ def context(**params):
 			d[key] = val
 		return(d)
 
-	def sort():
+	def sort_loci():
+		temp_file = "temp_sort.gff3"
+		call = ['bedtools', 'sort', '-i', ann_file]
+
+		print("input gff not sorted - sorting now with:")
+		print(" ".join(map(str,call)))
+
+		with open(temp_file, 'w') as outf:
+			p = Popen(call, stdout=outf)
+			p.wait()
+
+		os.rename(temp_file, ann_file)
+
+	sort_loci()
+
+	def sort_gene_annotation():
 		temp_file = "temp_sort.gff3"
 		call = ['bedtools', 'sort', '-i', gene_annotation_file]
 
@@ -97,12 +138,15 @@ def context(**params):
 
 
 	def make_subsets():
-		mRNA_file = gene_annotation_file.with_suffix(".mRNA.gff3")
-		exon_file = gene_annotation_file.with_suffix(".exon.gff3")
-		cds_file  = gene_annotation_file.with_suffix(".cds.gff3")
+		# mRNA_file = gene_annotation_file.with_suffix(".mRNA.gff3")
+		# exon_file = gene_annotation_file.with_suffix(".exon.gff3")
+		# cds_file  = gene_annotation_file.with_suffix(".cds.gff3")
+		mRNA_file = Path(output_directory, "temp.mRNA.gff3")
+		exon_file = Path(output_directory, "temp.exon.gff3")
+		cds_file  = Path(output_directory, "temp.cds.gff3")
 
-		if not isfile(mRNA_file) or not isfile(exon_file) or not isfile(cds_file):
-			sort()
+		# if not isfile(mRNA_file) or not isfile(exon_file) or not isfile(cds_file):
+		sort_gene_annotation()
 
 
 		def write_file(file, key):
@@ -112,7 +156,7 @@ def context(**params):
 					with open(gene_annotation_file, 'r') as f:
 						for line in f:
 							line = line.strip()
-
+							# print(line)
 							if line.startswith("#"):
 								print(line, file=outf)
 
@@ -140,14 +184,17 @@ def context(**params):
 
 		call= ['bedtools', 'closest', '-a', ann_file, '-b', file, '-d']
 
-		print(" ".join(map(str,call)))
+		# print()
+		# print(format_call(call))
+		# print()
+
 		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 		out, err = p.communicate()
-
 
 		for o in out.strip().split("\n"):
 
 			o = o.strip().split("\t")
+
 
 			s_strand = o[6]
 			m_strand = o[15]
@@ -157,11 +204,42 @@ def context(**params):
 
 			# mRNA_id\ttranscript\tdistance
 
+			print(o)
+			prefix = ID.lstrip("m").lower() + "-"
+
 			d = {}
 
-			d[f'{ID}_id'] = ma['ID']
-			d['transcript'] = ma['orig_transcript_id']
+			try:
+				d[f'{ID}_id'] = ma['ID']
+			except TypeError:
+				continue
+			try:
+				d['transcript'] = ma['orig_transcript_id']
+			except KeyError:
+				d['transcript'] = ma['ID'].lstrip(prefix)
+
 			d[f'{ID}_distance'] = int(o[-1])
+
+
+			s_start = int(o[3])
+			m_start = int(o[12])
+
+			if d[f'{ID}_distance'] < intergenic_distance:
+				if m_strand == "+":
+					if s_start > m_start:
+						prime = "5'"
+					else:
+						prime = "3'"
+				if m_strand == "-":
+					if s_start > m_start:
+						prime = "3'"
+					else:
+						prime = "5'"
+
+			else:
+				prime = "-"
+
+			d['prime'] = prime
 
 
 			if s_strand == '.' or m_strand == '.':
@@ -205,6 +283,7 @@ def context(**params):
 			ma = parse_attributes(o[17])
 
 
+
 			if ma:
 				d = {}
 
@@ -217,6 +296,7 @@ def context(**params):
 
 
 			# sys.exit()
+
 		return(inter_d)
 
 
@@ -229,8 +309,8 @@ def context(**params):
 	cds_d = intersect(cds_file, ID='cds')
 
 
-	Path(output_directory+ "/context/").mkdir(parents=True, exist_ok=True)
-	output_file = f"{output_directory}/context/context.txt"
+	
+	output_file = Path(annotation_dir, "context.txt")
 
 	print()
 	print(f'Printing to...\n  {output_file}')
@@ -238,7 +318,7 @@ def context(**params):
 	with open(output_file, 'w') as outf:
 		print("\t".join(['cluster','transcript', 'mRNA_id', 'mRNA_distance', 'exon_id', 'exon_overlap', 'cds_id', 'cds_overlap', 's_strand','m_strand','match','category']), file=outf)
 
-		with open(results_file, 'r') as f:
+		with open(res_file, 'r') as f:
 			header = f.readline()
 
 			for line in f:
@@ -261,7 +341,13 @@ def context(**params):
 				except KeyError:
 					c_d = {}
 
-
+				# print()
+				# print()
+				# print(cluster)
+				# print()
+				# pprint(m_d)
+				# pprint(i_d)
+				# pprint(c_d)
 
 				m_d.update(i_d)
 				m_d.update(c_d)
@@ -278,14 +364,18 @@ def context(**params):
 						out_line.append("")
 
 
-
 				## finding gene relationship
 
-				if d['mRNA_distance'] > intergenic_distance:
+				if d['mRNA_distance'] == '':
+					### this catches loci that do not have other genes on their chromosome
+					# print(f"warning: mRNA not found for a exon/cds match! (marking UNKNOWN) {cluster}")
+					gene_relationship = 'intergenic'
+\
+				elif d['mRNA_distance'] > intergenic_distance:
 					gene_relationship = 'intergenic'
 
 				elif 0 < d['mRNA_distance'] <= intergenic_distance:
-					gene_relationship = 'near-genic'
+					gene_relationship = f'near-genic-{d["prime"]}'
 
 				elif d['mRNA_distance'] == 0:
 					gene_relationship = 'genic'
