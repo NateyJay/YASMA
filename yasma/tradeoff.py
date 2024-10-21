@@ -543,7 +543,11 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, chromosomes, out_dir):
 			sys.stdout.overwrite_lines(1)
 
 			coverage = np.sum(sliding_window_view(np.asarray(pos_depth_d[chrom]), cov_window), -1)
-			coverage = np.concatenate((np.array([coverage[0]] * half_cov_window), coverage, np.array([coverage[-1]] * (half_cov_window-1))), axis=0)
+			coverage = np.concatenate(
+				(np.array(coverage[0], half_cov_window), 
+				coverage, 
+				np.array(coverage[-1], half_cov_window-1)), 
+				axis=0)
 
 			kernel  = np.max(sliding_window_view(coverage, ker_window), -1)
 			kernel = np.concatenate((np.array([kernel[0]] * half_ker_window), kernel, np.array([kernel[-1]] * (half_ker_window-1))), axis=0)
