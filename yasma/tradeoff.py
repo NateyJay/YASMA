@@ -612,7 +612,7 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, chromosomes, out
 			summed = np.sum(pos_abd_d[chrom], axis=1) 
 
 			for i, k in enumerate(kernel):
-				k = int(k/10)
+				k = int(k)
 				v = int(summed[i])
 
 				read_c[k] += v
@@ -635,13 +635,13 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, chromosomes, out
 
 	# print("gen_c")
 	# pprint(gen_c.most_common(20))
-	# print(sum(gen_c.values()), "<- calculated genome length")
+	print(sum(gen_c.values()), "<- calculated genome length")
 
 	# print()
 	# print("read_c")
 
 	# pprint(read_c.most_common(20))
-	# print(sum(read_c.values()), "<- calculated read count")
+	print(sum(read_c.values()), "<- calculated read count")
 
 
 	### gen_c is a counter object
@@ -1276,7 +1276,7 @@ def tradeoff(**params):
 		read_score      = threshold_stats['read_score']
 
 		print(" annotation parameters...")
-		print(f"    depth threshold: ......... {depth_threshold} reads per billion")
+		print(f"    depth threshold: ......... {depth_threshold:,} reads per billion")
 		print(f"    exp. genome proportion: .. {gen_score}")
 		print(f"    exp. read proportion: .... {read_score}")
 
