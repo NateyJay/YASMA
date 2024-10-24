@@ -498,7 +498,9 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, chromosomes, out
 	# 4.2 with strands also as a list
 	# 5.48 with uint32 for everything <- to avoid scalar errors..?
 	# 4.34 with uint32 for just rpb <- this is the right choice?
-	# sleep(100)
+
+	# 3.27 at the time of my commit
+	# sleep(1000)
 
 
 	class trackClass():
