@@ -223,11 +223,11 @@ class assessClass():
 
 		self.header = ['Locus','Name','Length','Reads','RPM']
 		self.header += ['UniqueReads','FracTop','Strand','MajorRNA','MajorRNAReads','Complexity']
-		self.header += ['Gap', 'skew', 'size_1n','size_1n_depth', 'size_2n','size_2n_depth', 'size_3n','size_3n_depth', 'sizecall']
+		self.header += ['Gap', 'skew', 'size_1n','size_1n_depth', 'size_2n','size_2n_depth', 'size_3n','size_3n_depth', 'sizecall', 'condition']
 
 
 
-	def format(self, locus, seq_c, strand_c, sizecall, aligned_depth, last_stop):
+	def format(self, locus, seq_c, strand_c, sizecall, aligned_depth, last_stop, condition):
 
 		name, chrom, start, stop = locus
 
@@ -288,6 +288,7 @@ class assessClass():
 			sizecall.size_3_key, sizecall.size_3_depth,
 			sizecall
 		]
+		result_line += [condition]
 
 
 		if 'N' in sizecall.sizecall:
@@ -299,7 +300,7 @@ class assessClass():
 			start = 1
 		gff_line = [
 			chrom, 'yasma_locus',feature_type, start, stop, '.', strand, '.',
-			f'ID={name};sizecall={sizecall};depth={depth};rpm={rpm};fracTop={frac_top};complexity={complexity};skew={skew};majorRNA={major_rna}'
+			f'ID={name};sizecall={sizecall};condition={condition};depth={depth};rpm={rpm};fracTop={frac_top};complexity={complexity};skew={skew};majorRNA={major_rna}'
 		]
 
 
@@ -407,7 +408,7 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, chromosomes, out
 
 	# pos_c    = dict()
 	pos_abd_d    = dict()
-	pos_depth_d  = dict()
+	pos_rpb_d    = dict()
 	pos_strand_d = dict()
 	pos_size_d   = dict()
 
@@ -418,17 +419,15 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, chromosomes, out
 
 	libraries = list(lib_d.keys())
 
-	data_type = 'uint32'
-
 	for chrom, chrom_length in chromosomes:
-		pos_strand_d[chrom] = [None] * chrom_length
-		pos_size_d[chrom]   = [None] * chrom_length
 
-		# pos_abd_d[chrom] = np.ndarray(shape=chrom_length, len(libraries)), dtype=data_type)
-		pos_abd_d[chrom] = np.zeros(shape=(chrom_length, len(libraries)), dtype=data_type)
-		pos_depth_d[chrom]  = np.ndarray(shape=(chrom_length, len(libraries)), dtype=data_type)
+		# 3rd dimension +, - strand
+		pos_strand_d[chrom] = np.zeros(shape=(chrom_length, len(libraries), 2), dtype='uint16')
 
+		pos_size_d[chrom] = [None] * chrom_length
 
+		pos_abd_d[chrom]    = np.zeros(shape=(chrom_length, len(libraries)), dtype='uint16')
+		pos_rpb_d[chrom]    = np.ndarray(shape=(chrom_length, len(libraries)), dtype='uint32')
 
 
 
@@ -449,41 +448,26 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, chromosomes, out
 		strand, length, _, pos, chrom, lib, _, _ = read
 
 		pos += math.floor(length / 2)
+		rpb = lib_d[lib]['rpb']
 
+		strand_i  = ["+", "-"].index(strand)
+		# size_i    = sizes.index(length)
+		library_i = libraries.index(lib)
 
-		# pos_depth_d[chrom][pos, libraries.index(lib)] += lib_d[lib]['rpm']
+		pos_abd_d[chrom][pos, library_i] += 1
+		# pos_rpb_d[chrom][pos, library_i] += rpb
 
+		pos_strand_d[chrom][pos, library_i, strand_i] += 1
 
-		# print(pos_abd_d[chrom][pos, libraries.index(lib)], end =" -> ")
-		pos_abd_d[chrom][pos, libraries.index(lib)] += 1
-		# print(pos_abd_d[chrom][pos, libraries.index(lib)])
-
-
-		val = lib_d[lib]['rpb']
-		pos_depth_d[chrom][pos, libraries.index(lib)] += val
-
-		# if pos_abd_d[chrom][pos, libraries.index(lib)] > 1000000:
-
-		# 	print()
-
-		# 	print(pos_depth_d[chrom][pos, libraries.index(lib)])
-		# 	print(read)
-		# 	print(chrom, 'chrom')
-		# 	print(pos, 'pos')
-		# 	print(val, "aggregated value")
-		# 	print(pos_abd_d[chrom][pos,])
-		# 	input("problem")
-
+		# pos_size_d[chrom][pos, library_i, size_i]
 
 
 		try:
-			pos_strand_d[chrom][pos][int(strand=="+")] += 1
 			pos_size_d[chrom][pos].append(length)
-
-		except TypeError:
-			pos_strand_d[chrom][pos] = [0,0]
-			pos_strand_d[chrom][pos][int(strand=="+")] += 1
+		except AttributeError:
 			pos_size_d[chrom][pos] = [length]
+
+
 
 
 
@@ -498,8 +482,23 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, chromosomes, out
 
 		# bin_c[int((chrom_index[chrom] + pos) / params['kernel_window'])] += 1
 
+
+
 	print(f"    encoding reads ............... {perc.last_percent}%\t {i+1:,} reads   ", end='\n', flush=True)
 	# print(ec)
+
+
+	# print("==memory check==") # 9.5 Gb, not OK
+	# 8.36 without the rpb object
+	# 2.29 without the size object
+	# 6.6  with the sizes as uint8
+	# 3.8 with sizes as list of lists
+	## sticking with this for the following.
+
+	# 4.2 with strands also as a list
+	# 5.48 with uint32 for everything <- to avoid scalar errors..?
+	# 4.34 with uint32 for just rpb <- this is the right choice?
+	# sleep(100)
 
 
 	class trackClass():
@@ -563,6 +562,8 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, chromosomes, out
 		ker_track = trackClass(Path(out_dir, "kernel.bw"), chromosomes)
 
 
+		rpbs = np.array([round(d['rpb']) for d in lib_d.values()], dtype='uint32')
+
 		for chrom_i, chromosome_entry in enumerate(chromosomes):
 			chrom, chrom_length = chromosome_entry
 
@@ -572,10 +573,10 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, chromosomes, out
 
 			# print("    rpm array...")
 			# rpms = np.array([d['rpm'] for d in lib_d.values()], dtype='float64')
-			rpbs = np.array([round(d['rpb']) for d in lib_d.values()], dtype=data_type)
 
 			# print("    calc coverage...")
-			coverage = np.sum(pos_depth_d[chrom], axis=1)
+			coverage = np.multiply(pos_abd_d[chrom], rpbs)
+			coverage = np.sum(coverage, axis=1)
 			coverage = sliding_window_view(coverage, cov_window)
 			coverage = np.sum(coverage, -1)
 			coverage = np.concatenate(
@@ -607,7 +608,6 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, chromosomes, out
 			# print("    tally...")
 
 			gen_c.update([k for k in kernel])
-
 
 			summed = np.sum(pos_abd_d[chrom], axis=1) 
 
@@ -749,7 +749,7 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, chromosomes, out
 
 
 
-	return(pos_depth_d, pos_abd_d, pos_strand_d, pos_size_d, out, readp_thresholds, genp_thresholds)
+	return(pos_abd_d, pos_strand_d, pos_size_d, out, readp_thresholds, genp_thresholds)
 
 
 
@@ -1030,6 +1030,9 @@ def tradeoff(**params):
 
 
 
+
+
+
 	chromosome_max_lengths = {}
 	for c,l in chromosomes:
 		chromosome_max_lengths[c] = l
@@ -1078,10 +1081,20 @@ def tradeoff(**params):
 	### getting RPM equivalents for all the libraries
 	lib_d = {}
 	for lib, dep in get_global_depth(alignment_file, aggregate_by=['rg']).items():
+		for c,s in conditions.items():
+			if lib in s:
+				break
+
 		print(f"    {lib} -> {dep:,}")
-		lib_d[lib] = {'depth':dep, "rpm":dep / 1000000, "rpb": round(dep / 1000)}
+		lib_d[lib] = {'depth':dep, "rpm":dep / 1000000, "rpb": round(dep / 1000), 'condition':c}
+
+	libraries = list(lib_d.keys())
 
 
+
+	rpbs = np.array([round(d['rpb']) for d in lib_d.values()], dtype='uint32')
+
+	rpms = np.array([round(d['rpm']) for d in lib_d.values()], dtype='float32')
 
 
 
@@ -1216,7 +1229,7 @@ def tradeoff(**params):
 	start = time()
 
 
-	pos_depth_d, pos_abd_d, pos_strand_d, pos_size_d, threshold_stats, readp_thresholds, genp_thresholds = get_kernel_coverage(
+	pos_abd_d, pos_strand_d, pos_size_d, threshold_stats, readp_thresholds, genp_thresholds = get_kernel_coverage(
 		bam=alignment_file, 
 		rgs=annotation_readgroups, 
 		params=params, 
@@ -1429,234 +1442,234 @@ def tradeoff(**params):
 
 
 
-	def expand_region(claim_d, region):
+	# def expand_region(claim_d, region):
 
-		locus_name, chrom, start, stop = region
-		coords = f"{chrom}:{start}-{stop}"
+	# 	locus_name, chrom, start, stop = region
+	# 	coords = f"{chrom}:{start}-{stop}"
 
-		# reads = samtools_view(alignment_file, rgs=annotation_readgroups, locus=coords)
-
-
-		strands = Counter()
-		sizes   = sizeClass(minmax=read_minmax)
-		names   = set()
+	# 	# reads = samtools_view(alignment_file, rgs=annotation_readgroups, locus=coords)
 
 
-
-
-		for p in range(start, stop+1):
-			try:
-				strands['+'] += pos_strand_d[chrom][p][0]
-				strands['-'] += pos_strand_d[chrom][p][1]
-				sizes.update(pos_size_d[chrom][p])
-			except TypeError:
-				pass
-			except IndexError:
-				print(p, "<- index error 2")
-				pass
-
-
-		try:
-			frac_top = strands['+'] / sum(strands.values())
-		except ZeroDivisionError:
-			print(region)
-
-			sys.exit()
-
-
-		r_depth = sum(strands.values())
-
-		# cov_window = params['coverage_window']
-
-		region_size = stop - start
-
-		# print()
-
-
-		def window_gen(start, size, direction, increment, inset=False):
-
-			if inset:
-				start = start - size * direction
-
-			if start < 0:
-				start = 0
-
-			if start >= chromosome_max_lengths[chrom]:
-				start = chromosome_max_lengths[chrom]
-
-			while True:
-				end =  start + size * direction
-
-				if start < 0:
-					yield sorted([0,end])
-					return
-
-				if end < 0:
-					yield sorted([0, start])
-					return
-
-				if start >= chromosome_max_lengths[chrom]:
-					yield sorted([end, chromosome_max_lengths[chrom]-1])
-					return
-
-				if end >= chromosome_max_lengths[chrom]:
-					yield sorted([start, chromosome_max_lengths[chrom]-1])
-					return
-
-				yield sorted([start,end])
-
-				start += increment * direction
+	# 	strands = Counter()
+	# 	sizes   = sizeClass(minmax=read_minmax)
+	# 	names   = set()
 
 
 
-		def test_extend(window):
 
-			window_start, window_end = window
-
-			window = list(range(window_start, window_end)) 
-			window_size = len(window)
-
-			w_strands = Counter()
-			w_sizes   = sizeClass(minmax=read_minmax)
-			w_depths  = 0
-
-			for w in window:
-				# print(w)
-
-				# print(w)
-				try:
-					depth = pos_depth_d[chrom][w]
-				except IndexError:
-					print(w)
-					print(window_start, window_end)
-					print(chromosome_max_lengths[chrom])
-					sys.exit()
-
-				w_depths += depth
-
-				if depth > 0:
-					w_strands["+"] += pos_strand_d[chrom][w][0]
-					w_strands["-"] += pos_strand_d[chrom][w][1]
-					w_sizes.update(pos_size_d[chrom][w])
-
-				# print(' ', w, depth)
-
-				if w in claim_d[chrom] and claim_d[chrom][w] != name:
-					# print('claim break')
-					return(False, ['claim'])
-
-			try:
-				w_fractop = w_strands['+'] / sum(w_strands.values())
-			except ZeroDivisionError:
-				w_fractop = 1
+	# 	for p in range(start, stop+1):
+	# 		try:
+	# 			strands['+'] += pos_strand_d[chrom][p][0]
+	# 			strands['-'] += pos_strand_d[chrom][p][1]
+	# 			sizes.update(pos_size_d[chrom][p])
+	# 		except TypeError:
+	# 			pass
+	# 		except IndexError:
+	# 			print(p, "<- index error 2")
+	# 			pass
 
 
-			expand_fails = []
+	# 	try:
+	# 		frac_top = strands['+'] / sum(strands.values())
+	# 	except ZeroDivisionError:
+	# 		print(region)
 
-			if w_depths == 0:
-				# pprint(w_strands)
-				# print('empty break')
-				# sys.exit()
+	# 		sys.exit()
 
-				expand_fails.append('empty')
 
-			else:
+	# 	r_depth = sum(strands.values())
 
-				if window_size > 100:
+	# 	# cov_window = params['coverage_window']
 
-					if not abs(frac_top - w_fractop) < 0.5:
-						# print('strand break')
-						expand_fails.append('strand')
+	# 	region_size = stop - start
+
+	# 	# print()
+
+
+	# 	def window_gen(start, size, direction, increment, inset=False):
+
+	# 		if inset:
+	# 			start = start - size * direction
+
+	# 		if start < 0:
+	# 			start = 0
+
+	# 		if start >= chromosome_max_lengths[chrom]:
+	# 			start = chromosome_max_lengths[chrom]
+
+	# 		while True:
+	# 			end =  start + size * direction
+
+	# 			if start < 0:
+	# 				yield sorted([0,end])
+	# 				return
+
+	# 			if end < 0:
+	# 				yield sorted([0, start])
+	# 				return
+
+	# 			if start >= chromosome_max_lengths[chrom]:
+	# 				yield sorted([end, chromosome_max_lengths[chrom]-1])
+	# 				return
+
+	# 			if end >= chromosome_max_lengths[chrom]:
+	# 				yield sorted([start, chromosome_max_lengths[chrom]-1])
+	# 				return
+
+	# 			yield sorted([start,end])
+
+	# 			start += increment * direction
+
+
+
+	# 	def test_extend(window):
+
+	# 		window_start, window_end = window
+
+	# 		window = list(range(window_start, window_end)) 
+	# 		window_size = len(window)
+
+	# 		w_strands = Counter()
+	# 		w_sizes   = sizeClass(minmax=read_minmax)
+	# 		w_depths  = 0
+
+	# 		for w in window:
+	# 			# print(w)
+
+	# 			# print(w)
+	# 			try:
+	# 				depth = np.multiply(pos_abd_d[chrom][w,], rpbs)
+	# 			except IndexError:
+	# 				print(w)
+	# 				print(window_start, window_end)
+	# 				print(chromosome_max_lengths[chrom])
+	# 				sys.exit()
+
+	# 			w_depths += depth
+
+	# 			if depth > 0:
+	# 				w_strands["+"] += pos_strand_d[chrom][w][0]
+	# 				w_strands["-"] += pos_strand_d[chrom][w][1]
+	# 				w_sizes.update(pos_size_d[chrom][w])
+
+	# 			# print(' ', w, depth)
+
+	# 			if w in claim_d[chrom] and claim_d[chrom][w] != name:
+	# 				# print('claim break')
+	# 				return(False, ['claim'])
+
+	# 		try:
+	# 			w_fractop = w_strands['+'] / sum(w_strands.values())
+	# 		except ZeroDivisionError:
+	# 			w_fractop = 1
+
+
+	# 		expand_fails = []
+
+	# 		if w_depths == 0:
+	# 			# pprint(w_strands)
+	# 			# print('empty break')
+	# 			# sys.exit()
+
+	# 			expand_fails.append('empty')
+
+	# 		else:
+
+	# 			if window_size > 100:
+
+	# 				if not abs(frac_top - w_fractop) < 0.5:
+	# 					# print('strand break')
+	# 					expand_fails.append('strand')
 					
 
-					if not w_sizes == sizes:
-						# print('size break')
-						expand_fails.append('size')
+	# 				if not w_sizes == sizes:
+	# 					# print('size break')
+	# 					expand_fails.append('size')
 
 
-				# print(r_depth, region_size, w_depths, window_size)
-				# print(round(r_depth / region_size * window_size, 1), "read threshold")
-				if w_depths/window_size < r_depth/region_size * 0.05:
-					# print('depth break')
-					expand_fails.append('depth')
+	# 			# print(r_depth, region_size, w_depths, window_size)
+	# 			# print(round(r_depth / region_size * window_size, 1), "read threshold")
+	# 			if w_depths/window_size < r_depth/region_size * 0.05:
+	# 				# print('depth break')
+	# 				expand_fails.append('depth')
 
-			# print("pass")
+	# 		# print("pass")
 
-			if len(expand_fails) > 0:
-				return(False, expand_fails)
+	# 		if len(expand_fails) > 0:
+	# 			return(False, expand_fails)
 
-			return(True, [])
-
-
-
-
-		def find_outer_boundaries(gen):
-
-			last_window = next(gen)
-			for window in gen:
-				test, fail_list = test_extend(window)
-
-				# print(" ", window, test, fail_list)
-
-				if not test:
-					return(last_window)
-
-				last_window = window
-			return last_window
-
-
-
-		def find_inner_boundaries(gen):
-
-			for window in gen:
-				test, fail_list = test_extend(window)
-
-				# print(" ", window, test, fail_list)
-
-				if test:
-					return(window)
-			return window
-
-
-		# if chrom == 'NC_003076.8':
-		# 	if start > 3456817:
-		# 		sys.exit()
+	# 		return(True, [])
 
 
 
 
-		# print(region)
-		# print("boundaries outward")
-		# boundaries outward - coarse
-		window_size = 250
-		# print("  right outward")
-		new_stop  = find_outer_boundaries(window_gen(start=stop,  size=window_size, direction=1,  increment=30, inset=True))[1]
-		# print("  left outward")
-		new_start = find_outer_boundaries(window_gen(start=start, size=window_size, direction=-1, increment=30, inset=True))[0]
+	# 	def find_outer_boundaries(gen):
 
-		# print("boundaries inward")
-		## boundaries inward - fine
-		window_size = 50
-		# print("  right inward")
-		new_stop  = find_inner_boundaries(window_gen(start=new_stop,  size=window_size, direction=-1, increment=5))[1]
-		# print("  left inward")
-		new_start = find_inner_boundaries(window_gen(start=new_start, size=window_size, direction=1,  increment=5))[0]
+	# 		last_window = next(gen)
+	# 		for window in gen:
+	# 			test, fail_list = test_extend(window)
+
+	# 			# print(" ", window, test, fail_list)
+
+	# 			if not test:
+	# 				return(last_window)
+
+	# 			last_window = window
+	# 		return last_window
 
 
 
-		## cleaning up claims if locus shrank
-		for p in range(start, new_start+1):
-			claim_d[p] = None
-		for p in range(new_stop, stop+1):
-			claim_d[p] = None
+	# 	def find_inner_boundaries(gen):
 
-		## adding claims if locus expanded
-		for p in range(new_start, start+1):
-			claim_d[p] = name
-		for p in range(stop, new_stop+1):
-			claim_d[p] = name
+	# 		for window in gen:
+	# 			test, fail_list = test_extend(window)
 
-		return(new_start, new_stop, claim_d)
+	# 			# print(" ", window, test, fail_list)
+
+	# 			if test:
+	# 				return(window)
+	# 		return window
+
+
+	# 	# if chrom == 'NC_003076.8':
+	# 	# 	if start > 3456817:
+	# 	# 		sys.exit()
+
+
+
+
+	# 	# print(region)
+	# 	# print("boundaries outward")
+	# 	# boundaries outward - coarse
+	# 	window_size = 250
+	# 	# print("  right outward")
+	# 	new_stop  = find_outer_boundaries(window_gen(start=stop,  size=window_size, direction=1,  increment=30, inset=True))[1]
+	# 	# print("  left outward")
+	# 	new_start = find_outer_boundaries(window_gen(start=start, size=window_size, direction=-1, increment=30, inset=True))[0]
+
+	# 	# print("boundaries inward")
+	# 	## boundaries inward - fine
+	# 	window_size = 50
+	# 	# print("  right inward")
+	# 	new_stop  = find_inner_boundaries(window_gen(start=new_stop,  size=window_size, direction=-1, increment=5))[1]
+	# 	# print("  left inward")
+	# 	new_start = find_inner_boundaries(window_gen(start=new_start, size=window_size, direction=1,  increment=5))[0]
+
+
+
+	# 	## cleaning up claims if locus shrank
+	# 	for p in range(start, new_start+1):
+	# 		claim_d[p] = None
+	# 	for p in range(new_stop, stop+1):
+	# 		claim_d[p] = None
+
+	# 	## adding claims if locus expanded
+	# 	for p in range(new_start, start+1):
+	# 		claim_d[p] = name
+	# 	for p in range(stop, new_stop+1):
+	# 		claim_d[p] = name
+
+	# 	return(new_start, new_stop, claim_d)
 
 
 	claim_d = {}
@@ -1681,17 +1694,15 @@ def tradeoff(**params):
 			self.sizes   = sizeClass(minmax=read_minmax)
 			self.names   = set()
 
+			r = list(range(self.start, self.stop+1))
+			l = list(range(len(libraries)))
 
-			for p in range(self.start, self.stop+1):
-				try:
-					self.strands['+'] += pos_strand_d[self.chrom][p][0]
-					self.strands['-'] += pos_strand_d[self.chrom][p][1]
-					self.sizes.update(pos_size_d[self.chrom][p])
-				except TypeError:
-					pass
-				except IndexError:
-					print(p, "<- index error 2")
-					pass
+			p = pos_strand_d[self.chrom][self.start:self.stop+1, l, :]
+			p = np.sum(p, axis=0)
+			p = np.sum(p, axis=0)
+
+			self.strands['+'], self.strands['-'] = p
+
 
 
 			try:
@@ -1816,7 +1827,9 @@ def tradeoff(**params):
 
 				# print(w)
 				try:
-					depth = sum(pos_depth_d[chrom][w, range(len(annotation_readgroups))])
+
+					depth = np.sum(np.multiply(pos_abd_d[chrom][w,], rpbs), )
+					# depth = sum(pos_depth_d[chrom][w, range(len(annotation_readgroups))])
 				except IndexError:
 					print(w)
 					print(window_start, window_end)
@@ -1826,8 +1839,15 @@ def tradeoff(**params):
 				w_depths += depth
 
 				if depth > 0:
-					w_strands["+"] += pos_strand_d[chrom][w][0]
-					w_strands["-"] += pos_strand_d[chrom][w][1]
+
+					l = list(range(len(libraries)))
+
+					p = pos_strand_d[self.chrom][w, l, :]
+					p = np.sum(p, axis=0)
+
+					w_strands['+'] += p[0]
+					w_strands['-'] += p[1]
+
 					w_sizes.update(pos_size_d[chrom][w])
 
 				# print(' ', w, depth)
@@ -2126,9 +2146,10 @@ def tradeoff(**params):
 
 
 			## Processing sam output
-			sam_strand, sam_length, _, sam_lbound, _, _, sam_seq, read_name = read
+			sam_strand, sam_length, _, sam_lbound, _, sam_library, sam_seq, read_name = read
 			sam_rbound = sam_lbound + sam_length
 
+			condition = lib_d[sam_library]['condition']
 
 			## Identifies the current claim
 
@@ -2157,7 +2178,6 @@ def tradeoff(**params):
 				last_claim = lclaim
 
 
-
 			## logs the claim to the data containers
 			try:
 				sizecall_d[claim]
@@ -2166,14 +2186,23 @@ def tradeoff(**params):
 				strand_d[claim] = Counter()
 				seq_d[claim] = Counter()
 
+			try:
+				sizecall_d[(claim, condition)]
+			except KeyError:
+				sizecall_d[(claim, condition)] = sizeClass(minmax=read_minmax)
+				strand_d[(claim, condition)] = Counter()
+				seq_d[(claim, condition)] = Counter()
+
 
 			## Adding values to current claim
 			if in_locus:
-
-
 				sizecall_d[claim].update([sam_length])
 				strand_d[claim].update([sam_strand])
 				seq_d[claim].update([sam_seq])
+
+				sizecall_d[(claim, condition)].update([sam_length])
+				strand_d[(claim, condition)].update([sam_strand])
+				seq_d[(claim, condition)].update([sam_seq])
 
 
 			verbose = False
@@ -2211,281 +2240,229 @@ def tradeoff(**params):
 			if not considered_regions:
 				break
 
-			# try:
-			# 	sam_lbound > regions[considered_regions[-1]][3]
-			# except:
-
-			# 	print()
-			# 	print("all regions:")
-			# 	print(regions)
-			# 	print()
-			# 	print("considered_regions:")
-			# 	print(considered_regions)
-			# 	print()
-			# 	print("response:")
-			# 	print(regions[considered_regions[-1]])
-			# 	print("Warning: unknown problem in locus merging...")
-			# 	sys.exit()
-			# 	break
-
-			if sam_lbound > regions[considered_regions[-1]][3]:
-				## if all good, moving forward
+			
+			if sam_lbound <= regions[considered_regions[-1]][3]:
+				## still within the locus, can't move on to define it
+				continue
 
 
 
-				if len(considered_regions) == 1:
+
+
+			if len(considered_regions) == 1:
+				## region does not require merging. Logging it.
+
+				with open(merge_file, 'a') as outf:
+					print('', file=outf)
+					pprint([regions[c] for c in considered_regions], outf)
+					print('      -> locus has no other regions in range', file=outf)
+
+				locus_i = final_check_and_increment(locus_i)
+				# print("\nonly_one_considered <- increment")
+
+				considered_regions = get_considered_regions(locus_i)
+
+				continue
+
+
+
+			## merging process
+			n = 0
+			while True:
+				with open(merge_file, 'a') as outf:
+					print('', file=outf)
+					pprint([regions[c] for c in considered_regions], outf)
+					# input()
+
+				none_merged = True
+				
+				current_locus = regions[locus_i]
+
+				# print(considered_regions)
+				for n in considered_regions[1:]:
+					next_locus = regions[n]
+
+					try:
+						current_sc = sizecall_d[current_locus[0]]
+						current_ft = get_frac_top(strand_d[current_locus[0]])
+					except KeyError:
+						current_sc = sizeClass(minmax=read_minmax)
+						current_ft = -1
+						# print(f"\nWarning: region {current_locus} may not have counts")
+
+
+					try:
+						next_sc = sizecall_d[next_locus[0]]
+						next_ft = get_frac_top(strand_d[next_locus[0]])
+					except KeyError:
+						next_sc = sizeClass(minmax=read_minmax)
+						next_ft = -1
+						# print(f"\nWarning: region {next_locus} may not have counts")
+
+
+
+
+
+					size_test = current_sc == next_sc
+					frac_test = abs(current_ft - next_ft) < clump_strand_similarity
+
+					acc_to_merge = size_test and frac_test
+
+
+
+
 
 					with open(merge_file, 'a') as outf:
-						print('', file=outf)
-						pprint([regions[c] for c in considered_regions], outf)
-						print('      -> locus has no other regions in range', file=outf)
+						print(current_locus, "->", next_locus, file=outf)
+						print("", file=outf)
+						print("", size_test, current_sc, next_sc, sep='\t', file=outf)
+						print("", frac_test, round(current_ft,4), round(next_ft,4), sep='\t', file=outf)
+						print("", file=outf)
 
-					locus_i = final_check_and_increment(locus_i)
-					# print("\nonly_one_considered <- increment")
+					if size_test and frac_test:
+						## Then merge!
 
-					considered_regions = get_considered_regions(locus_i)
+						none_merged = False
 
-
-
-				else:
-
-					n = 0
-					while True:
 						with open(merge_file, 'a') as outf:
-							print('', file=outf)
-							pprint([regions[c] for c in considered_regions], outf)
-							# input()
+							print(f"merging {current_locus[0]} to {next_locus[0]}", file=outf)
+							print("", file=outf)
 
-						none_merged = True
-						
-						current_locus = regions[locus_i]
-
-						# print(considered_regions)
-						for n in considered_regions[1:]:
-							next_locus = regions[n]
-
-							# print()
-							# print()
-							# print(current_locus)
-							# print(next_locus)
-							# print(sam_lbound)
-							# print()
-
-							try:
-								current_sc = sizecall_d[current_locus[0]]
-								current_ft = get_frac_top(strand_d[current_locus[0]])
-							except KeyError:
-								current_sc = sizeClass(minmax=read_minmax)
-								current_ft = -1
-								# print(f"\nWarning: region {current_locus} may not have counts")
+							clump_set.add((current_locus[0], next_locus[0]))
 
 
-							try:
-								next_sc = sizecall_d[next_locus[0]]
-								next_ft = get_frac_top(strand_d[next_locus[0]])
-							except KeyError:
-								next_sc = sizeClass(minmax=read_minmax)
-								next_ft = -1
-								# print(f"\nWarning: region {next_locus} may not have counts")
+							## Packing counts into first locus
+
+							for r in range(locus_i, n):
+
+								to_loc   = current_locus[0]
+								from_loc = regions[r+1][0]
 
 
+								try:
+									sizecall_d[to_loc] += sizecall_d[from_loc]
+									strand_d[to_loc] += strand_d[from_loc]
+									seq_d[to_loc] += seq_d[from_loc]
 
-
-
-							size_test = current_sc == next_sc
-							frac_test = abs(current_ft - next_ft) < clump_strand_similarity
-							# print(size_test, current_sc, next_sc, sep='\t')
-							# print(frac_test, current_ft, next_ft, sep='\t')
-
-							acc_to_merge = size_test and frac_test
-
-
-
-
-
-							## Code to test if the methods produce equivalent results
-
-							# sam_sc1, sam_ft1, sizes1, strands1 = test_by_samtools(current_locus)
-							# sam_sc2, sam_ft2, sizes2, strands2 = test_by_samtools(next_locus)
-
-							# sam_to_merge = sam_sc1 == sam_sc2 and abs(sam_ft1 - sam_ft2) < clump_strand_similarity
-
-							# if acc_to_merge and not sam_to_merge:
-							# 	print()
-							# 	print()
-							# 	print(current_locus)
-							# 	print(next_locus)
-							# 	print(sam_lbound, "<- sam_lbound")
-							# 	print()
-
-							# 	print("acc current:")
-							# 	print(current_sc)
-							# 	print(current_sc.depth)
-							# 	print(current_ft)
-							# 	print()
-							# 	print("sam current:")
-							# 	print(sam_sc1)
-							# 	print(sam_sc1.depth)
-							# 	print(sam_ft1)
-							# 	print()
-							# 	print("acc next:")
-							# 	print(next_sc)
-							# 	print(next_sc.depth)
-							# 	print(next_ft)
-							# 	print()
-							# 	print("sam next:")
-							# 	print(sam_sc2)
-							# 	print(sam_sc2.depth)
-							# 	print(sam_ft2)
-							# 	print()
-
-							# 	print(size_test, "<- size_test")
-							# 	print(frac_test, "<- frac_test")
-							# 	print()
-
-							# 	input()
-
-							# if current_locus[0] == 'Cluster_401' or next_locus[0] == 'Cluster_401' or last_one:
-							# 	print()
-							# 	print(locus_i)
-							# 	last_one = True
-							# 	print()
-							# 	print()
-							# 	print(current_locus)
-							# 	print(next_locus)
-							# 	print(size_test, frac_test)
-
-							# 	print(strand_d[current_locus[0]])
-							# 	print(strand_d[next_locus[0]])
-							# 	input()
-							# else:
-
-							# 	last_one=False
-
-							with open(merge_file, 'a') as outf:
-								print(current_locus, "->", next_locus, file=outf)
-								print("", file=outf)
-								print("", size_test, current_sc, next_sc, sep='\t', file=outf)
-								print("", frac_test, round(current_ft,4), round(next_ft,4), sep='\t', file=outf)
-								print("", file=outf)
-
-							if size_test and frac_test:
-								## Then merge!
-
-								none_merged = False
-
-								with open(merge_file, 'a') as outf:
-									print(f"merging {current_locus[0]} to {next_locus[0]}", file=outf)
-									print("", file=outf)
-
-									clump_set.add((current_locus[0], next_locus[0]))
-
-
-									## Packing counts into first locus
-
-									for r in range(locus_i, n):
-
-										to_loc   = current_locus[0]
-										from_loc = regions[r+1][0]
-
-
+									for c in conditions.keys():
 										try:
-											sizecall_d[to_loc] += sizecall_d[from_loc]
-											strand_d[to_loc] += strand_d[from_loc]
-											seq_d[to_loc] += seq_d[from_loc]
-											print(f"  packing -> {to_loc} with {sizecall_d[from_loc].depth} reads from {from_loc}", file=outf)
+											sizecall_d[(to_loc, c)] += sizecall_d[(from_loc, c)]
+											strand_d[(to_loc, c)]   += strand_d[(from_loc, c)]
+											seq_d[(to_loc, c)]      += seq_d[(from_loc, c)]
 										except KeyError:
-											print("Warning: unknown KeyError in locus packing...")
-											# sys.exit("error!")
-											# print(f"\nWarning: region {next_locus} may not have counts")
-
-											# del regions[locus_i]
-											# considered_regions = get_considered_regions(locus_i) 
 											pass
 
-										to_loc   = current_locus[0]
-										from_loc = f"after_{regions[r][0]}"
+									print(f"  packing -> {to_loc} with {sizecall_d[from_loc].depth} reads from {from_loc}", file=outf)
+								except KeyError:
+									print("Warning: unknown KeyError in locus packing...")
+									# sys.exit("error!")
+									# print(f"\nWarning: region {next_locus} may not have counts")
 
+									# del regions[locus_i]
+									# considered_regions = get_considered_regions(locus_i) 
+									pass
+
+								to_loc   = current_locus[0]
+								from_loc = f"after_{regions[r][0]}"
+
+								try:
+									sizecall_d[to_loc] += sizecall_d[from_loc]
+									strand_d[to_loc] += strand_d[from_loc]
+									seq_d[to_loc] += seq_d[from_loc]
+
+									for c in conditions.keys():
 										try:
-											sizecall_d[to_loc] += sizecall_d[from_loc]
-											strand_d[to_loc] += strand_d[from_loc]
-											seq_d[to_loc] += seq_d[from_loc]
-											print(f"  packing -> {to_loc} with {sizecall_d[from_loc].depth} reads from {from_loc}", file=outf)
+											sizecall_d[(to_loc, c)] += sizecall_d[(from_loc, c)]
+											strand_d[(to_loc, c)]   += strand_d[(from_loc, c)]
+											seq_d[(to_loc, c)]      += seq_d[(from_loc, c)]
 										except KeyError:
-											# sys.exit("error!")
-											# print(f"\nWarning: region {next_locus} may not have counts")
-											# del regions[locus_i]
-											# considered_regions = get_considered_regions(locus_i) 
 											pass
 
-									to_loc   = f"after_{current_locus[0]}"
-									from_loc = f"after_{regions[n][0]}"
+									print(f"  packing -> {to_loc} with {sizecall_d[from_loc].depth} reads from {from_loc}", file=outf)
+								except KeyError:
+									# sys.exit("error!")
+									# print(f"\nWarning: region {next_locus} may not have counts")
+									# del regions[locus_i]
+									# considered_regions = get_considered_regions(locus_i) 
+									pass
 
+							to_loc   = f"after_{current_locus[0]}"
+							from_loc = f"after_{regions[n][0]}"
+
+							try:
+								sizecall_d[to_loc] += sizecall_d[from_loc]
+								strand_d[to_loc] += strand_d[from_loc]
+								seq_d[to_loc] += seq_d[from_loc]
+
+								for c in conditions.keys():
 									try:
-										sizecall_d[to_loc] += sizecall_d[from_loc]
-										strand_d[to_loc] += strand_d[from_loc]
-										seq_d[to_loc] += seq_d[from_loc]
-										print(f"  packing -> {to_loc} with {sizecall_d[from_loc].depth} reads from {from_loc}", file=outf)
+										sizecall_d[(to_loc, c)] += sizecall_d[(from_loc, c)]
+										strand_d[(to_loc, c)]   += strand_d[(from_loc, c)]
+										seq_d[(to_loc, c)]      += seq_d[(from_loc, c)]
 									except KeyError:
-										# print(f"\nWarning: region {next_locus} may not have counts")
-
-										# sys.exit("error!")
-										# del regions[locus_i]
-										# considered_regions = get_considered_regions(locus_i) 
 										pass
 
+								print(f"  packing -> {to_loc} with {sizecall_d[from_loc].depth} reads from {from_loc}", file=outf)
+							except KeyError:
+								# print(f"\nWarning: region {next_locus} may not have counts")
 
-
-								## Redefining current locus boundaries
-								regions[locus_i][3] = regions[n][3]
-
-
-								## Eliminating regions up to the one that was merged
-								for r in range(locus_i, n)[::-1]:
-									del regions[r+1]
-
-
-								## Filling in claim_d
-								for r in range(regions[locus_i][2],regions[locus_i][3]+1):
-									claim_d[chrom][r] = regions[locus_i][0]
-
-
-								break
-
-
-						## updating considered regions after merging
-						considered_regions = get_considered_regions(locus_i) 
-
-						if none_merged:
-							with open(merge_file, 'a') as outf:
-								print("      -> no valid merges for considered_regions", file=outf)
-							locus_i = final_check_and_increment(locus_i)
-							# print("\nnone_merged <- increment")
-							considered_regions = get_considered_regions(locus_i) 
-							break
-
-						if len(considered_regions) == 1:
-							with open(merge_file, 'a') as outf:
-								print('      -> new locus has no other regions in range', file=outf)
-							locus_i = final_check_and_increment(locus_i)
-							# print("\nlen(considered_regions) <- increment")
-							considered_regions = get_considered_regions(locus_i) 
-							break
-
-						if sam_lbound < regions[considered_regions[-1]][3]:
-							with open(merge_file, 'a') as outf:
-								print("      -> regions passed read location", file=outf)
-							last_claim = regions[considered_regions[-1]][0]
-							break
+								# sys.exit("error!")
+								# del regions[locus_i]
+								# considered_regions = get_considered_regions(locus_i) 
+								pass
 
 
 
+						## Redefining current locus boundaries
+						regions[locus_i][3] = regions[n][3]
 
-				# print(f"   clumping similar neighbors... {unclumped_regions_count} -> {len(regions)} regions    ", end='\r', flush=True)
 
-				# print(f"{chrom_count+1}/{len(chromosomes)}\t{chrom}\t100%\t{unclumped_regions_count} -> {len(regions)}      ", end='\r', flush=True)
+						## Eliminating regions up to the one that was merged
+						for r in range(locus_i, n)[::-1]:
+							del regions[r+1]
 
-				print_progress_string(chrom_count, len(chromosomes), chrom, unclumped_regions_count, len(regions), terminal_only=True)
+
+						## Filling in claim_d
+						for r in range(regions[locus_i][2],regions[locus_i][3]+1):
+							claim_d[chrom][r] = regions[locus_i][0]
+
+
+						break
+
+
+				## updating considered regions after merging
+				considered_regions = get_considered_regions(locus_i) 
+
+				if none_merged:
+					with open(merge_file, 'a') as outf:
+						print("      -> no valid merges for considered_regions", file=outf)
+					locus_i = final_check_and_increment(locus_i)
+					# print("\nnone_merged <- increment")
+					considered_regions = get_considered_regions(locus_i) 
+					break
+
+				if len(considered_regions) == 1:
+					with open(merge_file, 'a') as outf:
+						print('      -> new locus has no other regions in range', file=outf)
+					locus_i = final_check_and_increment(locus_i)
+					# print("\nlen(considered_regions) <- increment")
+					considered_regions = get_considered_regions(locus_i) 
+					break
+
+				if sam_lbound < regions[considered_regions[-1]][3]:
+					with open(merge_file, 'a') as outf:
+						print("      -> regions passed read location", file=outf)
+					last_claim = regions[considered_regions[-1]][0]
+					break
+
+
+
+
+			# print(f"   clumping similar neighbors... {unclumped_regions_count} -> {len(regions)} regions    ", end='\r', flush=True)
+
+			# print(f"{chrom_count+1}/{len(chromosomes)}\t{chrom}\t100%\t{unclumped_regions_count} -> {len(regions)}      ", end='\r', flush=True)
+
+			print_progress_string(chrom_count, len(chromosomes), chrom, unclumped_regions_count, len(regions), terminal_only=True)
 
 
 		# print()
@@ -2520,6 +2497,10 @@ def tradeoff(**params):
 
 
 
+		rpbs = np.array([round(d['rpb']) for d in lib_d.values()], dtype='uint32')
+		# print()
+		# print(rpbs, "<- rpbs")
+		# print()
 		last_stop = 0
 		for i,locus in enumerate(regions):
 
@@ -2533,7 +2514,7 @@ def tradeoff(**params):
 			old_name = locus[0]
 			regions_name_i += 1
 			locus[0] = f"locus_{regions_name_i}"
-
+			# name = locus[0]
 
 			print_percentage = perc.get_percent(i)
 			if print_percentage:
@@ -2542,15 +2523,68 @@ def tradeoff(**params):
 			name, chrom, start, stop = locus
 			coords = f"{chrom}:{start}-{stop}"
 
+  
+
+			def check_best_condition():
+
+				# print()
+				arr = pos_abd_d[chrom][start:stop,]
+				# print(arr)
+				# print(np.sum(arr), "<- total reads")
+				arr = np.multiply(arr, rpbs)
+				# print(arr)
+				arr = np.sum(arr, 0)
+				# print(arr)
+
+				best_c   = ""
+				best_rpb = 0
+				for c, srrs in conditions.items():
+					l = [i for i,l in enumerate(lib_d.keys()) if l in srrs]
+					
+					a = arr[l]
+					a = np.median(a)
+
+					if a > best_rpb:
+						best_rpb = a
+						best_c   = c
+
+				# print(best_c, "<- best condition")
+				return(best_c)
+
+
+				# pass
+			best_condition = check_best_condition()
+
+			ann_libs = conditions[best_condition]
+
+
+
+
 			# print(locus)
 
 			strand_d[name]   = strand_d.pop(old_name)
 			sizecall_d[name] = sizecall_d.pop(old_name)
 			seq_d[name]      = seq_d.pop(old_name)
 
-			strand_c = strand_d[name]
-			sizecall = sizecall_d[name]
-			read_c   = seq_d[name]
+			for c in conditions.keys():
+				try:
+					strand_d[(name, c)]   = strand_d.pop((old_name, c))
+					sizecall_d[(name, c)] = sizecall_d.pop((old_name, c))
+					seq_d[(name, c)]      = seq_d.pop((old_name, c))
+				except KeyError:
+					pass
+
+
+			strand_c = strand_d[(name, best_condition)]
+			sizecall = sizecall_d[(name, best_condition)]
+			read_c   = seq_d[(name, best_condition)]
+
+			# print(name)
+			# print("total:")
+			# pprint(strand_d[name])
+			# print(f"best_condition ({best_condition}):")
+			# pprint(strand_d[(name, best_condition)])
+			# input()
 
 			abd = sum(read_c.values())
 			length = stop-start
@@ -2597,7 +2631,7 @@ def tradeoff(**params):
 			# print()
 
 
-			results_line, gff_line = assessClass().format(locus, read_c, strand_c, sizecall, sum(chrom_depth_c.values()), last_stop)
+			results_line, gff_line = assessClass().format(locus, read_c, strand_c, sizecall, sum(chrom_depth_c.values()), last_stop, best_condition)
 
 
 			last_stop = stop
