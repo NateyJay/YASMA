@@ -380,7 +380,7 @@ def get_bin_threshold(cdf_c, to_save=False, to_print=False):
 
 
 
-def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, chromosomes, out_dir):
+def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, rev_conditions, conditions, chromosomes, out_dir):
 	""" Produces coverages for alignment based off a kernel density estimation. 
 
 	Sum of all reads within the user defined kernel bandwith are used to generate a coverage. This is meant to normalize the effect of read length on coverage.
@@ -406,11 +406,20 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, chromosomes, out
 	# kde_window = params['kernel_window']
 	# half_kde_window = int(kde_window/2)
 
+	condition_order = list(conditions.keys())
+
+	lib_counts = []
+	for srrs in conditions.values():
+		lib_counts.append(len(srrs))
+	max_lib_counts = max(lib_counts)
+
+
 	# pos_c    = dict()
 	pos_abd_d    = dict()
-	pos_rpb_d    = dict()
+	pos_rpm_d    = dict()
 	pos_strand_d = dict()
 	pos_size_d   = dict()
+	pos_d =dict()
 
 	genome_length = sum([c[1] for c in chromosomes])
 
@@ -422,12 +431,15 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, chromosomes, out
 	for chrom, chrom_length in chromosomes:
 
 		# 3rd dimension +, - strand
-		pos_strand_d[chrom] = np.zeros(shape=(chrom_length, len(libraries), 2), dtype='uint16')
+		# pos_strand_d[chrom] = np.zeros(shape=(chrom_length, len(condition_order), 2), dtype='uint32')
 
-		pos_size_d[chrom] = [None] * chrom_length
+		# pos_size_d[chrom] = [None] * chrom_length
 
-		pos_abd_d[chrom]    = np.zeros(shape=(chrom_length, len(libraries)), dtype='uint16')
-		pos_rpb_d[chrom]    = np.ndarray(shape=(chrom_length, len(libraries)), dtype='uint32')
+		# pos_abd_d[chrom]    = np.zeros(shape=(chrom_length, len(condition_order)), dtype='uint32')
+		# pos_rpm_d[chrom]    = np.zeros(shape=(chrom_length, len(condition_order)), dtype='float32')
+
+
+		pos_d[chrom] = np.zeros(shape=(chrom_length, len(condition_order), max_lib_counts, 2), dtype='uint32')
 
 
 
@@ -446,26 +458,27 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, chromosomes, out
 	for i, read in enumerate(reads):
 		aligned_read_count+=1
 		strand, length, _, pos, chrom, lib, _, _ = read
+		condition = rev_conditions[lib]
+
 
 		pos += math.floor(length / 2)
-		rpb = lib_d[lib]['rpb']
+		rpm = lib_d[lib]['rpm']
 
-		strand_i  = ["+", "-"].index(strand)
-		# size_i    = sizes.index(length)
-		library_i = libraries.index(lib)
-
-		pos_abd_d[chrom][pos, library_i] += 1
-		# pos_rpb_d[chrom][pos, library_i] += rpb
-
-		pos_strand_d[chrom][pos, library_i, strand_i] += 1
-
-		# pos_size_d[chrom][pos, library_i, size_i]
+		strand_i    = ["+", "-"].index(strand)
+		condition_i = condition_order.index(condition)
+		lib_i       = conditions[condition].index(lib)
 
 
-		try:
-			pos_size_d[chrom][pos].append(length)
-		except AttributeError:
-			pos_size_d[chrom][pos] = [length]
+		pos_d[chrom][pos, condition_i, lib_i, strand_i] += 1
+
+		# pos_abd_d[chrom][pos, condition_i] += 1
+		# pos_rpm_d[chrom][pos, condition_i] += rpm
+		# pos_strand_d[chrom][pos, condition_i, strand_i] += 1
+
+		# try:
+		# 	pos_size_d[chrom][pos].append(length)
+		# except AttributeError:
+		# 	pos_size_d[chrom][pos] = [length]
 
 
 
@@ -484,11 +497,19 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, chromosomes, out
 
 
 
+	for chrom, chrom_length in chromosomes:
+		
+
+
+
+
+
+
 	print(f"    encoding reads ............... {perc.last_percent}%\t {i+1:,} reads   ", end='\n', flush=True)
 	# print(ec)
 
 
-	# print("==memory check==") # 9.5 Gb, not OK
+	print("==memory check==") # 9.5 Gb, not OK
 	# 8.36 without the rpb object
 	# 2.29 without the size object
 	# 6.6  with the sizes as uint8
@@ -500,7 +521,10 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, chromosomes, out
 	# 4.34 with uint32 for just rpb <- this is the right choice?
 
 	# 3.27 at the time of my commit
-	# sleep(1000)
+
+	# 4.5 now storing rpms too all data 32 bit.
+
+	sleep(100000)
 
 
 	class trackClass():
@@ -577,8 +601,8 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, chromosomes, out
 			# rpms = np.array([d['rpm'] for d in lib_d.values()], dtype='float64')
 
 			# print("    calc coverage...")
-			coverage = np.multiply(pos_abd_d[chrom], rpbs)
-			coverage = np.sum(coverage, axis=1)
+			# coverage = np.multiply(pos_abd_d[chrom], rpbs)
+			coverage = np.sum(pos_rpm_d[chrom], axis=1)
 			coverage = sliding_window_view(coverage, cov_window)
 			coverage = np.sum(coverage, -1)
 			coverage = np.concatenate(
@@ -614,10 +638,12 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, chromosomes, out
 			summed = np.sum(pos_abd_d[chrom], axis=1) 
 
 			for i, k in enumerate(kernel):
-				k = int(k)
+				round_k = round(k, 2)
 				v = int(summed[i])
 
-				read_c[k] += v
+				read_c[round_k] += v
+
+				gen_c[round_k] += 1
 
 
 		print(f"    computing coverage ........... {chrom_i+1}/{len(chromosomes)} {chrom}                ", end='\n', flush=True)
@@ -751,7 +777,7 @@ def get_kernel_coverage(bam, rgs, params, chrom_depth_c, lib_d, chromosomes, out
 
 
 
-	return(pos_abd_d, pos_strand_d, pos_size_d, out, readp_thresholds, genp_thresholds)
+	return(pos_abd_d, pos_rpm_d, pos_strand_d, pos_size_d, out, readp_thresholds, genp_thresholds)
 
 
 
@@ -1092,6 +1118,12 @@ def tradeoff(**params):
 
 	libraries = list(lib_d.keys())
 
+	rev_conditions = {}
+	for cond, srrs in conditions.items():
+		for srr in srrs:
+			rev_conditions[srr] = cond
+
+
 
 
 	rpbs = np.array([round(d['rpb']) for d in lib_d.values()], dtype='uint32')
@@ -1231,12 +1263,14 @@ def tradeoff(**params):
 	start = time()
 
 
-	pos_abd_d, pos_strand_d, pos_size_d, threshold_stats, readp_thresholds, genp_thresholds = get_kernel_coverage(
+	pos_abd_d, pos_rpm_d, pos_strand_d, pos_size_d, threshold_stats, readp_thresholds, genp_thresholds = get_kernel_coverage(
 		bam=alignment_file, 
 		rgs=annotation_readgroups, 
 		params=params, 
 		chrom_depth_c=chrom_depth_c,
 		lib_d=lib_d,
+		rev_conditions=rev_conditions,
+		conditions=conditions,
 		chromosomes=chromosomes,
 		out_dir=Path(output_directory, dir_name))
 
@@ -1394,7 +1428,7 @@ def tradeoff(**params):
 
 		name, chrom, start, stop = l
 		for r in range(start, stop+1):
-			total_annotated_reads += sum(pos_abd_d[chrom][r, range(len(annotation_readgroups))])
+			total_annotated_reads += sum(pos_abd_d[chrom][r,])
 
 
 	# print(total_annotated_reads)
@@ -1699,7 +1733,7 @@ def tradeoff(**params):
 			r = list(range(self.start, self.stop+1))
 			l = list(range(len(libraries)))
 
-			p = pos_strand_d[self.chrom][self.start:self.stop+1, l, :]
+			p = pos_strand_d[self.chrom][self.start:self.stop+1, l,]
 			p = np.sum(p, axis=0)
 			p = np.sum(p, axis=0)
 
@@ -1830,7 +1864,7 @@ def tradeoff(**params):
 				# print(w)
 				try:
 
-					depth = np.sum(np.multiply(pos_abd_d[chrom][w,], rpbs), )
+					depth = np.sum(pos_rpm_d[chrom][w,])
 					# depth = sum(pos_depth_d[chrom][w, range(len(annotation_readgroups))])
 				except IndexError:
 					print(w)
@@ -2010,7 +2044,7 @@ def tradeoff(**params):
 
 		for r in range(start, stop+1):
 			try:
-				total_revised_reads += sum(pos_abd_d[chrom][r, range(len(annotation_readgroups))])
+				total_revised_reads += sum(pos_abd_d[chrom][r, :])
 			except IndexError:
 				print(chrom, r, "<- index error 4")
 				pass
@@ -2530,12 +2564,12 @@ def tradeoff(**params):
 			def check_best_condition():
 
 				# print()
-				arr = pos_abd_d[chrom][start:stop,]
+				# arr = pos_abd_d[chrom][start:stop,]
 				# print(arr)
 				# print(np.sum(arr), "<- total reads")
-				arr = np.multiply(arr, rpbs)
+				# arr = np.multiply(arr, rpbs)
 				# print(arr)
-				arr = np.sum(arr, 0)
+				arr = np.sum(pos_rpm_d[chrom][start:stop,], 0)
 				# print(arr)
 
 				best_c   = ""
