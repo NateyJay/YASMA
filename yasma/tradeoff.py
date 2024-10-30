@@ -91,6 +91,12 @@ class sizeClass():
 		# if type(sizes) == int:
 		# 	sizes = [sizes]
 
+		if not sizes:
+			return
+
+		if type(sizes) == int:
+			sizes = [sizes]
+
 		for size in sizes:
 
 
@@ -925,7 +931,7 @@ def tradeoff(**params):
 			# 3rd dimension +, - strand
 			# pos_strand_d[chrom] = np.zeros(shape=(chrom_length, len(condition_order), 2), dtype='uint32')
 
-			# pos_size_d[chrom] = [None] * chrom_length
+			pos_size_d[chrom] = [None] * chrom_length
 
 			# pos_abd_d[chrom]    = np.zeros(shape=(chrom_length), dtype='float32')
 			# pos_rpm_d[chrom]    = np.zeros(shape=(chrom_length, len(condition_order)), dtype='float32')
@@ -968,10 +974,10 @@ def tradeoff(**params):
 			# pos_rpm_d[chrom][pos, condition_i] += rpm
 			# pos_strand_d[chrom][pos, condition_i, strand_i] += 1
 
-			# try:
-			# 	pos_size_d[chrom][pos].append(length)
-			# except AttributeError:
-			# 	pos_size_d[chrom][pos] = [length]
+			try:
+				pos_size_d[chrom][pos].append(length)
+			except AttributeError:
+				pos_size_d[chrom][pos] = [length]
 
 
 
@@ -1073,8 +1079,8 @@ def tradeoff(**params):
 
 
 
-			cov_track = trackClass(Path(output_directory, "coverage.bw"), chromosomes)
-			ker_track = trackClass(Path(output_directory, "kernel.bw"), chromosomes)
+			cov_track = trackClass(Path(output_directory, dir_name, "coverage.bw"), chromosomes)
+			ker_track = trackClass(Path(output_directory, dir_name, "kernel.bw"), chromosomes)
 
 
 			# rpbs = np.array([round(d['rpb']) for d in lib_d.values()], dtype='float32')
@@ -1126,10 +1132,10 @@ def tradeoff(**params):
 				# print("    write bigwigs...")
 
 				for i, c in enumerate(coverage):
-					cov_track.add(chrom, i+1, c)
+					cov_track.add(chrom, i+1, float(c))
 
 				for i, k in enumerate(kernel):
-					ker_track.add(chrom, i+1, k)
+					ker_track.add(chrom, i+1, float(k))
 
 				# print("    tally...")
 
@@ -1152,6 +1158,8 @@ def tradeoff(**params):
 			print()
 			cov_track.close()
 			ker_track.close()
+
+
 
 			print()
 			print(ec)
@@ -1367,9 +1375,9 @@ def tradeoff(**params):
 		reg_stop  = -1
 
 		bw = pyBigWig.open(str(Path(output_directory, dir_name, "kernel.bw")))
-		# print(bw.isBigWig())
-		# print(bw.chroms())
-		# print(bw.header())
+		print(bw.isBigWig())
+		print(bw.chroms())
+		print(bw.header())
 
 		for chrom, chrom_length in chromosomes:
 
@@ -1660,9 +1668,11 @@ def tradeoff(**params):
 
 			for w in range(window_start, window_end+1):
 				try:
-					w_sizes.update(pos_size_d[chrom][w])
+					sizes = pos_size_d[chrom][w]
 				except KeyError:
 					pass
+				if sizes:
+					w_sizes.update(sizes)
 
 			# print(' ', w, depth)
 
@@ -1846,6 +1856,7 @@ def tradeoff(**params):
 	print(f"      +{round(diff,2)}% over unrevised regions")
 
 	max_chrom_word_length = max([len(c) for c,l in chromosomes])
+
 	def print_progress_string(i, n, chrom, input_loci, output_loci, assess=False, terminal_only=False):
 
 		chrom = chrom + (max_chrom_word_length - len(chrom)) * " "
@@ -1855,7 +1866,7 @@ def tradeoff(**params):
 		else:
 			assess = f"\t{assess}%"
 
-		sys.stdout.write(f"{i+1}/{n}\t{chrom}\t{string_plus_white(unclumped_regions_count)}\t{string_plus_white(len(regions))}{assess}  \r", 
+		sys.stdout.write(f"{i+1}/{n}\t{chrom}\t{string_plus_white(input_loci)}\t{string_plus_white(output_loci)}{assess}  \r", 
 			terminal_only=terminal_only)
 		sys.stdout.flush()
 
@@ -1875,6 +1886,9 @@ def tradeoff(**params):
 	annotated_space = 0
 	annotated_reads = 0
 
+
+	locus_name_i = 1
+
 	for chrom_count, chrom_and_length in enumerate(chromosomes):
 
 
@@ -1887,415 +1901,142 @@ def tradeoff(**params):
 		regions = [r for r in all_regions if r[1] == chrom]
 
 
-		## Performing clumping by reading whole chromosome alignments
-
-		clump_set = set()
-
-
-		def get_considered_regions(i):
-
-			if i >= len(regions):
-				return(False)
-
-			out = [i]
-			n = 1
-			current_end = regions[i][3]
-			while i+n < len(regions):
-
-				# try:
-				next_start = regions[i+n][2]
-				# except:
-
-				# 	print(regions[i+n])
-				# 	sys.exit()
-
-				if next_start < current_end + clump_dist:
-					out.append(i+n)
-
-				else:
-					break
-
-				n += 1
-
-			return(out)
-
-
-
-
-		locus_i = 0
-		considered_regions = get_considered_regions(locus_i)
-		unclumped_regions_count = len(regions)
-
-
-		print_progress_string(chrom_count, len(chromosomes), chrom, unclumped_regions_count, len(regions), terminal_only=True)
-
-		last_claim = 'start'
-
-		in_locus = False
-
-
 		sizecall_d = {}
 		strand_d   = {}
 		seq_d      = {}
-		n = False
-
-
-		def final_check_and_increment(i):
-			locus_length = regions[i][3] - regions[i][2]
-			locus_depth  = sum(strand_d[regions[i][0]].values())
-			if locus_length < min_locus_length:
-				del regions[i]
-			# elif locus_depth / locus_length < params['min_locus_resolution']:
-			# 	del regions[i]
-			else:
-				i += 1
-			return(i)
 
 
 
+		def get_region_stats(chrom, start, stop):
 
+			size= sizeClass(minmax=read_minmax)
+			for w in range(start, start):
+				try:
+					size.update(pos_size_d[chrom][w])
+				except IndexError:
+					pass
 
+			strand = Counter()
+			p = np.sum(pos_d[chrom][start: stop], axis=(0,1,2))
+			strand['+'] = int(p[0])
+			strand['-'] = int(p[1])
 
+			return(size, strand)
 
+		for i in range(len(regions)):
 
-		for read in samtools_view(alignment_file, contig=chrom, rgs=annotation_readgroups):#, read_minmax=read_minmax):
+			curr_region = regions[i]
+			curr_name = curr_region[0].replace("region_", "r")
+			curr_start, curr_stop = curr_region[2:]
 
-			## Breaks for the final region
-			if not considered_regions:
+			sizecall_d[curr_name], strand_d[curr_name] = get_region_stats(chrom, curr_start, curr_stop)
+
+			if i == len(regions)-1:
 				break
 
+			next_region = regions[i+1]
+			betw_name = curr_region[0].replace("region_", "a")
+			next_start, next_stop = next_region[2:]
+			betw_start, betw_stop = curr_stop + 1, next_start - 1
 
-			## Processing sam output
-			sam_strand, sam_length, _, sam_lbound, _, sam_library, sam_seq, read_name = read
-			sam_rbound = sam_lbound + sam_length
+			sizecall_d[betw_name], strand_d[betw_name] = get_region_stats(chrom, next_start, next_stop)
 
-			condition = lib_d[sam_library]['condition']
 
-			## Identifies the current claim
 
-			try:
-				rclaim = claim_d[chrom][sam_rbound]
-			except KeyError:
-				rclaim = None
+
+		def get_ft(strands):
 
 			try:
-				lclaim = claim_d[chrom][sam_lbound]
-			except KeyError:
-				lclaim = None
+				ft = strands["+"] / sum(strands.values())
+			except ZeroDivisionError:
+				ft = 1
+
+			return(ft)
+
+		def check_merge(curr_name, next_name):
+
+			size_test = sizecall_d[curr_name] == sizecall_d[next_name]
 
 
-			if not lclaim or not rclaim:
-				claim = f"after_{last_claim}"
+			curr_ft = strand_d[curr_name]
+			next_ft = strand_d[next_name]
 
-			elif lclaim != rclaim:
-				if lclaim:
-					last_claim = lclaim
-				claim = f"after_{last_claim}"
+			frac_test = abs(get_ft(curr_ft) - get_ft(next_ft)) < clump_strand_similarity
 
-			else:
-				in_locus = True
-				claim = lclaim
-				last_claim = lclaim
+			return size_test and frac_test
+
+		def do_merge(curr_name, betw_name, next_name):
+			strands = strand_d[curr_name] + strand_d[next_name] + strand_d[betw_name]
+			sizes   = sizecall_d[curr_name] + sizecall_d[next_name] + sizecall_d[betw_name]
 
 
-			## logs the claim to the data containers
-			try:
-				sizecall_d[claim]
-			except KeyError:
-				sizecall_d[claim] = sizeClass(minmax=read_minmax)
-				strand_d[claim] = Counter()
-				seq_d[claim] = Counter()
+			return(strands, sizes)
 
-			try:
-				sizecall_d[(claim, condition)]
-			except KeyError:
-				sizecall_d[(claim, condition)] = sizeClass(minmax=read_minmax)
-				strand_d[(claim, condition)] = Counter()
-				seq_d[(claim, condition)] = Counter()
+		i = 0
 
+		if len(regions) == 0:
+			continue
 
-			## Adding values to current claim
-			if in_locus:
-				sizecall_d[claim].update([sam_length])
-				strand_d[claim].update([sam_strand])
-				seq_d[claim].update([sam_seq])
+		if len(regions) == 1:
+			loci = [[f"locus_{locus_name_i}"] + regions[0][1:]]
+		else:
+			locus_count = len(regions)
+			curr_name = regions[i][0].replace("region_", "r")
+			betw_name = regions[i][0].replace("region_", "a")
+			next_name = regions[i+1][0].replace("region_", "r")
 
-				sizecall_d[(claim, condition)].update([sam_length])
-				strand_d[(claim, condition)].update([sam_strand])
-				seq_d[(claim, condition)].update([sam_seq])
-
-
-			verbose = False
-
-
-
-			if sam_lbound > regions[considered_regions[-1]][3]:
-				## Checking for any broken regions
-
-				for c in considered_regions[::-1]:
-					c_name = regions[c][0]
-
-					if c_name not in strand_d:
-						to_loc   = f"after_{c_name}"
-						from_loc = f"after_{regions[c-1][0]}"
-
-						try:
-							sizecall_d[to_loc] += sizecall_d[from_loc]
-							strand_d[to_loc] += strand_d[from_loc]
-							seq_d[to_loc] += seq_d[from_loc]
-						except KeyError:
-							pass
-
-						del regions[c]
-
-						if show_warnings:
-							print(f"Warning: bad locus {c_name} removed                      ")
-
-
-				considered_regions = get_considered_regions(locus_i)
-
-
-
-
-			if not considered_regions:
-				break
-
+			loci = []
+			loc_start = regions[i][2]
+			loc_stop  = regions[i][3]
 			
-			if sam_lbound <= regions[considered_regions[-1]][3]:
-				## still within the locus, can't move on to define it
-				continue
+			print_progress_string(chrom_count, len(chromosomes), chrom, len(regions), locus_count, terminal_only=True)
 
-
-
-
-
-			if len(considered_regions) == 1:
-				## region does not require merging. Logging it.
-
-				with open(merge_file, 'a') as outf:
-					print('', file=outf)
-					pprint([regions[c] for c in considered_regions], outf)
-					print('      -> locus has no other regions in range', file=outf)
-
-				locus_i = final_check_and_increment(locus_i)
-				# print("\nonly_one_considered <- increment")
-
-				considered_regions = get_considered_regions(locus_i)
-
-				continue
-
-
-
-			## merging process
-			n = 0
 			while True:
-				with open(merge_file, 'a') as outf:
-					print('', file=outf)
-					pprint([regions[c] for c in considered_regions], outf)
-					# input()
 
-				none_merged = True
-				
-				current_locus = regions[locus_i]
+				if check_merge(curr_name, next_name):
 
-				# print(considered_regions)
-				for n in considered_regions[1:]:
-					next_locus = regions[n]
+					strand_d[curr_name], sizecall_d[curr_name] = do_merge(curr_name, betw_name, next_name)
 
-					try:
-						current_sc = sizecall_d[current_locus[0]]
-						current_ft = get_frac_top(strand_d[current_locus[0]])
-					except KeyError:
-						current_sc = sizeClass(minmax=read_minmax)
-						current_ft = -1
-						# print(f"\nWarning: region {current_locus} may not have counts")
+					del strand_d[betw_name]
+					del strand_d[next_name]
+					del sizecall_d[betw_name]
+					del sizecall_d[next_name]
 
+					# print(i, f"{curr_name} <<< {betw_name}, {next_name}")
+					locus_count -= 1
 
-					try:
-						next_sc = sizecall_d[next_locus[0]]
-						next_ft = get_frac_top(strand_d[next_locus[0]])
-					except KeyError:
-						next_sc = sizeClass(minmax=read_minmax)
-						next_ft = -1
-						# print(f"\nWarning: region {next_locus} may not have counts")
+					loc_stop  = regions[i+1][3]
 
+				else:
 
+					locus_name_i += 1
+					locus_name   = f"locus_{locus_name_i}"
+					loci.append([locus_name, chrom, loc_start, loc_stop])
 
+					strand_d[locus_name]   = strand_d.pop(curr_name)
+					sizecall_d[locus_name] = sizecall_d.pop(curr_name)
 
+					# print(i, f"{locus_name} <<< {curr_name}")
 
-					size_test = current_sc == next_sc
-					frac_test = abs(current_ft - next_ft) < clump_strand_similarity
+					curr_name = next_name
+					loc_start = regions[i+1][2]
+					loc_stop  = regions[i+1][3]
 
-					acc_to_merge = size_test and frac_test
+				i += 1
 
-
-
-
-
-					with open(merge_file, 'a') as outf:
-						print(current_locus, "->", next_locus, file=outf)
-						print("", file=outf)
-						print("", size_test, current_sc, next_sc, sep='\t', file=outf)
-						print("", frac_test, round(current_ft,4), round(next_ft,4), sep='\t', file=outf)
-						print("", file=outf)
-
-					if size_test and frac_test:
-						## Then merge!
-
-						none_merged = False
-
-						with open(merge_file, 'a') as outf:
-							print(f"merging {current_locus[0]} to {next_locus[0]}", file=outf)
-							print("", file=outf)
-
-							clump_set.add((current_locus[0], next_locus[0]))
-
-
-							## Packing counts into first locus
-
-							for r in range(locus_i, n):
-
-								to_loc   = current_locus[0]
-								from_loc = regions[r+1][0]
-
-
-								try:
-									sizecall_d[to_loc] += sizecall_d[from_loc]
-									strand_d[to_loc] += strand_d[from_loc]
-									seq_d[to_loc] += seq_d[from_loc]
-
-									for c in conditions.keys():
-										try:
-											sizecall_d[(to_loc, c)] += sizecall_d[(from_loc, c)]
-											strand_d[(to_loc, c)]   += strand_d[(from_loc, c)]
-											seq_d[(to_loc, c)]      += seq_d[(from_loc, c)]
-										except KeyError:
-											pass
-
-									print(f"  packing -> {to_loc} with {sizecall_d[from_loc].depth} reads from {from_loc}", file=outf)
-								except KeyError:
-									print("Warning: unknown KeyError in locus packing...")
-									# sys.exit("error!")
-									# print(f"\nWarning: region {next_locus} may not have counts")
-
-									# del regions[locus_i]
-									# considered_regions = get_considered_regions(locus_i) 
-									pass
-
-								to_loc   = current_locus[0]
-								from_loc = f"after_{regions[r][0]}"
-
-								try:
-									sizecall_d[to_loc] += sizecall_d[from_loc]
-									strand_d[to_loc] += strand_d[from_loc]
-									seq_d[to_loc] += seq_d[from_loc]
-
-									for c in conditions.keys():
-										try:
-											sizecall_d[(to_loc, c)] += sizecall_d[(from_loc, c)]
-											strand_d[(to_loc, c)]   += strand_d[(from_loc, c)]
-											seq_d[(to_loc, c)]      += seq_d[(from_loc, c)]
-										except KeyError:
-											pass
-
-									print(f"  packing -> {to_loc} with {sizecall_d[from_loc].depth} reads from {from_loc}", file=outf)
-								except KeyError:
-									# sys.exit("error!")
-									# print(f"\nWarning: region {next_locus} may not have counts")
-									# del regions[locus_i]
-									# considered_regions = get_considered_regions(locus_i) 
-									pass
-
-							to_loc   = f"after_{current_locus[0]}"
-							from_loc = f"after_{regions[n][0]}"
-
-							try:
-								sizecall_d[to_loc] += sizecall_d[from_loc]
-								strand_d[to_loc]   += strand_d[from_loc]
-								seq_d[to_loc]      += seq_d[from_loc]
-
-								for c in conditions.keys():
-									try:
-										sizecall_d[(to_loc, c)] += sizecall_d[(from_loc, c)]
-										strand_d[(to_loc, c)]   += strand_d[(from_loc, c)]
-										seq_d[(to_loc, c)]      += seq_d[(from_loc, c)]
-									except KeyError:
-										pass
-
-								print(f"  packing -> {to_loc} with {sizecall_d[from_loc].depth} reads from {from_loc}", file=outf)
-							except KeyError:
-								# print(f"\nWarning: region {next_locus} may not have counts")
-
-								# sys.exit("error!")
-								# del regions[locus_i]
-								# considered_regions = get_considered_regions(locus_i) 
-								pass
-
-
-						## Redefining current locus boundaries
-						regions[locus_i][3] = regions[n][3]
-
-
-						## Eliminating regions up to the one that was merged
-						for r in range(locus_i, n)[::-1]:
-							del regions[r+1]
-
-
-						## Filling in claim_d
-						for r in range(regions[locus_i][2],regions[locus_i][3]+1):
-							claim_d[chrom][r] = regions[locus_i][0]
-
-
-						break
-
-
-				## updating considered regions after merging
-				considered_regions = get_considered_regions(locus_i) 
-
-				if none_merged:
-					with open(merge_file, 'a') as outf:
-						print("      -> no valid merges for considered_regions", file=outf)
-					locus_i = final_check_and_increment(locus_i)
-					# print("\nnone_merged <- increment")
-					considered_regions = get_considered_regions(locus_i) 
+				if i == len(regions) - 1:
 					break
 
-				if len(considered_regions) == 1:
-					with open(merge_file, 'a') as outf:
-						print('      -> new locus has no other regions in range', file=outf)
-					locus_i = final_check_and_increment(locus_i)
-					# print("\nlen(considered_regions) <- increment")
-					considered_regions = get_considered_regions(locus_i) 
-					break
+				betw_name = regions[i][0].replace("region_", "a")
+				next_name = regions[i+1][0].replace("region_", "r")
 
-				if sam_lbound < regions[considered_regions[-1]][3]:
-					with open(merge_file, 'a') as outf:
-						print("      -> regions passed read location", file=outf)
-					last_claim = regions[considered_regions[-1]][0]
-					break
+				print_progress_string(chrom_count, len(chromosomes), chrom, len(regions), locus_count, terminal_only=True)
+				# input(i)
+
+			# continue
 
 
 
-
-			# print(f"   clumping similar neighbors... {unclumped_regions_count} -> {len(regions)} regions    ", end='\r', flush=True)
-
-			# print(f"{chrom_count+1}/{len(chromosomes)}\t{chrom}\t100%\t{unclumped_regions_count} -> {len(regions)}      ", end='\r', flush=True)
-
-			print_progress_string(chrom_count, len(chromosomes), chrom, unclumped_regions_count, len(regions), terminal_only=True)
-
-
-		# print()
-		to_delete = []
-		for i,locus in enumerate(regions):
-			name = locus[0]
-
-			if name not in strand_d:
-				print("Serious problem - regions with no reads broke through:", name)
-
-				to_delete.append(i)
-
-		for i in to_delete[::-1]:
-			del regions[i]
 
 
 
@@ -2304,7 +2045,7 @@ def tradeoff(**params):
 		perc = percentageClass(increment=5, total=len(regions))
 
 		last_stop = 0
-		for i,locus in enumerate(regions):
+		for i,locus in enumerate(loci):
 
 			# print()
 			# print(locus)
@@ -2321,7 +2062,7 @@ def tradeoff(**params):
 
 			print_percentage = perc.get_percent(i)
 			if print_percentage:
-				print_progress_string(chrom_count, len(chromosomes), chrom, unclumped_regions_count, len(regions), print_percentage, terminal_only=True)
+				print_progress_string(chrom_count, len(chromosomes), chrom, len(regions), len(loci), print_percentage, terminal_only=True)
 
 			name, chrom, start, stop = locus
 			coords = f"{chrom}:{start}-{stop}"
@@ -2329,77 +2070,82 @@ def tradeoff(**params):
   
 
 			def check_best_condition():
-
-				# print()
-				# arr = pos_abd_d[chrom][start:stop,]
-				# print(arr)
-				# print(np.sum(arr), "<- total reads")
-				# arr = np.multiply(arr, rpbs)
-				# print(arr)
-				# print(pos_d[chrom][start:stop,])
-				p = np.sum(pos_d[chrom][start:stop,], axis=(0,3))
-				# print(p)
+				locus_abd = pos_d[chrom][start:stop, ]
+				p = np.sum(locus_abd, axis=(0,3))
 				p = np.multiply(p, rpbs)
-				# print(p)
 				p = np.mean(p, axis=1)
-				print(p)
-
-				# print(np.max(p))
-				best_c = list(conditions.keys())[int(np.argmax(p))]
-				# print(np.argmax(p))
-
-				# sys.exit()
-
-				# input()
-
-				# print(arr)
-
-				# best_c   = ""
-				# best_rpb = 0
-				# for c, srrs in conditions.items():
-				# 	l = [i for i,l in enumerate(lib_d.keys()) if l in srrs]
-					
-				# 	a = arr[l]
-				# 	a = np.median(a)
-
-				# 	if a > best_rpb:
-				# 		best_rpb = a
-				# 		best_c   = c
-
-				# print(best_c, "<- best condition")
-				return(best_c, p)
+				best_ci = int(np.argmax(p))
+				return(best_ci, locus_abd)
 
 
 				# pass
-			best_condition, p = check_best_condition()
-
-			strand_c = Counter()
-			strand_c["+"] += p[0]
-			strand_c["-"] += p[1]
-
-			ann_libs = conditions[best_condition]
+			best_condition_i, locus_abd = check_best_condition()
+			best_condition = list(conditions.keys())[best_condition_i]
 
 
+			# print(conditions[best_condition])
+
+			# rgs = [r+".t" for r in conditions[best_condition]]
+
+			# for read in samtools_view(alignment_file, contig=chrom, start=start, stop=stop,#, rgs=rgs, 
+				# boundary_rule = 'tight'):
+
+			best_strand = Counter()
+			best_size   = sizeClass()
+			best_seq    = Counter()
+
+			for read in samtools_view(alignment_file, contig=chrom, start=start, stop=stop):
+
+				sam_strand, sam_read_length, _, _, _, sam_lib, sam_seq, _ = read
+
+				best_strand[sam_strand] += 1
+				best_size.update(sam_read_length)
+				best_seq[sam_seq] += 1
 
 
-			# print(locus)
+			# pprint(best_seq)
+
+			# print('done')
+			# sys.exit()
+
+
+			# print()
+			# print(locus_abd.shape)
+			# ci = [i for c,i in conditions.keys() if c == best_condition]
+
+			# p = np.sum(locus_abd[:, best_condition_i, :, :,], axis=(0,1))
+			
+			# best_strand = Counter()
+			# best_strand["+"] += p[0]
+			# best_strand["-"] += p[1]
+
+			# best_size = 
+
+
+			# ann_libs = conditions[best_condition]
+
+
+
+
+			# # print(locus)
+			# seq_d[name] = Counter("FALSETEST")
 
 			# strand_d[name]   = strand_d.pop(old_name)
-			sizecall_d[name] = sizecall_d.pop(old_name)
-			seq_d[name]      = seq_d.pop(old_name)
+			# sizecall_d[name] = sizecall_d.pop(old_name)
+			# seq_d[name]      = seq_d.pop(old_name)
 
 
 
-			for c in conditions.keys():
-				try:
-					strand_d[(name, c)]   = strand_d.pop((old_name, c))
-					sizecall_d[(name, c)] = sizecall_d.pop((old_name, c))
-					seq_d[(name, c)]      = seq_d.pop((old_name, c))
-				except KeyError:
-					print()
-					print("(name, c) missing from dict")
-					print()
-					pass
+			# for c in conditions.keys():
+			# 	try:
+			# 		strand_d[(name, c)]   = strand_d.pop((old_name, c))
+			# 		sizecall_d[(name, c)] = sizecall_d.pop((old_name, c))
+			# 		seq_d[(name, c)]      = seq_d.pop((old_name, c))
+			# 	except KeyError:
+			# 		# print()
+			# 		# print("(name, c) missing from dict")
+			# 		# print()
+			# 		pass
 
 			# try:
 			# 	strand_c = strand_d[(name, best_condition)]
@@ -2419,8 +2165,8 @@ def tradeoff(**params):
 			# 	sys.exit()
 
 
-			sizecall = sizecall_d[(name, best_condition)]
-			read_c   = seq_d[(name, best_condition)]
+			# sizecall = sizecall_d[(name, best_condition)]
+			# read_c   = seq_d[(name, best_condition)]
 
 
 
@@ -2434,16 +2180,16 @@ def tradeoff(**params):
 			# pprint(strand_d[(name, best_condition)])
 			# input()
 
-			abd = sum(read_c.values())
+			abd = sum(best_seq.values())
 			length = stop-start
 
-			complexity = len(read_c.keys()) / length * 1000
-			skew       = read_c.most_common(1)[0][1] / sum(read_c.values())
+			complexity = len(best_seq.keys()) / length * 1000
+			skew       = best_seq.most_common(1)[0][1] / sum(best_seq.values())
 
 			pass_complexity = complexity >= params['min_complexity']
 			pass_skew       = skew <= params['max_skew']
-			pass_abd        = sum(read_c.values()) >= params['min_abundance']
-			pass_abd_dens   = sum(read_c.values()) / (stop-start) * 1000 >= params['min_abundance_density']
+			pass_abd        = sum(best_seq.values()) >= params['min_abundance']
+			pass_abd_dens   = sum(best_seq.values()) / (stop-start) * 1000 >= params['min_abundance_density']
 
 
 			pass_all_filters = 0
@@ -2479,7 +2225,7 @@ def tradeoff(**params):
 			# print()
 
 
-			results_line, gff_line = assessClass().format(locus, read_c, strand_c, sizecall, sum(chrom_depth_c.values()), last_stop, best_condition)
+			results_line, gff_line = assessClass().format(locus, best_seq, best_strand, best_size, sum(chrom_depth_c.values()), last_stop, best_condition)
 
 
 			last_stop = stop
@@ -2490,78 +2236,83 @@ def tradeoff(**params):
 			with open(gff_file, 'a') as outf:
 				print("\t".join(map(str, gff_line)), file=outf)
 
-			top_reads_save(read_c, reads_file, read_equivalent, name)
-
-
-		if regions:
-			print_progress_string(chrom_count, len(chromosomes), chrom, unclumped_regions_count, len(regions), print_percentage, terminal_only=False)
-		else:
-			print_progress_string(chrom_count, len(chromosomes), chrom, unclumped_regions_count, len(regions), terminal_only=False)
-
-
-		locus_lengths = [l[3]-l[2] for l in regions]
-		try:
-			mean_length   = round(mean(locus_lengths),1)
-		except StatisticsError:
-			mean_length = None
-		try:
-			median_length = median(locus_lengths)
-		except StatisticsError:
-			median_length = None
-
-		if len(regions) > 0:
-			proportion_chromosome_annotated = round(sum(locus_lengths) / chrom_length, 4)
-		else:
-			proportion_chromosome_annotated = None
-
-
-		read_depths = [sum(strand_d[l[0]].values()) for l in regions]
-		try:
-			mean_depth   = round(mean(read_depths),1)
-		except StatisticsError:
-			mean_depth = None
-		try:
-			median_depth = median(read_depths)
-		except StatisticsError:
-			median_depth = None
-		if len(regions) > 0:
-			try:
-				proportion_libraries_annotated = round(sum(read_depths) / chrom_depth_c[chrom], 4)
-			except ZeroDivisionError:
-				proportion_libraries_annotated = None
-		else:
-			proportion_libraries_annotated = None
+			top_reads_save(best_seq, reads_file, read_equivalent, name)
 
 
 
-		with open(stats_file, 'a') as outf:
-			out = [project_name, chrom]
-			out += [unclumped_regions_count, len(regions)]
-			out += [chrom_length, proportion_chromosome_annotated, mean_length, median_length]
-			out += [chrom_depth_c[chrom], proportion_libraries_annotated, mean_depth, median_depth]
-			print("\t".join(map(str, out)), file=outf)
+		print_progress_string(chrom_count, len(chromosomes), chrom,  len(regions), len(loci), terminal_only=False)
+		# if regions:
+		# 	print_progress_string(chrom_count, len(chromosomes), chrom, len(regions), len(loci), print_percentage, terminal_only=False)
+		# else:
+		# 	print_progress_string(chrom_count, len(chromosomes), chrom,  len(regions), len(loci), terminal_only=False)
+
+
+		# locus_lengths = [l[3]-l[2] for l in regions]
+		# try:
+		# 	mean_length   = round(mean(locus_lengths),1)
+		# except StatisticsError:
+		# 	mean_length = None
+		# try:
+		# 	median_length = median(locus_lengths)
+		# except StatisticsError:
+		# 	median_length = None
+
+		# if len(regions) > 0:
+		# 	proportion_chromosome_annotated = round(sum(locus_lengths) / chrom_length, 4)
+		# else:
+		# 	proportion_chromosome_annotated = None
+
+		# # print(best_strand[l[0]])
+		# read_depths = [sum(best_strand[l[0]].values()) for l in regions]
+		# try:
+		# 	mean_depth   = round(mean(read_depths),1)
+		# except StatisticsError:
+		# 	mean_depth = None
+		# try:
+		# 	median_depth = median(read_depths)
+		# except StatisticsError:
+		# 	median_depth = None
+		# if len(regions) > 0:
+		# 	try:
+		# 		proportion_libraries_annotated = round(sum(read_depths) / chrom_depth_c[chrom], 4)
+		# 	except ZeroDivisionError:
+		# 		proportion_libraries_annotated = None
+		# else:
+		# 	proportion_libraries_annotated = None
+
+
+
+		# with open(stats_file, 'a') as outf:
+		# 	out = [project_name, chrom]
+		# 	out += [unclumped_regions_count, len(regions)]
+		# 	out += [chrom_length, proportion_chromosome_annotated, mean_length, median_length]
+		# 	out += [chrom_depth_c[chrom], proportion_libraries_annotated, mean_depth, median_depth]
+		# 	print("\t".join(map(str, out)), file=outf)
 
 		# print()
 
 
-		try:
-			overall_d['region_count']  += unclumped_regions_count
-			overall_d['regions_count'] += len(regions)
-			overall_d['genome_length'] += chrom_length
-			overall_d['locus_lengths'] += locus_lengths
-			overall_d['total_depth']   = aligned_read_count
-			overall_d['read_depths']   += read_depths
+		# try:
+		# 	overall_d['region_count']  += unclumped_regions_count
+		# 	overall_d['regions_count'] += len(regions)
+		# 	overall_d['genome_length'] += chrom_length
+		# 	overall_d['locus_lengths'] += locus_lengths
+		# 	overall_d['total_depth']   = aligned_read_count
+		# 	overall_d['read_depths']   += read_depths
 
-		except KeyError:
-			overall_d['region_count']   = unclumped_regions_count
-			overall_d['regions_count']  = len(regions)
-			overall_d['genome_length']  = chrom_length
-			overall_d['locus_lengths']  = locus_lengths
-			overall_d['total_depth']    = aligned_read_count
-			overall_d['read_depths']    = read_depths
+		# except KeyError:
+		# 	overall_d['region_count']   = unclumped_regions_count
+		# 	overall_d['regions_count']  = len(regions)
+		# 	overall_d['genome_length']  = chrom_length
+		# 	overall_d['locus_lengths']  = locus_lengths
+		# 	overall_d['total_depth']    = aligned_read_count
+		# 	overall_d['read_depths']    = read_depths
 
 
 		print()
+
+
+	# sys.exit("stopping here")
 
 
 	def bool_to_check(val):
@@ -2577,49 +2328,49 @@ def tradeoff(**params):
 	print(f"  {bool_to_check(params['filter_abundance'])} {abd_filter} loci are below min abundance (< {params['min_abundance']} aligned reads)")
 	print(f"  {bool_to_check(params['filter_abundance_density'])} {abd_dens_filter} loci are below min abundance density (< {params['min_abundance_density']} aligned reads / 1000 nt)")
 	print()
-	print(f"  {regions_name_i:,} loci passing activated filter(s)")
+	print(f"  {locus_name_i:,} loci passing activated filter(s)")
 	print()
 	print(f"final annotation metrics:")
 	print(f"  {annotated_space:,} genomic nt ({round(annotated_space / genome_length * 100, 1)}%) in loci")
 	print(f"  {annotated_reads:,} reads ({round(annotated_reads / aligned_read_count * 100, 1)}%) in loci")
 	print()
 
-	with open(overall_file, 'a') as outf:
+	# with open(overall_file, 'a') as outf:
 
 
-		print('project\tannotation_name\tregion_count\tlocus_count\tgenome_length\tproportion_genome_annotated\tmean_length\tmedian_length\ttotal_depth\tproportion_library_annotated\tmean_depth\tmedian_depth', file=outf)
+	# 	print('project\tannotation_name\tregion_count\tlocus_count\tgenome_length\tproportion_genome_annotated\tmean_length\tmedian_length\ttotal_depth\tproportion_library_annotated\tmean_depth\tmedian_depth', file=outf)
 
-		line = [
-			project_name,
-			annotation_name,
-			overall_d['region_count'], 
-			overall_d['regions_count'], 
-			overall_d['genome_length']
-		]
+	# 	line = [
+	# 		project_name,
+	# 		annotation_name,
+	# 		overall_d['region_count'], 
+	# 		overall_d['regions_count'], 
+	# 		overall_d['genome_length']
+	# 	]
 
-		if overall_d['regions_count'] == 0:
-			line += ['NA', "NA", 'NA']
-		else:
-			line += [
-				round(sum(overall_d['locus_lengths'])/overall_d['genome_length'], 4),
-				round(mean(overall_d['locus_lengths']),1),
-				median(overall_d['locus_lengths'])
-			]
+	# 	if overall_d['regions_count'] == 0:
+	# 		line += ['NA', "NA", 'NA']
+	# 	else:
+	# 		line += [
+	# 			round(sum(overall_d['locus_lengths'])/overall_d['genome_length'], 4),
+	# 			round(mean(overall_d['locus_lengths']),1),
+	# 			median(overall_d['locus_lengths'])
+	# 		]
 
-		line += [
-			overall_d['total_depth']
-		]
+	# 	line += [
+	# 		overall_d['total_depth']
+	# 	]
 
-		if overall_d['regions_count'] == 0:
-			line += ['NA', "NA", 'NA']
-		else:
-			line += [
-				round(sum(overall_d['read_depths'])/overall_d['total_depth'], 4),
-				round(mean(overall_d['read_depths']),1),
-				median(overall_d['read_depths'])
-			]
+	# 	if overall_d['regions_count'] == 0:
+	# 		line += ['NA', "NA", 'NA']
+	# 	else:
+	# 		line += [
+	# 			round(sum(overall_d['read_depths'])/overall_d['total_depth'], 4),
+	# 			round(mean(overall_d['read_depths']),1),
+	# 			median(overall_d['read_depths'])
+	# 		]
 
-		print("\t".join(map(str, line)), file=outf)
+	# 	print("\t".join(map(str, line)), file=outf)
 
 
 	end_time = datetime.now()
