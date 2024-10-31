@@ -490,7 +490,7 @@ def get_bin_threshold(cdf_c, to_save=False, to_print=False):
 # @optgroup.option('--trim_regions', is_flag=True, default=False, help='Flag to include trimming of regions')
 
 
-@optgroup.option('--tradeoff_round', default=3, help='Significance rounding for tradeoff average. Defaults to 3 digits (e.g. 0.977 or 97.7%)')
+@optgroup.option('--tradeoff_round', default=4, help='Significance rounding for tradeoff average. Defaults to 3 digits (e.g. 0.977 or 97.7%)')
 
 
 
@@ -595,6 +595,10 @@ def tradeoff(**params):
 	params['alignment_file'] = alignment_file
 	params['project_name'] = project_name
 
+
+
+	### Organizing directories
+
 	if annotation_name:
 		dir_name = f"tradeoff_{annotation_name}"
 	elif annotation_conditions:
@@ -602,7 +606,11 @@ def tradeoff(**params):
 	else:
 		dir_name = 'tradeoff'
 
+	Path(output_directory, dir_name).mkdir(parents=True, exist_ok=True)
 
+
+
+	### Processing basic options
 	if params['target_genome_perc'] and params['target_read_perc']:
 		sys.exit("ERROR: cannot specify target read AND genome percentages (one is dependent on the other)")
 
@@ -615,8 +623,7 @@ def tradeoff(**params):
 
 
 
-	Path(output_directory, dir_name).mkdir(parents=True, exist_ok=True)
-
+	### Starting log
 	log_file = f"{output_directory}/{dir_name}/log.txt"
 	sys.stdout = Logger(log_file)
 
@@ -625,6 +632,9 @@ def tradeoff(**params):
 	date_time = start_time.strftime("%Y/%m/%d, %H:%M:%S")
 	print()
 	print("Start time:",date_time)	
+
+
+	### Writing annotation parameters to folder
 
 	params['tool'] = 'tradeoff'
 	parameters_file = Path(output_directory, dir_name, "params.json")
@@ -635,40 +645,18 @@ def tradeoff(**params):
 		del oparams
 		# sys.exit()
 
-	cl_i = 0
-
-	# assert 0 < sensitivity <= 1.0, "sensitivity must be 0 < S <= 1.0"
-	# assert 0 < peak_threshold < 1, "peak_trim must be between 0 and 1."
-
-	# half_window = int(window/2)
-
-	chromosomes, bam_rgs = get_chromosomes(alignment_file)
-
-
-	if annotation_conditions:
-		new_rgs = []
-		for key in annotation_conditions:
-
-			if key not in conditions:
-				sys.exit(f"Error: {key} not found in conditions entry.")
-
-
-			for rg in conditions[key]:
-				new_rgs.append(rg)
-				if rg not in bam_rgs:
-					sys.exit(f"Error: {rg} not found in bam readgroups.")
-
-		bam_rgs = new_rgs
-		del new_rgs
 
 
 
 
 
+	### Getting alignment metadata
 
-	chromosome_max_lengths = {}
-	for c,l in chromosomes:
-		chromosome_max_lengths[c] = l
+	chromosomes, libraries = get_chromosomes(alignment_file)
+
+
+
+	### getting basic metrics, including a test_mode chromosome filter
 
 	if params['test_mode']:
 		# chromosomes = chromosomes[3:5]
@@ -679,27 +667,57 @@ def tradeoff(**params):
 		chromosomes = chromosomes[4:5]
 
 
+	chromosome_max_lengths = {}
+	for c,l in chromosomes:
+		chromosome_max_lengths[c] = l
+
+
 	genome_length = sum([l for c,l in chromosomes])
 
-	# print(alignment_file)
-	annotation_readgroups = check_rgs(bam_rgs, bam_rgs)
-	params['annotation_readgroups'] = annotation_readgroups
 
-	print()
+	# print(alignment_file)
+	# annotation_readgroups = check_rgs(new_rgs, bam_rgs)
+	# params['annotation_readgroups'] = annotation_readgroups
+
+
+
+	### cleaning up conditions and libraries
 
 	if annotation_conditions:
 		print(f" Annotation conditions: {annotation_conditions}")
+
 	else:
 		print(f" Annotation conditions: {annotation_conditions} (all libraries used)")
-	print(" Annotation libraries:", annotation_readgroups)
+		annotation_conditions = list(conditions.keys())
+	# print(" Annotation libraries:", annotation_readgroups)
 
-	# chromosomes = [c for c in chromosomes if c[0] == 'NC_037320.1']
+
+	conditions = {c: conditions[c] for c in annotation_conditions}
+
+
+	rev_conditions = {}
+	for cond, lib_set in conditions.items():
+		for lib in lib_set:
+			rev_conditions[lib] = cond
+
+	libraries  = []
+	for lib_set in conditions.values():
+		for lib in lib_set:
+			libraries.append(lib)
+
+
+
+
+	print()
+
+
+	### getting alignment depths by library and chromosome
 
 	chrom_depth_c = get_global_depth(alignment_file, aggregate_by=['rg','chrom'])
 
 	keys = list(chrom_depth_c.keys())
 	for key in keys:
-		if key[0] in annotation_readgroups:
+		if key[0] in libraries:
 			chrom_depth_c[key[1]] += chrom_depth_c[key]
 
 		del chrom_depth_c[key]
@@ -711,82 +729,39 @@ def tradeoff(**params):
 	aligned_read_count = sum(chrom_depth_c.values())
 
 
-	### getting RPM equivalents for all the libraries
-	lib_d = {}
-	for lib, dep in get_global_depth(alignment_file, aggregate_by=['rg']).items():
-		for c,s in conditions.items():
-			if lib in s:
-				break
+	### getting Read Per Billion equivalents for all the libraries
 
-		print(f"    {lib} -> {dep:,}")
-		lib_d[lib] = {'depth':dep, "rpm":dep / 1000000, "rpb": round(dep / 1000), 'condition':c}
+	g = get_global_depth(alignment_file, aggregate_by=['rg'])
 
-	libraries = list(lib_d.keys())
+	rpb_d = {}
+	for lib in libraries:
+		condition = rev_conditions[lib]
+		depth = g[lib]
+		rpb = round(1000000000 / depth, 2)
 
-	rev_conditions = {}
-	for cond, srrs in conditions.items():
-		for srr in srrs:
-			rev_conditions[srr] = cond
+		rpb_d[lib] = rpb
+
+		print(f"    {condition} {lib} -> {depth:,} -> {rpb:,} eq reads")
 
 
+	rpbs = np.zeros(shape=(len(annotation_conditions), max([len(conditions[c]) for c in annotation_conditions])), dtype='uint32')
+	for i,c in enumerate(annotation_conditions):
+		for j,s in enumerate(conditions[c]):
+			try:
+				rpbs[i,j] = round(rpb_d[s])
+			except KeyError:
+				rpbs[i,j] = 0
 
 
-	# rpbs = np.array([round(d['rpb']) for d in lib_d.values()], dtype='uint32')
+	# print(rpbs)
 
-	# rpms = np.array([round(d['rpm']) for d in lib_d.values()], dtype='float32')
-
-
+	### calling subsampling if needed
 
 	if params['subsample']:
 
 		alignment_file = subsample(aligned_read_count, alignment_file, params)
 		chrom_depth_c = get_global_depth(alignment_file, aggregate_by=['rg','chrom'])
 		aligned_read_count = sum(chrom_depth_c.values())
-
-
-
-	def get_frac_top(c):
-		try:
-			ftop = c['+'] / sum(c.values())
-		except ZeroDivisionError:
-			ftop = -1
-
-		return(ftop)
-
-	def get_basic_dimensions(l):
-		name, chrom, start, stop = l
-		coords = f"{chrom}:{start}-{stop}"
-
-
-		reads = [r for r in samtools_view(alignment_file, 
-			contig=chrom, start=start, stop=stop, 
-			rgs=annotation_readgroups, 
-			boundary_rule = 'tight',
-			read_minmax=read_minmax)]
-
-
-		strand_c = Counter()
-		lens = []
-
-		for read in reads:
-			sam_strand, sam_length, _, _, _, _, _, _ = read
-
-			strand_c[sam_strand] += 1
-			lens.append(sam_length)
-
-		try:
-			frac_top = strand_c["+"] / sum(strand_c.values())
-		except ZeroDivisionError:
-			frac_top = -1
-
-		# try:
-		# 	most_common = length_c.most_common(1)[0][0]
-		# 	frac_size = length_c[most_common] / sum(strand_c.values())
-		# except ZeroDivisionError:
-		# 	most_common = False
-		# 	frac_size = -1
-		
-		return(frac_top, lens)
 
 
 
@@ -829,34 +804,18 @@ def tradeoff(**params):
 		print('coords\tlength\tabd\tpass_abd\tabd_dens\tpass_abd_dens\tcomplexity\tpass_complexity\tskew\tpass_skew', sep='\t', file=outf)
 
 
-	stats_file = f"{output_directory}/{dir_name}/stats_by_ref.txt"
-	with open(stats_file, 'w') as outf:
-		print("project\tchromosome\tregions\tregions\tchromosome_length\tproportion_genome_annotated\tmean_length\tmedian_length\treads\tproportion_libraries_annotated\tmean_abundance\tmedian_abundance", file=outf)
+	# stats_file = f"{output_directory}/{dir_name}/stats_by_ref.txt"
+	# with open(stats_file, 'w') as outf:
+	# 	print("project\tchromosome\tregions\tregions\tchromosome_length\tproportion_genome_annotated\tmean_length\tmedian_length\treads\tproportion_libraries_annotated\tmean_abundance\tmedian_abundance", file=outf)
 
 
-	overall_file = f"{output_directory}/{dir_name}/stats.txt"
-	with open(overall_file, 'w') as outf:
-		outf.write('')
+	# overall_file = f"{output_directory}/{dir_name}/stats.txt"
+	# with open(overall_file, 'w') as outf:
+	# 	outf.write('')
 
-	overall_d = {}
-
-	all_regions = []
-	total_read_count = 0
-	cl_i = 0
+	# overall_d = {}
 
 
-	read_equivalent = 1 / sum(chrom_depth_c.values()) * 1000000
-
-
-
-
-	rpbs = np.zeros(shape=(len(conditions), max([len(s) for s in conditions.values()])), dtype='uint32')
-	for i,c in enumerate(conditions.keys()):
-		for j,s in enumerate(conditions[c]):
-			try:
-				rpbs[i,j] = round(lib_d[s]['rpb'])
-			except KeyError:
-				rpbs[i,j] = 0
 
 
 
@@ -864,7 +823,7 @@ def tradeoff(**params):
 
 	print()
 	print(f" {len(chromosomes)} chromosomes/scaffolds/contigs")
-	print(f" {sum([l for c,l in chromosomes]):,} bp total")
+	print(f" {genome_length:,} bp total")
 	print(f" {aligned_read_count:,} reads")
 	print()
 
@@ -901,50 +860,30 @@ def tradeoff(**params):
 		ker_window = params['kernel_window']
 		half_ker_window = math.floor(ker_window/2)
 
-		# kde_window = params['kernel_window']
-		# half_kde_window = int(kde_window/2)
+		def get_max_lib_counts():
+			lib_counts = []
+			for srrs in conditions.values():
+				lib_counts.append(len(srrs))
+			return max(lib_counts)
 
-		condition_order = list(conditions.keys())
+		max_lib_counts = get_max_lib_counts()
 
-		lib_counts = []
-		for srrs in conditions.values():
-			lib_counts.append(len(srrs))
-		max_lib_counts = max(lib_counts)
-
-
-		# pos_c    = dict()
-		# pos_abd_d    = dict()
-		# pos_rpm_d    = dict()
-		# pos_strand_d = dict()
-		pos_size_d   = dict()
-		pos_d =dict()
-
-		genome_length = sum([c[1] for c in chromosomes])
-
+		pos_size_d = dict()
+		pos_d      = dict()
 
 		print(" processing alignment...")
 
-		libraries = list(lib_d.keys())
-
 		for chrom, chrom_length in chromosomes:
 
-			# 3rd dimension +, - strand
-			# pos_strand_d[chrom] = np.zeros(shape=(chrom_length, len(condition_order), 2), dtype='uint32')
-
 			pos_size_d[chrom] = [None] * chrom_length
-
-			# pos_abd_d[chrom]    = np.zeros(shape=(chrom_length), dtype='float32')
-			# pos_rpm_d[chrom]    = np.zeros(shape=(chrom_length, len(condition_order)), dtype='float32')
-
-
-			pos_d[chrom] = np.zeros(shape=(chrom_length, len(condition_order), max_lib_counts, 2), dtype='uint32')
+			pos_d[chrom] = np.zeros(shape=(chrom_length, len(annotation_conditions), max_lib_counts, 2), dtype='uint32')
 
 
 
-		# ec = elapsedClass()
+		ec = elapsedClass()
 		iterables = []
 		for c,l in chromosomes:
-			iterables.append(samtools_view(alignment_file, rgs=bam_rgs, contig=c))#, read_minmax=(params['min_read_length'], params['max_read_length'])))
+			iterables.append(samtools_view(alignment_file, rgs=libraries, contig=c))#, read_minmax=(params['min_read_length'], params['max_read_length'])))
 
 		reads = chain.from_iterable(iterables)
 
@@ -960,28 +899,18 @@ def tradeoff(**params):
 
 
 			pos += math.floor(length / 2)
-			rpm = lib_d[lib]['rpm']
 
 			strand_i    = ["+", "-"].index(strand)
-			condition_i = condition_order.index(condition)
+			condition_i = annotation_conditions.index(condition)
 			lib_i       = conditions[condition].index(lib)
 
 
 			pos_d[chrom][pos, condition_i, lib_i, strand_i] += 1
-			# pos_abd_d[chrom][pos] += 1
-
-			# pos_abd_d[chrom][pos, condition_i] += 1
-			# pos_rpm_d[chrom][pos, condition_i] += rpm
-			# pos_strand_d[chrom][pos, condition_i, strand_i] += 1
 
 			try:
 				pos_size_d[chrom][pos].append(length)
 			except AttributeError:
 				pos_size_d[chrom][pos] = [length]
-
-
-
-
 
 
 
@@ -992,35 +921,10 @@ def tradeoff(**params):
 				sys.stdout.overwrite_lines(1)
 
 
-			# bin_c[int((chrom_index[chrom] + pos) / params['kernel_window'])] += 1
-
-
-
-
-
-
-
 
 		print(f"    encoding reads ............... {perc.last_percent}%\t {i+1:,} reads   ", end='\n', flush=True)
 		# print(ec)
 
-
-		# print("==memory check==") # 9.5 Gb, not OK
-		# 8.36 without the rpb object
-		# 2.29 without the size object
-		# 6.6  with the sizes as uint8
-		# 3.8 with sizes as list of lists
-		## sticking with this for the following.
-
-		# 4.2 with strands also as a list
-		# 5.48 with uint32 for everything <- to avoid scalar errors..?
-		# 4.34 with uint32 for just rpb <- this is the right choice?
-
-		# 3.27 at the time of my commit
-
-		# 4.5 now storing rpms too all data 32 bit.
-
-		# sleep(100000)
 
 
 		class trackClass():
@@ -1072,7 +976,7 @@ def tradeoff(**params):
 
 
 		def numpy_method():
-			ec = elapsedClass()
+			# ec = elapsedClass()
 
 			gen_c = Counter() # a counter of kernel depths at positions in the genome 
 			read_c = Counter() # a counter of the max kernel depth across the span of a read.
@@ -1095,17 +999,27 @@ def tradeoff(**params):
 				# print("    rpm array...")
 
 				# print("    calc coverage...")
-				coverage = np.sum(pos_d[chrom], axis=3)
+				# print(pos_d[chrom].dtype)
+				coverage = np.sum(pos_d[chrom], axis=3, dtype='uint32')
+				# print(coverage.dtype)
 				# print(coverage.shape, "<- raw reads")
 				coverage = np.multiply(coverage, rpbs)
+				# print(coverage.dtype)
 				# print(coverage.shape, "<- rpb normalized")
-				coverage = np.mean(coverage, axis=(2))
-				# print(coverage.shape, "<- mean of libraries")
-				coverage = np.median(coverage, axis=(1))
-				# print(coverage.shape, "<- median of conditions")
+				coverage = np.median(coverage, axis=(2))
+				# print(coverage.dtype)
+				# print(coverage.shape, "<- median of libraries")
+				coverage = coverage.astype('float32')
+				# print(coverage.dtype)
+				# print(coverage.shape, "<- condensint to f32")
+				coverage = np.mean(coverage, axis=(1))
+				# print(coverage.dtype)
+				# print(coverage.shape, "<- mean of conditions")
 				coverage = sliding_window_view(coverage, cov_window, axis=0)
+				# print(coverage.dtype)
 				# print(coverage.shape, "<- windows")
 				coverage = np.mean(coverage, axis=1)
+				# print(coverage.dtype)
 				# print(coverage.shape, "<- mean kernel")
 				coverage = np.concatenate(
 					(np.array([coverage[0]] * half_cov_window), 
@@ -1114,11 +1028,11 @@ def tradeoff(**params):
 					axis=0)
 				# print(coverage.shape, "<- padded")
 
-
 				# print("    calc kernel...")
 				kernel = sliding_window_view(coverage, ker_window, axis=0)
 				# print(kernel.shape, "<- k windows")
 				kernel = np.max(kernel, axis=1)
+				# print(kernel.dtype)
 				# print(kernel.shape, "<- max kernel")
 				kernel = np.concatenate(
 					(np.array([kernel[0]] * half_cov_window), 
@@ -1126,7 +1040,6 @@ def tradeoff(**params):
 						np.array([kernel[0]] * (half_cov_window-1))), 
 					axis=0)
 				# print(kernel.shape, "<- padded")
-
 
 
 				# print("    write bigwigs...")
@@ -1141,17 +1054,16 @@ def tradeoff(**params):
 
 				# gen_c.update([k for k in kernel])
 
-				summed = np.sum(pos_d[chrom], axis=(1,2,3))
+				summed = np.sum(pos_d[chrom], axis=(1,2,3), dtype='uint32')
 
 				for i, k in enumerate(kernel):
 					v = int(summed[i])
 
+					k = round(k, 2)
+
 					read_c[k] += v
 					gen_c[k]  += 1
 
-
-			pprint(read_c.most_common(10))
-			pprint(gen_c.most_common(10))
 
 			print(f"    computing coverage ........... {chrom_i+1}/{len(chromosomes)} {chrom}                ", end='\n', flush=True)
 
@@ -1170,18 +1082,6 @@ def tradeoff(**params):
 		gen_c, read_c = numpy_method()
 
 
-		print("gen_c")
-		pprint(gen_c.most_common(20))
-		print(sum(gen_c.values()), "<- calculated genome length")
-
-		print()
-		print("read_c")
-
-		pprint(read_c.most_common(20))
-		print(sum(read_c.values()), "<- calculated read count")
-
-
-		# sys.exit()
 		### gen_c is a counter object
 		# key: floor(rpm) value based on kernel
 		# value: the number of ==genomic spaces== with that rpm value
@@ -1191,6 +1091,19 @@ def tradeoff(**params):
 		# value: the number of ==reads== in total with that rpm value
 
 
+
+		# print("gen_c")
+		# pprint(gen_c.most_common(20))
+		# print(sum(gen_c.values()), "<- calculated genome length")
+
+		# print()
+		# print("read_c")
+
+		# pprint(read_c.most_common(20))
+		# print(sum(read_c.values()), "<- calculated read count")
+
+
+
 		def tally(gen_c, read_c):
 			found_depths = list(gen_c.keys())
 			found_depths.sort()
@@ -1198,7 +1111,7 @@ def tradeoff(**params):
 			averages = []
 			table    = []
 
-			total_genomic_space  = genome_length
+			total_genomic_space  = sum([l for c,l in chromosomes])
 			total_possible_space = genome_length - gen_c[0]
 			total_read_space     = sum(read_c.values())
 			genp_thresholds      = []
@@ -1236,15 +1149,25 @@ def tradeoff(**params):
 
 				averages.append(round(weight_score, params['tradeoff_round']))
 
-				table.append([rpm_threshold, total_genomic_space, round(gen_score,4), round(adj_gen_score, 4),
-					total_read_space, round(total_read_space/aligned_read_count,4),
-					round(avg_score, 4), round(geom_score, 4), round(weight_score, 4)])
+				table.append([rpm_threshold, 
+					total_genomic_space, 
+					round(gen_score,4), 
+					round(adj_gen_score, 4),
+					total_read_space, 
+					round(total_read_space/aligned_read_count,4),
+					round(avg_score, 4), 
+					round(geom_score, 4), 
+					round(weight_score, 4)])
+
 
 			peak_index = averages.index(max(averages))
 
-			with open(Path(output_directory, 'thresholds.txt'), 'w') as outf:
+			with open(Path(output_directory, dir_name, 'thresholds.txt'), 'w') as outf:
 				print('depth\tannotated_space\tp_genome\tadj_p_genome\tannotated_reads\tp_reads\taverage_score\tgeom_score\tweighted_avg\tpeak', file=outf)
 				for i,t in enumerate(table):
+
+					# print(i,t)
+					# input()
 
 					if i == peak_index:
 						peak = 1
@@ -1266,25 +1189,10 @@ def tradeoff(**params):
 			# pprint(out)
 			return(out, readp_thresholds, genp_thresholds)
 		
-		# print()
-		# print(f'   pos_d: {asizeof.asizeof(pos_d):,}')
-		# print(f' depth_c: {asizeof.asizeof(depth_c):,}')
-		# print(f'kernel_c: {asizeof.asizeof(kernel_c):,}')
 
-
-
-		# gen_c, read_c = inline_method()
-		# tally_new(gen_c, read_c)
 		out, readp_thresholds, genp_thresholds = tally(gen_c, read_c)
 		print(out)
 		print()
-
-
-		# gen_c, read_c = counter_method()
-		# out = tally(gen_c, read_c)
-		# print(out)
-		# sys.exit()
-
 
 
 		return(pos_d, pos_size_d, out, readp_thresholds, genp_thresholds)
@@ -1313,7 +1221,7 @@ def tradeoff(**params):
 
 
 		print(" annotation parameters...")
-		print(f"    depth threshold: ......... {depth_threshold} reads")
+		print(f"    depth threshold: ......... {depth_threshold} rpb")
 		print(f" -> set genome proportion: ... {gen_score}")
 		print(f"    exp. read proportion: .... {read_score}")
 
@@ -1333,7 +1241,7 @@ def tradeoff(**params):
 
 
 		print(" annotation parameters...")
-		print(f"    depth threshold: ......... {depth_threshold} reads")
+		print(f"    depth threshold: ......... {depth_threshold} rpb")
 		print(f"    exp. genome proportion: .. {gen_score}")
 		print(f" -> set read proportion: ..... {read_score}")
 
@@ -1346,7 +1254,7 @@ def tradeoff(**params):
 		read_score      = threshold_stats['read_score']
 
 		print(" annotation parameters...")
-		print(f"    depth threshold: ......... {depth_threshold:,} rpm")
+		print(f"    depth threshold: ......... {round(depth_threshold,2):,} rpb")
 		print(f"    exp. genome proportion: .. {gen_score}")
 		print(f"    exp. read proportion: .... {read_score}")
 
@@ -1355,15 +1263,16 @@ def tradeoff(**params):
 
 	def get_regions(depth_threshold, chromosomes):
 
-
 		regions = []
-
 		def check_and_cash_region(in_region, reg_i, chrom, reg_start, reg_stop, chrom_length):
 			if in_region:
 
 				if reg_stop >= chrom_length:
 					reg_stop = chrom_length - 1
 
+
+				if np.sum(pos_d[chrom][reg_start:reg_stop,...]) == 0:
+					return(reg_i)
 				reg_i += 1
 				region = [f"region_{reg_i}", chrom, reg_start, reg_stop]
 				regions.append(region)
@@ -1375,9 +1284,9 @@ def tradeoff(**params):
 		reg_stop  = -1
 
 		bw = pyBigWig.open(str(Path(output_directory, dir_name, "kernel.bw")))
-		print(bw.isBigWig())
-		print(bw.chroms())
-		print(bw.header())
+		# print(bw.isBigWig())
+		# print(bw.chroms())
+		# print(bw.header())
 
 		for chrom, chrom_length in chromosomes:
 
@@ -1508,16 +1417,10 @@ def tradeoff(**params):
 			self.sizes   = sizeClass(minmax=read_minmax)
 			self.names   = set()
 
-			r = list(range(self.start, self.stop+1))
-			l = list(range(len(libraries)))
 
-			p = np.sum(pos_d[self.chrom][self.start:self.stop+1, ], axis=(0,1,2))
-
-			# p = sum(pos_strand_d[self.chrom][self.start:self.stop+1, l,], axis=(0,1,2))
+			p = np.sum(pos_d[self.chrom][self.start:self.stop+1, ...], axis=(0,1,2))
 
 			self.strands['+'], self.strands['-'] = p
-
-
 
 			try:
 				self.frac_top = self.strands['+'] / sum(self.strands.values())
@@ -1641,27 +1544,14 @@ def tradeoff(**params):
 			w_sizes   = sizeClass(minmax=read_minmax)
 			w_depths  = 0
 
-			# try:
+			p = np.multiply(np.sum(pos_d[chrom][window_start:window_end+1, ...], axis=(0,3)), rpbs)
+			p = np.median(p, axis=1)
+			p = np.mean(p, axis=0)
 
-			p = np.multiply(np.sum(pos_d[chrom][window_start:window_end+1,], axis=(0,3)), rpbs)
-			p = np.mean(p, axis=1)
-			p = np.median(p, axis=0)
 			w_depths = p
-
-			# w_depths = np.sum(np.multiply(np.sum(pos_d[chrom][window_start:window_end+1,], rpbs)), axis=(0,2,3))
-				# depth = np.sum(pos_rpm_d[chrom][w,])
-				# depth = sum(pos_depth_d[chrom][w, range(len(annotation_readgroups))])
-			# except IndexError:
-			# 	print(w)
-			# 	print(window_start, window_end)
-			# 	print(chromosome_max_lengths[chrom])
-			# 	sys.exit("INDEXERROR1")
-
-			# w_depths += depth
 
 
 			p = np.sum(pos_d[self.chrom][window_start:window_end+1,], axis=(0,1,2))
-			# p = np.sum(p, axis=0)
 
 			w_strands['+'] = p[0]
 			w_strands['-'] = p[1]
@@ -1674,7 +1564,6 @@ def tradeoff(**params):
 				if sizes:
 					w_sizes.update(sizes)
 
-			# print(' ', w, depth)
 
 			if expand: 
 				## trimming doesnt worry about hitting other loci
@@ -1694,10 +1583,6 @@ def tradeoff(**params):
 			expand_fails = []
 
 			if w_depths == 0:
-				# pprint(w_strands)
-				# print('empty break')
-				# sys.exit()
-
 				expand_fails.append('empty')
 
 			else:
@@ -1784,6 +1669,7 @@ def tradeoff(**params):
 				rc = reviseClass(region)
 			except AttributeError:
 				print(f"Warning: {region} encountered an error (empty)")
+				# print(f"  to check: samtools view {alignment_file} {chrom}:{start}-{stop}")
 				continue
 
 			new_start, new_stop = rc.expand()
@@ -1857,21 +1743,77 @@ def tradeoff(**params):
 
 	max_chrom_word_length = max([len(c) for c,l in chromosomes])
 
-	def print_progress_string(i, n, chrom, input_loci, output_loci, assess=False, terminal_only=False):
+	class progressClass():
+		def __init__(self, chrom, region_count=None):
+			max_chrom_word_length = max([len(c) for c,l in chromosomes])
 
-		chrom = chrom + (max_chrom_word_length - len(chrom)) * " "
+			self.header = "\t".join(['prog', "chrom"+(max_chrom_word_length-5)*" ",'regions','loci','assess'])
 
-		if not assess:
-			assess = ''
-		else:
-			assess = f"\t{assess}%"
+			self.chrom          = chrom
+			self.region_count   = region_count
+			self.locus_count    = region_count
+			self.assessed_count = 0
 
-		sys.stdout.write(f"{i+1}/{n}\t{chrom}\t{string_plus_white(input_loci)}\t{string_plus_white(output_loci)}{assess}  \r", 
-			terminal_only=terminal_only)
-		sys.stdout.flush()
+			self.i = [c for c,l in chromosomes].index(chrom) + 1
+			self.n = len(chromosomes)
+
+		def add_white(self, s, length = 7):
+			s = str(s)
+			return s + " " * (length - len(s))
+
+		def show(self, region_count=None, locus_count=None, assessed_count=None, terminal_only=True):
+
+			if region_count:
+				self.region_count = region_count
+
+			if locus_count:
+				self.locus_count = locus_count
+
+			if assessed_count:
+				self.assessed_count = assessed_count
+
+			if self.assessed_count == 0 or self.locus_count == 0:
+				assess_p = ''
+			else:
+				# assess_p = round(self.assessed_count / self.locus_count / 20) * 5
+				# assess_p = f"{assess_p}%"
+				# assess_p = str(self.assessed_count)
+				assess_p = self.add_white(self.assessed_count)
+	
+			to_print = [
+				f"{self.i}/{self.n}",
+				self.chrom,
+				self.add_white(self.region_count),
+				self.add_white(self.locus_count),
+				assess_p
+			]
+			to_print = "\t".join(to_print) + "\n"
+
+			if terminal_only:
+				sys.stdout.write("\x1b[1A\x1b[2K", terminal_only = True)
+			sys.stdout.write(to_print, terminal_only = terminal_only)
+
+
+
+
+
+	# def print_progress_string(i, n, chrom, input_loci, output_loci, assess=False, terminal_only=False):
+
+	# 	chrom = chrom + (max_chrom_word_length - len(chrom)) * " "
+
+	# 	if not assess:
+	# 		assess = ''
+	# 	else:
+	# 		assess = f"\t{assess}%"
+
+	# 	sys.stdout.write(f"{i+1}/{n}\t{chrom}\t{string_plus_white(input_loci)}\t{string_plus_white(output_loci)}{assess}  \r", 
+	# 		terminal_only=terminal_only)
+	# 	sys.stdout.flush()
 
 	print()
-	print('prog', "chrom"+(max_chrom_word_length-5)*" ",'regions\tloci\tassess', sep='\t')
+	# print('prog', "chrom"+(max_chrom_word_length-5)*" ",'regions\tloci\tassess', sep='\t')
+	print(progressClass(chrom).header)
+	print()
 
 	total_region_space = 0
 	regions_name_i = 0
@@ -1887,11 +1829,10 @@ def tradeoff(**params):
 	annotated_reads = 0
 
 
-	locus_name_i = 1
+	locus_name_i = 0
+	all_loci = []
 
 	for chrom_count, chrom_and_length in enumerate(chromosomes):
-
-
 		chrom, chrom_length = chrom_and_length
 
 		status_line = f'{chrom_count+1}/{len(chromosomes)}\t'
@@ -1917,7 +1858,7 @@ def tradeoff(**params):
 					pass
 
 			strand = Counter()
-			p = np.sum(pos_d[chrom][start: stop], axis=(0,1,2))
+			p = np.sum(pos_d[chrom][start: stop, ...], axis=(0,1,2))
 			strand['+'] = int(p[0])
 			strand['-'] = int(p[1])
 
@@ -1953,7 +1894,9 @@ def tradeoff(**params):
 
 			return(ft)
 
-		def check_merge(curr_name, next_name):
+		def check_merge(curr_name, next_name, curr_stop, next_start):
+
+			dist_test = next_start - curr_stop <= params['merge_dist']
 
 			size_test = sizecall_d[curr_name] == sizecall_d[next_name]
 
@@ -1963,37 +1906,47 @@ def tradeoff(**params):
 
 			frac_test = abs(get_ft(curr_ft) - get_ft(next_ft)) < clump_strand_similarity
 
-			return size_test and frac_test
+			return size_test and frac_test and dist_test
 
 		def do_merge(curr_name, betw_name, next_name):
 			strands = strand_d[curr_name] + strand_d[next_name] + strand_d[betw_name]
 			sizes   = sizecall_d[curr_name] + sizecall_d[next_name] + sizecall_d[betw_name]
 
-
 			return(strands, sizes)
 
 		i = 0
+		pc = progressClass(chrom, len(regions))
+
+		locus_count = len(regions)
+		pc.show(locus_count=locus_count)
 
 		if len(regions) == 0:
+			# print()
+			pc.show(terminal_only=False)
 			continue
 
 		if len(regions) == 1:
 			loci = [[f"locus_{locus_name_i}"] + regions[0][1:]]
+
+
 		else:
-			locus_count = len(regions)
 			curr_name = regions[i][0].replace("region_", "r")
 			betw_name = regions[i][0].replace("region_", "a")
 			next_name = regions[i+1][0].replace("region_", "r")
+			next_start = regions[i][2]
 
-			loci = []
 			loc_start = regions[i][2]
 			loc_stop  = regions[i][3]
+
+			loci = []
 			
-			print_progress_string(chrom_count, len(chromosomes), chrom, len(regions), locus_count, terminal_only=True)
+			# print_progress_string(chrom_count, len(chromosomes), chrom, len(regions), locus_count, terminal_only=True)
+			# progressClass
+
 
 			while True:
 
-				if check_merge(curr_name, next_name):
+				if check_merge(curr_name, next_name, loc_stop, next_start):
 
 					strand_d[curr_name], sizecall_d[curr_name] = do_merge(curr_name, betw_name, next_name)
 
@@ -2002,7 +1955,8 @@ def tradeoff(**params):
 					del sizecall_d[betw_name]
 					del sizecall_d[next_name]
 
-					# print(i, f"{curr_name} <<< {betw_name}, {next_name}")
+					with open(merge_file, 'a') as outf:
+						print(i, f"{curr_name} <<< {betw_name}, {next_name}", file=outf)
 					locus_count -= 1
 
 					loc_stop  = regions[i+1][3]
@@ -2016,7 +1970,9 @@ def tradeoff(**params):
 					strand_d[locus_name]   = strand_d.pop(curr_name)
 					sizecall_d[locus_name] = sizecall_d.pop(curr_name)
 
-					# print(i, f"{locus_name} <<< {curr_name}")
+
+					with open(merge_file, 'a') as outf:
+						print(i, f"{locus_name} <<< {curr_name}", file=outf)
 
 					curr_name = next_name
 					loc_start = regions[i+1][2]
@@ -2024,30 +1980,40 @@ def tradeoff(**params):
 
 				i += 1
 
+
+				pc.show(locus_count=locus_count-1)
+
 				if i == len(regions) - 1:
 					break
 
 				betw_name = regions[i][0].replace("region_", "a")
 				next_name = regions[i+1][0].replace("region_", "r")
+				next_start = regions[i+1][2]
 
-				print_progress_string(chrom_count, len(chromosomes), chrom, len(regions), locus_count, terminal_only=True)
+
+
+				# print_progress_string(chrom_count, len(chromosomes), chrom, len(regions), locus_count, terminal_only=True)
 				# input(i)
 
+				# sleep(0.05)
+
+			all_loci += loci
 			# continue
 
-
-
-
+			# print()
+			# sys.exit('\n')
 
 
 		## Assessing locus dimensions and making annotations
 
-		perc = percentageClass(increment=5, total=len(regions))
+		# perc = percentageClass(increment=5, total=len(regions))
 
 		last_stop = 0
 		for i,locus in enumerate(loci):
 
 			# print()
+			# print()
+			# print("############")
 			# print(locus)
 
 			rc = reviseClass(locus)
@@ -2060,20 +2026,24 @@ def tradeoff(**params):
 			# print(locus[0])
 			# name = locus[0]
 
-			print_percentage = perc.get_percent(i)
-			if print_percentage:
-				print_progress_string(chrom_count, len(chromosomes), chrom, len(regions), len(loci), print_percentage, terminal_only=True)
+
+			pc.show(assessed_count=i+1)
+
+			# print_percentage = perc.get_percent(i)
+			# if print_percentage:
+			# 	print_progress_string(chrom_count, len(chromosomes), chrom, len(regions), len(loci), print_percentage, terminal_only=True)
 
 			name, chrom, start, stop = locus
 			coords = f"{chrom}:{start}-{stop}"
 
-  
+
 
 			def check_best_condition():
 				locus_abd = pos_d[chrom][start:stop, ]
 				p = np.sum(locus_abd, axis=(0,3))
 				p = np.multiply(p, rpbs)
-				p = np.mean(p, axis=1)
+				p = np.median(p, axis=1)
+				# print(p)
 				best_ci = int(np.argmax(p))
 				return(best_ci, locus_abd)
 
@@ -2094,97 +2064,38 @@ def tradeoff(**params):
 			best_size   = sizeClass()
 			best_seq    = Counter()
 
+			strand      = Counter()
+			size        = sizeClass()
+			seq         = Counter()
+
+
+
 			for read in samtools_view(alignment_file, contig=chrom, start=start, stop=stop):
 
 				sam_strand, sam_read_length, _, _, _, sam_lib, sam_seq, _ = read
 
-				best_strand[sam_strand] += 1
-				best_size.update(sam_read_length)
-				best_seq[sam_seq] += 1
 
+				strand[sam_strand] += 1
+				size.update(sam_read_length)
+				seq[sam_seq] += 1
 
-			# pprint(best_seq)
+				if sam_lib in libraries:
 
-			# print('done')
-			# sys.exit()
+					best_strand[sam_strand] += 1
+					best_size.update(sam_read_length)
+					best_seq[sam_seq] += 1
 
+				# print(read)
 
 			# print()
-			# print(locus_abd.shape)
-			# ci = [i for c,i in conditions.keys() if c == best_condition]
-
-			# p = np.sum(locus_abd[:, best_condition_i, :, :,], axis=(0,1))
-			
-			# best_strand = Counter()
-			# best_strand["+"] += p[0]
-			# best_strand["-"] += p[1]
-
-			# best_size = 
 
 
-			# ann_libs = conditions[best_condition]
-
-
-
-
-			# # print(locus)
-			# seq_d[name] = Counter("FALSETEST")
-
-			# strand_d[name]   = strand_d.pop(old_name)
-			# sizecall_d[name] = sizecall_d.pop(old_name)
-			# seq_d[name]      = seq_d.pop(old_name)
-
-
-
-			# for c in conditions.keys():
-			# 	try:
-			# 		strand_d[(name, c)]   = strand_d.pop((old_name, c))
-			# 		sizecall_d[(name, c)] = sizecall_d.pop((old_name, c))
-			# 		seq_d[(name, c)]      = seq_d.pop((old_name, c))
-			# 	except KeyError:
-			# 		# print()
-			# 		# print("(name, c) missing from dict")
-			# 		# print()
-			# 		pass
-
-			# try:
-			# 	strand_c = strand_d[(name, best_condition)]
-			# except KeyError:
-
-			# 	print()
-			# 	print(old_name, name)
-
-			# 	print(strand_d[name])
-
-			# 	print(name, best_condition)
-			# 	print(name in strand_d, 'name in strand_d')
-			# 	print((name, best_condition) in sizecall_d, '(name, best_condition) in sizecall_d')
-			# 	print(name in sizecall_d, 'name in sizecall_d')
-			# 	print((name, best_condition) in seq_d, '(name, best_condition) in seq_d')
-			# 	print(name in seq_d, 'name in seq_d')
-			# 	sys.exit()
-
-
-			# sizecall = sizecall_d[(name, best_condition)]
-			# read_c   = seq_d[(name, best_condition)]
-
-
-
-
-
-
-			# print(name)
-			# print("total:")
-			# pprint(strand_d[name])
-			# print(f"best_condition ({best_condition}):")
-			# pprint(strand_d[(name, best_condition)])
-			# input()
-
-			abd = sum(best_seq.values())
+			abd = sum(seq.values())
 			length = stop-start
 
-			complexity = len(best_seq.keys()) / length * 1000
-			skew       = best_seq.most_common(1)[0][1] / sum(best_seq.values())
+			complexity = len(seq.keys()) / length * 1000
+			skew       = seq.most_common(1)[0][1] / sum(seq.values())
+
 
 			pass_complexity = complexity >= params['min_complexity']
 			pass_skew       = skew <= params['max_skew']
@@ -2219,7 +2130,7 @@ def tradeoff(**params):
 
 			
 			annotated_space += length
-			annotated_reads += abd
+			annotated_reads += np.sum(locus_abd)
 
 			# print(f"{length} ({annotated_space})\t{abd} ({annotated_reads})")
 			# print()
@@ -2236,11 +2147,16 @@ def tradeoff(**params):
 			with open(gff_file, 'a') as outf:
 				print("\t".join(map(str, gff_line)), file=outf)
 
-			top_reads_save(best_seq, reads_file, read_equivalent, name)
+			top_reads_save(best_seq, reads_file, abd, name)
 
 
 
-		print_progress_string(chrom_count, len(chromosomes), chrom,  len(regions), len(loci), terminal_only=False)
+			# print_progress_string(chrom_count, len(chromosomes), chrom,  len(regions), len(loci), terminal_only=False)
+
+		pc.show(terminal_only=False)
+		# print()
+
+
 		# if regions:
 		# 	print_progress_string(chrom_count, len(chromosomes), chrom, len(regions), len(loci), print_percentage, terminal_only=False)
 		# else:
@@ -2309,7 +2225,7 @@ def tradeoff(**params):
 		# 	overall_d['read_depths']    = read_depths
 
 
-		print()
+		# print()
 
 
 	# sys.exit("stopping here")
@@ -2321,6 +2237,7 @@ def tradeoff(**params):
 		else:
 			return "[ ]"
 
+	print()
 	print()
 	print(f"locus filters:  (x = filter activated)")
 	print(f"  {bool_to_check(params['filter_skew'])} {skew_filter} loci are extremely skewed (> {params['max_skew']} prop. abundance is a single sequence)")
