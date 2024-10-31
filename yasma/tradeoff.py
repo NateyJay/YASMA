@@ -754,6 +754,7 @@ def tradeoff(**params):
 
 
 	# print(rpbs)
+	# print(rpbs.shape)
 
 	### calling subsampling if needed
 
@@ -991,6 +992,7 @@ def tradeoff(**params):
 
 			for chrom_i, chromosome_entry in enumerate(chromosomes):
 				chrom, chrom_length = chromosome_entry
+				print()
 
 				sys.stdout.write(f"    computing coverage ........... {chrom_i+1}/{len(chromosomes)} {chrom}                \n", terminal_only=True)
 				sys.stdout.flush()
@@ -1001,49 +1003,60 @@ def tradeoff(**params):
 				# print("    calc coverage...")
 				# print(pos_d[chrom].dtype)
 				coverage = np.sum(pos_d[chrom], axis=3, dtype='uint32')
-				# print(coverage.dtype)
-				# print(coverage.shape, "<- raw reads")
-				coverage = np.multiply(coverage, rpbs)
-				# print(coverage.dtype)
-				# print(coverage.shape, "<- rpb normalized")
-				coverage = np.median(coverage, axis=(2))
-				# print(coverage.dtype)
-				# print(coverage.shape, "<- median of libraries")
-				coverage = coverage.astype('float32')
-				# print(coverage.dtype)
-				# print(coverage.shape, "<- condensint to f32")
-				coverage = np.mean(coverage, axis=(1))
-				# print(coverage.dtype)
-				# print(coverage.shape, "<- mean of conditions")
-				coverage = sliding_window_view(coverage, cov_window, axis=0)
-				# print(coverage.dtype)
-				# print(coverage.shape, "<- windows")
-				coverage = np.mean(coverage, axis=1)
-				# print(coverage.dtype)
-				# print(coverage.shape, "<- mean kernel")
-				coverage = np.concatenate(
-					(np.array([coverage[0]] * half_cov_window), 
-						coverage, 
-						np.array([coverage[-1]] * (half_cov_window-1))), 
-					axis=0)
-				# print(coverage.shape, "<- padded")
 
-				# print("    calc kernel...")
-				kernel = sliding_window_view(coverage, ker_window, axis=0)
-				# print(kernel.shape, "<- k windows")
-				kernel = np.max(kernel, axis=1)
-				# print(kernel.dtype)
-				# print(kernel.shape, "<- max kernel")
-				kernel = np.concatenate(
-					(np.array([kernel[0]] * half_cov_window), 
-						kernel, 
-						np.array([kernel[0]] * (half_cov_window-1))), 
-					axis=0)
-				# print(kernel.shape, "<- padded")
+				if coverage.shape[0] < cov_window or coverage.shape[0] < ker_window:
+					print(chrom, 'pass, too short!')
+
+					coverage = np.zeros(shape=(coverage.shape[0]), dtype='uint32')
+					kernel   = np.zeros(shape=(coverage.shape[0]), dtype='uint32')
+
+				else:
+					# print(coverage.dtype)
+					print(coverage.shape, "<- raw reads")
+					coverage = np.multiply(coverage, rpbs)
+					# print(coverage.dtype)
+					print(coverage.shape, "<- rpb normalized")
+					coverage = np.median(coverage, axis=(2))
+					# print(coverage.dtype)
+					print(coverage.shape, "<- median of libraries")
+					coverage = coverage.astype('float32')
+					# print(coverage.dtype)
+					# print(coverage.shape, "<- condensint to f32")
+					coverage = np.mean(coverage, axis=(1))
+					# print(coverage.dtype)
+					# print(coverage.shape, "<- mean of conditions")
+					coverage = sliding_window_view(coverage, cov_window, axis=0)
+					# print(coverage.dtype)
+					# print(coverage.shape, "<- windows")
+					coverage = np.mean(coverage, axis=1)
+					# print(coverage.dtype)
+					# print(coverage.shape, "<- mean kernel")
+					coverage = np.concatenate(
+						(np.array([coverage[0]] * half_cov_window), 
+							coverage, 
+							np.array([coverage[-1]] * (half_cov_window-1))), 
+						axis=0)
+					# print(coverage.shape, "<- padded")
 
 
-				# print("    write bigwigs...")
 
+					# print("    calc kernel...")
+					kernel = sliding_window_view(coverage, ker_window, axis=0)
+					# print(kernel.shape, "<- k windows")
+					kernel = np.max(kernel, axis=1)
+					# print(kernel.dtype)
+					# print(kernel.shape, "<- max kernel")
+					kernel = np.concatenate(
+						(np.array([kernel[0]] * half_cov_window), 
+							kernel, 
+							np.array([kernel[0]] * (half_cov_window-1))), 
+						axis=0)
+					# print(kernel.shape, "<- padded")
+
+
+					# print("    write bigwigs...")
+
+				# print(coverage)
 				for i, c in enumerate(coverage):
 					cov_track.add(chrom, i+1, float(c))
 
