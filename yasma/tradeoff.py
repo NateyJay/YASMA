@@ -601,8 +601,8 @@ def tradeoff(**params):
 
 	if annotation_name:
 		dir_name = f"tradeoff_{annotation_name}"
-	elif annotation_conditions:
-		dir_name = f"tradeoff_{'_'.join(annotation_conditions)}"
+	# elif annotation_conditions:
+	# 	dir_name = f"tradeoff_{'_'.join(annotation_conditions)}"
 	else:
 		dir_name = 'tradeoff'
 
