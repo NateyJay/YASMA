@@ -633,6 +633,19 @@ def tradeoff(**params):
 	print()
 	print("Start time:",date_time)	
 
+	stat_d = {} ## an object which records basic stats of the annotation
+	# project	
+	# annotation_name	
+	# region_count	
+	# locus_count	
+	# genome_length	
+	# proportion_genome_annotated	
+	# mean_length	median_length	
+	# total_depth	
+	# proportion_library_annotated	
+	# mean_depth	
+	# median_depth
+
 
 	### Writing annotation parameters to folder
 
@@ -644,10 +657,6 @@ def tradeoff(**params):
 		outf.write(json.dumps(params, indent=2))
 		del oparams
 		# sys.exit()
-
-
-
-
 
 
 	### Getting alignment metadata
@@ -1551,6 +1560,7 @@ def tradeoff(**params):
 			window_start, window_end = window
 
 			if window_start < self.start or window_end > self.stop:
+				print(window_start, self.start, window_end, self.stop)
 				return(False, ['outofbounds'])
 
 
@@ -1659,7 +1669,8 @@ def tradeoff(**params):
 
 				if 'outofbounds' in fail_list:
 					print(self.start, self.stop)
-					sys.exit("OOB error")
+					print("Warning: OOB")
+					# sys.exit("OOB error")
 
 				if test:
 					return(window)
