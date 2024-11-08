@@ -741,7 +741,7 @@ def tradeoff(**params):
 
 		rpb_d[lib] = rpb
 
-		print(f"    {condition} {lib} -> {depth:,} -> {rpb:,} eq reads")
+		print(f"    {condition} {lib} -> {depth:,} -> {rpb:,} scaled read")
 
 
 	rpbs = np.zeros(shape=(len(annotation_conditions), max([len(conditions[c]) for c in annotation_conditions])), dtype='uint32')
@@ -1012,13 +1012,13 @@ def tradeoff(**params):
 
 				else:
 					# print(coverage.dtype)
-					print(coverage.shape, "<- raw reads")
+					# print(coverage.shape, "<- raw reads")
 					coverage = np.multiply(coverage, rpbs)
 					# print(coverage.dtype)
-					print(coverage.shape, "<- rpb normalized")
+					# print(coverage.shape, "<- rpb normalized")
 					coverage = np.median(coverage, axis=(2))
 					# print(coverage.dtype)
-					print(coverage.shape, "<- median of libraries")
+					# print(coverage.shape, "<- median of libraries")
 					coverage = coverage.astype('float32')
 					# print(coverage.dtype)
 					# print(coverage.shape, "<- condensint to f32")
