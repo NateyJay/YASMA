@@ -924,6 +924,7 @@ def tradeoff(**params):
 
 
 		print(f"    encoding reads ............... {perc.last_percent}%\t {i+1:,} reads   ", end='\n', flush=True)
+		sys.stdout.overwrite_lines(1)
 		# print(ec)
 
 
