@@ -897,7 +897,7 @@ def tradeoff(**params):
 
 		reads = chain.from_iterable(iterables)
 
-		print(f"    encoding reads ............... 0%", end='\r', flush=True)
+		# print(f"    encoding reads ............... 0%", end='\r', flush=True)
 		perc = percentageClass(1, sum(chrom_depth_c.values()))
 		perc.update()
 
@@ -931,9 +931,9 @@ def tradeoff(**params):
 				sys.stdout.overwrite_lines(1)
 
 
-
+		# print()
 		print(f"    encoding reads ............... {perc.last_percent}%\t {i+1:,} reads   ", end='\n', flush=True)
-		sys.stdout.overwrite_lines(1)
+
 		# print(ec)
 
 
@@ -1002,7 +1002,6 @@ def tradeoff(**params):
 
 			for chrom_i, chromosome_entry in enumerate(chromosomes):
 				chrom, chrom_length = chromosome_entry
-				print()
 
 				sys.stdout.write(f"    computing coverage ........... {chrom_i+1}/{len(chromosomes)} {chrom}                \n", terminal_only=True)
 				sys.stdout.flush()
@@ -1126,96 +1125,185 @@ def tradeoff(**params):
 		# print(sum(read_c.values()), "<- calculated read count")
 
 
-
-		def tally(gen_c, read_c):
+		def knee(gen_c, read_c):
 			found_depths = list(gen_c.keys())
 			found_depths.sort()
 
-			averages = []
-			table    = []
-
 			total_genomic_space  = sum([l for c,l in chromosomes])
-			total_possible_space = genome_length - gen_c[0]
 			total_read_space     = sum(read_c.values())
-			genp_thresholds      = []
-			adj_genp_thresholds  = []
-			readp_thresholds     = []
-
-			for rpm_threshold in found_depths:
-
-				total_genomic_space -= gen_c[rpm_threshold]
-				total_read_space    -= read_c[rpm_threshold]
 
 
+			thresholds      = []
+			annotated_space = []
+			p_gens          = []
+			annotated_reads = []
+			p_reads         = []
+			averages        = []
+			kdiffs          = []
 
-				# print(depth_threshold, total_genomic_space, sep='\t')
-
-				gen_score     = total_genomic_space / genome_length
-				adj_gen_score = total_genomic_space / total_possible_space
-				read_score    = total_read_space / aligned_read_count
-
-				genp_thresholds.append((gen_score, rpm_threshold))
-				adj_genp_thresholds.append((adj_gen_score, rpm_threshold))
-				readp_thresholds.append((read_score, rpm_threshold))
-
-				## unweighted avg
-				avg_score = ((1-gen_score) + read_score) / 2
+			genp_thresholds  = []
+			readp_thresholds = []
 
 
-				## weight avg
-				weight_score = ((1-gen_score) * params['genome_weight'] + read_score * params['read_weight']) / sum([params['genome_weight'], params['read_weight']])
+			for threshold in found_depths:
+
+				total_genomic_space -= gen_c[threshold]
+				total_read_space    -= read_c[threshold]
+
+				p_read = total_read_space / aligned_read_count
+				p_gen  = total_genomic_space / genome_length
 
 
+				genp_thresholds.append((p_gen, threshold))
+				readp_thresholds.append((p_read, threshold))
 
-				geom_score = math.sqrt(((1-gen_score) * read_score))
+				average = mean([p_read, p_gen])
 
-
-				averages.append(round(weight_score, params['tradeoff_round']))
-
-				table.append([rpm_threshold, 
-					total_genomic_space, 
-					round(gen_score,4), 
-					round(adj_gen_score, 4),
-					total_read_space, 
-					round(total_read_space/aligned_read_count,4),
-					round(avg_score, 4), 
-					round(geom_score, 4), 
-					round(weight_score, 4)])
+				vdist = p_read - p_gen
+				pdist = math.sqrt( (average - p_gen)**2 * 2 )
+				kdiff = vdist - pdist
 
 
-			peak_index = averages.index(max(averages))
+				thresholds.append(threshold)
+				annotated_space.append(total_genomic_space)
+				annotated_reads.append(total_read_space)
+				p_gens.append(p_gen)
+				p_reads.append(p_read)
+				averages.append(average)
+				kdiffs.append(kdiff)
+
+
+			peak_i = max(range(len(kdiffs)), key=kdiffs.__getitem__)
+
 
 			with open(Path(output_directory, dir_name, 'thresholds.txt'), 'w') as outf:
-				print('depth\tannotated_space\tp_genome\tadj_p_genome\tannotated_reads\tp_reads\taverage_score\tgeom_score\tweighted_avg\tpeak', file=outf)
-				for i,t in enumerate(table):
+				print('depth\tannotated_space\tp_genome\tannotated_reads\tp_reads\taverage_score\tkdiff\tpeak', file=outf)
 
-					# print(i,t)
-					# input()
+				for i, threshold in enumerate(found_depths):
 
-					if i == peak_index:
+					space     = annotated_space[i]
+					p_gen     = p_gens[i]
+					reads     = annotated_reads[i]
+					p_read    = p_reads[i]
+					average   = averages[i]
+					kdiff     = kdiffs[i]
+
+					threshold = round(threshold, 3)
+
+
+					if i == peak_i:
 						peak = 1
 						out = {
-							'rpm_threshold' : t[0],
-							'gen_score' : t[2],
-							'adj_gen_score' : t[3],
-							'read_score' : t[5],
-							'avg_score' : t[6],
-							'weighted_avg' : t[8]
+							'threshold' : threshold,
+							'p_gen'     : p_gen,
+							'genome'    : space,
+							'p_read'    : p_read,
+							'reads'     : reads,
+							'average'   : average,
+							'kdiff'     : kdiff
 							}
 					else:
 						peak = 0
 
-					print("\t".join(map(str, t)), peak, sep='\t', file=outf)
-					if total_genomic_space > genome_length:
-						sys.exit("problem!!")
+					print(threshold, space, p_gen, reads, p_read, average, kdiff, peak, sep='\t', file=outf)
 
-			# pprint(out)
 			return(out, readp_thresholds, genp_thresholds)
 		
 
-		out, readp_thresholds, genp_thresholds = tally(gen_c, read_c)
+		out, readp_thresholds, genp_thresholds = knee(gen_c, read_c)
 		print(out)
-		print()
+
+
+
+		# def tally(gen_c, read_c):
+		# 	found_depths = list(gen_c.keys())
+		# 	found_depths.sort()
+
+		# 	averages = []
+		# 	table    = []
+
+		# 	total_genomic_space  = sum([l for c,l in chromosomes])
+		# 	total_possible_space = genome_length - gen_c[0]
+		# 	total_read_space     = sum(read_c.values())
+		# 	genp_thresholds      = []
+		# 	adj_genp_thresholds  = []
+		# 	readp_thresholds     = []
+
+		# 	for rpm_threshold in found_depths:
+
+		# 		total_genomic_space -= gen_c[rpm_threshold]
+		# 		total_read_space    -= read_c[rpm_threshold]
+
+
+
+		# 		# print(depth_threshold, total_genomic_space, sep='\t')
+
+		# 		gen_score     = total_genomic_space / genome_length
+		# 		adj_gen_score = total_genomic_space / total_possible_space
+		# 		read_score    = total_read_space / aligned_read_count
+
+		# 		genp_thresholds.append((gen_score, rpm_threshold))
+		# 		adj_genp_thresholds.append((adj_gen_score, rpm_threshold))
+		# 		readp_thresholds.append((read_score, rpm_threshold))
+
+		# 		## unweighted avg
+		# 		avg_score = ((1-gen_score) + read_score) / 2
+
+
+		# 		## weight avg
+		# 		weight_score = ((1-gen_score) * params['genome_weight'] + read_score * params['read_weight']) / sum([params['genome_weight'], params['read_weight']])
+
+
+
+		# 		geom_score = math.sqrt(((1-gen_score) * read_score))
+
+
+		# 		averages.append(round(weight_score, params['tradeoff_round']))
+
+		# 		table.append([rpm_threshold, 
+		# 			total_genomic_space, 
+		# 			round(gen_score,4), 
+		# 			round(adj_gen_score, 4),
+		# 			total_read_space, 
+		# 			round(total_read_space/aligned_read_count,4),
+		# 			round(avg_score, 4), 
+		# 			round(geom_score, 4), 
+		# 			round(weight_score, 4)])
+
+
+		# 	peak_index = averages.index(max(averages))
+
+		# 	with open(Path(output_directory, dir_name, 'thresholds.txt'), 'w') as outf:
+		# 		print('depth\tannotated_space\tp_genome\tadj_p_genome\tannotated_reads\tp_reads\taverage_score\tgeom_score\tweighted_avg\tpeak', file=outf)
+		# 		for i,t in enumerate(table):
+
+		# 			# print(i,t)
+		# 			# input()
+
+		# 			if i == peak_index:
+		# 				peak = 1
+		# 				out = {
+		# 					'rpm_threshold' : t[0],
+		# 					'gen_score' : t[2],
+		# 					'adj_gen_score' : t[3],
+		# 					'read_score' : t[5],
+		# 					'avg_score' : t[6],
+		# 					'weighted_avg' : t[8]
+		# 					}
+		# 			else:
+		# 				peak = 0
+
+		# 			print("\t".join(map(str, t)), peak, sep='\t', file=outf)
+		# 			if total_genomic_space > genome_length:
+		# 				sys.exit("problem!!")
+
+		# 	# pprint(out)
+		# 	return(out, readp_thresholds, genp_thresholds)
+		
+
+		# out, readp_thresholds, genp_thresholds = tally(gen_c, read_c)
+		# print(out)
+		# print()
 
 
 		return(pos_d, pos_size_d, out, readp_thresholds, genp_thresholds)
@@ -1271,10 +1359,10 @@ def tradeoff(**params):
 	else:
 		print(f"Finding threshold through weighted tradeoff. Weight: [{params['read_weight']}] reads to [{params['genome_weight']}] genome")
 
-		depth_threshold = threshold_stats['rpm_threshold']
-		gen_score       = threshold_stats['gen_score']
-		adj_gen_score   = threshold_stats['adj_gen_score']
-		read_score      = threshold_stats['read_score']
+		depth_threshold = threshold_stats['threshold']
+		gen_score       = threshold_stats['p_gen']
+		# adj_gen_score   = threshold_stats['adj_gen_score']
+		read_score      = threshold_stats['p_read']
 
 		print(" annotation parameters...")
 		print(f"    depth threshold: ......... {round(depth_threshold,2):,} rpb")
@@ -1282,7 +1370,7 @@ def tradeoff(**params):
 		print(f"    exp. read proportion: .... {read_score}")
 
 
-	if threshold_stats['rpm_threshold'] == 0.0:
+	if threshold_stats['threshold'] == 0.0:
 		sys.exit("Error: detected threshold for annotation is 0 reads per million (0 reads).\nThis will annotate 100%% of reads, leading to a highly unrepresentative sample. This might be caused by problems with the alignment, libraries (check these), or an internal problem with YASMA (please make an issue on github)")
 
 
@@ -1319,7 +1407,7 @@ def tradeoff(**params):
 			in_region = False
 
 			for inv_start, inv_stop, depth in bw.intervals(chrom, 0, chrom_length):
-				if depth >= depth_threshold:
+				if depth > depth_threshold:
 					if not in_region:
 						reg_start = inv_start
 					reg_stop  = inv_stop
@@ -1560,7 +1648,7 @@ def tradeoff(**params):
 			window_start, window_end = window
 
 			if window_start < self.start or window_end > self.stop:
-				print(window_start, self.start, window_end, self.stop)
+				# print(window_start, self.start, window_end, self.stop)
 				return(False, ['outofbounds'])
 
 
