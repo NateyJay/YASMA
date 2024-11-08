@@ -1272,6 +1272,9 @@ def tradeoff(**params):
 		print(f"    exp. read proportion: .... {read_score}")
 
 
+	if threshold_stats['rpm_threshold'] == 0.0:
+		sys.exit("Error: detected threshold for annotation is 0 reads per million (0 reads).\nThis will annotate 100%% of reads, leading to a highly unrepresentative sample. This might be caused by problems with the alignment, libraries (check these), or an internal problem with YASMA (please make an issue on github)")
+
 
 
 	def get_regions(depth_threshold, chromosomes):
