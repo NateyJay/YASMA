@@ -149,9 +149,11 @@ def trim(**params):
 
 
 
+
+
 	ic.inputs['trimmed_libraries'] = trimmed_libraries
 	ic.write()
 
 
-
+	print("trimming complete!")
 
