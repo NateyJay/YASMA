@@ -76,27 +76,47 @@ def download(**params):
 	p.wait()
 
 
-
-	call = ['fasterq-dump'] + [str(Path(download_dir, s)) for s in srrs] + ['-O', str(untrimmed_dir)]
-
-	print()
-	print()
-	print("calling: ", " ".join(call))
-
-	p = Popen(call, encoding=ENCODING, stdout=PIPE)
-	for line in p.stdout:
-		print("  ", line.strip())
-	p.wait()
-
-
-	print()
-	print()
-	print("zipping...")
-
 	untrimmed_libraries = []
 
-	if not params['unzipped']:
-		for i,srr in enumerate(srrs):
+	for i, srr in enumerate(srrs):
+
+		unzipped_file = Path(untrimmed_dir, f"{srr}.fastq")
+		zipped_file   = Path(untrimmed_dir, f"{srr}.fq.gz")
+
+
+		if zipped_file.is_file():
+			untrimmed_libraries.append(zipped_file)
+			continue
+
+		elif unzipped_file.is_file():
+			untrimmed_libraries.append(unzipped_file)
+			continue
+
+
+
+
+
+		print(f"  {i+1} of {len(srrs)}")
+
+
+		call = ['fasterq-dump'] + [str(Path(download_dir, s)) for s in srrs] + ['-O', str(untrimmed_dir)]
+
+		print()
+		print()
+		print("calling: ", " ".join(call))
+
+		p = Popen(call, encoding=ENCODING, stdout=PIPE)
+		for line in p.stdout:
+			print("  ", line.strip())
+		p.wait()
+
+
+		print()
+		print()
+		print("zipping...")
+
+
+		if not params['unzipped']:
 
 			try:
 				Path(untrimmed_dir, f"{srr}_1.fastq").rename(Path(untrimmed_dir, f"{srr}.fastq"))
@@ -113,11 +133,8 @@ def download(**params):
 			except:
 				pass
 
-			unzipped_file = Path(untrimmed_dir, f"{srr}.fastq")
-			zipped_file   = Path(untrimmed_dir, f"{srr}.fq.gz")
 			untrimmed_libraries.append(zipped_file)
 
-			print(f"  {i+1} of {len(srrs)}")
 			print(f"  {unzipped_file} ->")
 			print(f"        {zipped_file}")
 			with open(unzipped_file, 'rb') as unzippedf:

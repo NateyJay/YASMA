@@ -131,7 +131,7 @@ def trim(**params):
 			elif s.endswith(('.fasta', '.fa')):
 				suffixes[i] = '.t.fa'
 
-		out_file = Path(output_directory, 'trim', file.stem.split('.')[0] + "".join(suffixes))
+		out_file = Path(output_directory, 'trim', file.stem.split('.')[0] + ".t.fa")
 
 		# cutadapt -a [adapter] --minimum-length 15--maximum-length 50-O 4 --max-n 0 --trimmed-only -o [out_file] [file]
 
