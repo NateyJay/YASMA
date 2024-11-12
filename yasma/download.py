@@ -102,9 +102,9 @@ def download(**params):
 			try_counter += 1
 			call = ['prefetch', "-O", str(download_dir), srr]
 
-			print(f"calling (attempt {try_counter}: ", " ".join(call))
+			print(f"calling (attempt {try_counter}): ", " ".join(call))
 
-			p = Popen(call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
+			p = Popen(call, encoding=ENCODING, stdout=PIPE)
 			for line in p.stdout:
 				print("  ", line.strip())
 
