@@ -108,6 +108,8 @@ def download(**params):
 			for line in p.stdout:
 				print("  ", line.strip())
 
+				if f"'{srr}.lite is found locally":
+					valid=True
 				if f"'{srr}' is found locally" in line:
 					valid=True
 				if f"'{srr}' was downloaded successfully" in line:
