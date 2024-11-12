@@ -57,6 +57,7 @@ def download(**params):
 	untrimmed_dir.mkdir(parents=True, exist_ok=True)
 
 	download_dir = Path(output_directory, "download")
+	download_dir.mkdir(parents=True, exist_ok=True)
 
 	log_file = Path(output_directory,"download/log.txt")
 	sys.stdout = Logger(log_file)
