@@ -8,6 +8,8 @@ from .cli import cli
 import random
 import time
 
+import shutil
+
 
 
 
@@ -56,6 +58,9 @@ import time
 
 
 @optgroup.option('--override', is_flag=True, default=False, help='Overrides config file changes without prompting.')
+
+@optgroup.option('--cleanup', is_flag=True, default=False, help='Removes download and untrimmed data to save space')
+
 
 
 
@@ -152,7 +157,12 @@ def align(**params):
 				p = Popen(call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
 
 			line = p.stdout.readline()
-			lib_sizes.append(round(int(line.strip().split()[0])/4))
+
+			if ".fq" in lib.suffixes or ".fastq" in lib.suffixes:
+				lib_sizes.append(round(int(line.strip().split()[0])/4))
+			elif ".fa" in lib.suffixes or ".fasta" in lib.suffixes:
+				lib_sizes.append(round(int(line.strip().split()[0])/2))
+
 			p.wait()
 
 		return(lib_sizes)
@@ -197,6 +207,55 @@ def align(**params):
 
 
 
+	def bowtie_generator(lib, mmap):
+
+
+
+		bowtie_call = ['bowtie']
+
+		if ".fa" in lib.suffixes or ".fasta" in lib.suffixes:
+			bowtie_call.append('-f')
+
+		elif ".fq" in lib.suffixes or ".fastq" in lib.suffixes:
+			bowtie_call.append("-q")
+
+		else:
+			sys.exit(f'unknown library suffixes: {lib.suffixes}. Are you sure this is a library?')
+
+
+		if mmap == 'unique':
+			bowtie_call += ['-v', '1', '-p', str(cores), '-S', '-m', '1', '--best', '--strata']
+		elif mmap == 'multi':
+			bowtie_call += ['-v', '1', '-p', str(cores), '-S', '-a', '-m', str(max_multi), '--best', '--strata']
+
+		if bowtie_version >= 1.3:
+			bowtie_call.append("-x")
+
+		bowtie_call.append(str(genome_file.with_suffix('')))
+
+
+		if ".gz" in lib.suffixes:
+
+			call = ['gzip', '-cd', str(lib)]
+			gzip = Popen(call, stdout=PIPE, encoding=ENCODING)
+
+			bowtie_call.append("-")
+			p = Popen(bowtie_call, encoding=ENCODING, stdout=PIPE, stderr=PIPE, stdin=gzip.stdout)
+
+		else:
+			bowtie_call.append(str(lib))
+			p = Popen(bowtie_call, encoding=ENCODING, stdout=PIPE, stderr=PIPE, stdin=gzip.stdout)
+
+
+
+		while True:
+			line = p.stdout.readline().strip()
+			yield line
+
+		p.wait()
+
+
+
 	def get_unique_weighting():
 		'''returns a double dictionary which has the unique read count by [contig][pos]'''
 		## unique alignment
@@ -214,21 +273,15 @@ def align(**params):
 			print(" ", str(lib))
 			# print()
 
-
-			if bowtie_version >= 1.3:
-				call = ['bowtie', '-q', '-v', '1', '-p', str(cores), '-S', '-m', '1', '--best', '--strata', '-x', str(genome_file.with_suffix('')), str(lib)]
-			else:
-				call = ['bowtie', '-q', '-v', '1', '-p', str(cores), '-S', '-m', '1', '--best', '--strata', str(genome_file.with_suffix('')), str(lib)]
-
-
-			# print(" ".join(call))
-
-			p = Popen(call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
-
+			lib_iter = bowtie_generator(lib, 'unique')
 
 			## removing header and getting first line
 			while True:
-				line = p.stdout.readline().strip()
+				try:
+					line = next(lib_iter)
+				except StopIteration:
+					break
+
 				if not line.startswith("@"):
 					a = pysam.AlignedSegment()
 
@@ -260,7 +313,10 @@ def align(**params):
 						except IndexError:
 							pass
 
-				line = p.stdout.readline()
+				try:
+					line = next(lib_iter)
+				except StopIteration:
+					break
 				try:
 					a = pysam.AlignedSegment()
 					a = a.fromstring(line.strip(), bamfile.header)
@@ -277,14 +333,16 @@ def align(**params):
 
 
 
-	def print_progress(call, read_i, map_c, rg, done_rgs, terminal_only=False):
+	def print_progress(read_i, map_c, rg, done_rgs, terminal_only=False):
 		read_p = round(read_i / total_reads * 100,1)
 
 		counts = [map_c[c] for c in ['U','P','R','Q','H','N']]
 		percs  = [round(c/read_i*100,1) for c in counts]
 
 
-		to_print = f'\n  command:\n    {" ".join(call)}\n\n  libraries:\n'
+		# to_print = f'\n  command:\n    {" ".join(call)}\n\n  libraries:\n'
+
+		to_print = f'\n  libraries:\n\n'
 		for lib in trimmed_libraries:
 			if get_rg(lib) in done_rgs:
 				done = 'x'
@@ -307,7 +365,7 @@ def align(**params):
 					'''
 
 		if read_i > 1:
-			sys.stdout.overwrite_lines(text=to_print)
+			sys.stdout.overwrite_lines(text=to_print.rstrip())
 
 
 		sys.stdout.write(to_print + '\r', terminal_only = terminal_only)
@@ -326,19 +384,20 @@ def align(**params):
 			# print(rg)
 
 
-			call = ['bowtie', '-q', '-v', '1', '-p', str(cores), '-S', '-a', '-m', str(max_multi), '--best', '--strata', 
-			'-x', str(genome_file.with_suffix('')), str(lib)]
 
-			# print()
-			# print(" ".join(call))
-			# print()
 
-			p = Popen(call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
+
+			lib_iter = bowtie_generator(lib, 'multi')
 
 
 			## removing header and getting first line
 			while True:
-				line = p.stdout.readline().strip()
+
+				try:
+					line = next(lib_iter)
+				except StopIteration:
+					break
+
 				if not line.startswith("@"):
 					a = pysam.AlignedSegment()
 					try:
@@ -370,7 +429,6 @@ def align(**params):
 
 				read_count = 1
 
-				# print(a)
 
 				if a.flag == 4:
 					## non-mappers and excluded
@@ -399,8 +457,11 @@ def align(**params):
 
 						for r in range(alignment_count-1):
 
+							try:
+								line = next(lib_iter)
+							except StopIteration:
+								break
 
-							line = p.stdout.readline().strip()
 							a = a.fromstring(line, bamfile.header)
 
 							read_count += 1
@@ -484,11 +545,15 @@ def align(**params):
 					if threshold_i > total_reads:
 						threshold_i = total_reads
 
-					print_progress(call, read_i, map_c, rg, done_rgs, terminal_only=True)
+					print_progress(read_i, map_c, rg, done_rgs, terminal_only=True)
 
 
 				## getting a new line
-				line = p.stdout.readline()
+
+				try:
+					line = next(lib_iter)
+				except StopIteration:
+					break
 
 				try:
 					a = pysam.AlignedSegment()
@@ -499,13 +564,13 @@ def align(**params):
 			done_rgs.add(rg)
 
 
-			p.wait()
+			# p.wait()
 
 
 
 		bamfile.close()
 
-		print_progress(call, read_i, map_c, None, done_rgs)
+		print_progress(read_i, map_c, None, done_rgs)
 
 		# print()
 		# pprint(map_c)
@@ -571,6 +636,38 @@ def align(**params):
 	ic.write()
 	print()
 	print("alignment complete!")
+
+
+	if params['cleanup']:
+
+		print("Warning: flag 'cleanup' activated. SRR downloads and untrimmed files will be deleted in 10 seconds...")
+		time.sleep(10)
+
+		for srr in ic.inputs['srrs']:
+
+			try:
+				shutil.rmtree(Path(output_directory, 'download', srr))
+			except FileNotFoundError:
+				pass
+
+		# for file in ic.inputs['trimmed_libraries']:
+		# 	try:
+		# 		Path(file).unlink()
+		# 	except FileNotFoundError:
+		# 		pass
+
+		for file in ic.inputs['untrimmed_libraries']:
+
+			try:
+				Path(file).unlink()
+			except FileNotFoundError:
+				pass
+
+		print("  -> deletion successful. Scrubbing inputs.json")
+
+		ic.inputs['untrimmed_libraries'] = []
+		ic.write()
+
 			# input()
 
 
