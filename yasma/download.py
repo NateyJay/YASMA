@@ -103,7 +103,7 @@ def download(**params):
 
 
 
-		call = ['fasterq-dump'] + [Path(download_dir, srr), '-O', str(untrimmed_dir)]
+		call = ['fasterq-dump'] + [str(Path(download_dir, srr)), '-O', str(untrimmed_dir)]
 
 		print()
 		print()
