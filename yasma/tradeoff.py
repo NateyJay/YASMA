@@ -823,11 +823,10 @@ def tradeoff(**params):
 	# 	print("project\tchromosome\tregions\tregions\tchromosome_length\tproportion_genome_annotated\tmean_length\tmedian_length\treads\tproportion_libraries_annotated\tmean_abundance\tmedian_abundance", file=outf)
 
 
-	# overall_file = f"{output_directory}/{dir_name}/stats.txt"
-	# with open(overall_file, 'w') as outf:
-	# 	outf.write('')
+	stats_file = f"{output_directory}/{dir_name}/stats.txt"
+	with open(stats_file, 'w') as outf:
+		print('project\tchromosomes\tgenome_length\taligned_reads\tregions\tregion_space\tregion_reads\tloci\tloci_space\tloci_reads\tfiltered_loci\tfiltered_space\tfiltered_regions', file=outf)
 
-	# overall_d = {}
 
 
 
@@ -841,7 +840,7 @@ def tradeoff(**params):
 	print(f" {aligned_read_count:,} reads")
 	print()
 
-
+	stat_d['chromosomes'] = len(chromosomes)
 	stat_d['genome_length'] = genome_length
 	stat_d['aligned_reads'] = aligned_read_count
 
@@ -1484,8 +1483,8 @@ def tradeoff(**params):
 	print(f"        expected: {round(100*read_score,1)}%")
 
 
-	stat_d['total_region_space'] = total_region_space
-	stat_d['total_region_reads'] = total_annotated_reads
+	stat_d['region_space'] = total_region_space
+	stat_d['region_reads'] = total_annotated_reads
 
 	# sys.exit("holding here...")
 
@@ -1868,8 +1867,8 @@ def tradeoff(**params):
 
 
 
-	stat_d['total_revised_space'] = revised_genomic_space
-	stat_d['total_revised_reads'] = total_revised_reads
+	stat_d['revised_space'] = revised_genomic_space
+	stat_d['revised_reads'] = total_revised_reads
 
 
 
@@ -1960,6 +1959,10 @@ def tradeoff(**params):
 
 	annotated_space = 0
 	annotated_reads = 0
+
+	stat_d['loci'] = 0
+	stat_d['locus_space'] = 0
+	stat_d['locus_reads'] = 0 
 
 
 	locus_name_i = 0
@@ -2141,7 +2144,7 @@ def tradeoff(**params):
 
 		# perc = percentageClass(increment=5, total=len(regions))
 
-		stat_d['unfiltered_loci'] = len(loci)
+		stat_d['loci'] += len(loci)
 
 		last_stop = 0
 		for i,locus in enumerate(loci):
@@ -2171,6 +2174,9 @@ def tradeoff(**params):
 			name, chrom, start, stop = locus
 			coords = f"{chrom}:{start}-{stop}"
 
+
+
+			stat_d['locus_space'] += stop - start
 
 
 			def check_best_condition():
@@ -2224,9 +2230,13 @@ def tradeoff(**params):
 
 			# print()
 
-
 			abd = sum(seq.values())
 			length = stop-start
+
+
+			stat_d['locus_space'] += length
+			stat_d['locus_reads'] += np.sum(locus_abd)
+
 
 			complexity = len(seq.keys()) / length * 1000
 			skew       = seq.most_common(1)[0][1] / sum(seq.values())
@@ -2311,8 +2321,8 @@ def tradeoff(**params):
 	print()
 
 
-	stat_d['total_final_space'] = annotated_space
-	stat_d['total_final_reads'] = annotated_reads
+	stat_d['filtered_space'] = annotated_space
+	stat_d['filtered_reads'] = annotated_reads
 
 
 	stat_d['filtered_loci'] = locus_name_i
@@ -2353,6 +2363,28 @@ def tradeoff(**params):
 	# 		]
 
 	# 	print("\t".join(map(str, line)), file=outf)
+
+
+
+	stats_file = f"{output_directory}/{dir_name}/stats.txt"
+	with open(stats_file, 'a') as outf:
+		print('project\tchromosomes\tgenome_length\taligned_reads\tregions\tregion_space\tregion_reads\tloci\tlocus_space\tlocus_reads\tfiltered_loci\tfiltered_space\tfiltered_regions', file=outf)
+
+		print(project_name, file=outf, end='\t')
+		print(stat_d['chromosomes'], file=outf, end='\t')
+		print(stat_d['genome_length'], file=outf, end='\t')
+		print(stat_d['aligned_reads'], file=outf, end='\t')
+		print(stat_d['regions'], file=outf, end='\t')
+		print(stat_d['region_space'], file=outf, end='\t')
+		print(stat_d['region_reads'], file=outf, end='\t')
+		print(stat_d['loci'], file=outf, end='\t')
+		print(stat_d['locus_space'], file=outf, end='\t')
+		print(stat_d['locus_reads'], file=outf, end='\t')
+		print(stat_d['filtered_loci'], file=outf, end='\t')
+		print(stat_d['filtered_space'], file=outf, end='\t')
+		print(stat_d['filtered_reads'], file=outf, end='\n')
+		
+		
 
 
 	end_time = datetime.now()
