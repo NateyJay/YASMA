@@ -66,15 +66,6 @@ def download(**params):
 
 
 
-	call = ['prefetch', "-O", str(download_dir)] + srrs
-
-	print("calling: ", " ".join(call))
-
-	p = Popen(call, encoding=ENCODING, stdout=PIPE)
-	for line in p.stdout:
-		print("  ", line.strip())
-	p.wait()
-
 
 	untrimmed_libraries = []
 
@@ -88,18 +79,27 @@ def download(**params):
 			untrimmed_libraries.append(zipped_file)
 			continue
 
-		# elif unzipped_file.is_file():
-		# 	untrimmed_libraries.append(unzipped_file)
-		# 	continue
-
-
+		elif unzipped_file.is_file():
+			untrimmed_libraries.append(unzipped_file)
+			continue
 
 
 
 		print(f"  {i+1} of {len(srrs)}")
 
 
-		call = ['fasterq-dump'] + [str(Path(download_dir, s)) for s in srrs] + ['-O', str(untrimmed_dir)]
+		call = ['prefetch', "-O", str(download_dir)] + srr
+
+		print("calling: ", " ".join(call))
+
+		p = Popen(call, encoding=ENCODING, stdout=PIPE)
+		for line in p.stdout:
+			print("  ", line.strip())
+		p.wait()
+
+
+
+		call = ['fasterq-dump'] + [Path(download_dir, srr), '-O', str(untrimmed_dir)]
 
 		print()
 		print()
@@ -133,7 +133,7 @@ def download(**params):
 			except:
 				pass
 
-			# untrimmed_libraries.append(zipped_file)
+			untrimmed_libraries.append(zipped_file)
 
 			print(f"  {unzipped_file} ->")
 			print(f"        {zipped_file}")
@@ -147,7 +147,7 @@ def download(**params):
 		for i,srr in enumerate(srrs):
 
 			unzipped_file = Path(untrimmed_dir, f"{srr}.fastq")
-			# untrimmed_libraries.append(zipped_file)
+			untrimmed_libraries.append(zipped_file)
 
 
 	print(f"writing untrimmed_libraries to inputs.json")
