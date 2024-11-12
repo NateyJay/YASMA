@@ -244,7 +244,7 @@ def align(**params):
 
 		else:
 			bowtie_call.append(str(lib))
-			p = Popen(bowtie_call, encoding=ENCODING, stdout=PIPE, stderr=PIPE, stdin=gzip.stdout)
+			p = Popen(bowtie_call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
 
 
 
