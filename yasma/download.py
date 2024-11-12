@@ -123,8 +123,10 @@ def download(**params):
 		print("zipping...")
 
 
-		if not params['unzipped']:
+		if params['unzipped']:
+			untrimmed_libraries.append(unzipped_file)
 
+		else:
 			try:
 				Path(untrimmed_dir, f"{srr}_1.fastq").rename(Path(untrimmed_dir, f"{srr}.fastq"))
 			except:
@@ -151,11 +153,6 @@ def download(**params):
 
 			unzipped_file.unlink()
 
-		else:
-			for i,srr in enumerate(srrs):
-
-				unzipped_file = Path(untrimmed_dir, f"{srr}.fastq")
-				untrimmed_libraries.append(zipped_file)
 
 
 	print(f"writing untrimmed_libraries to inputs.json")
