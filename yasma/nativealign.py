@@ -158,11 +158,11 @@ def align(**params):
 		return(lib_sizes)
 
 	print()
-	print("Getting library sizes...")
+	print("Getting library sizes...", flush=True)
 	lib_sizes = get_lib_sizes()
 	total_reads = sum(lib_sizes)
-	print("  library sizes:", lib_sizes)
-	print(f"  total_reads: {total_reads:,}")
+	print("  library sizes:", lib_sizes, flush=True)
+	print(f"  total_reads: {total_reads:,}", flush=True)
 	print()
 
 
@@ -270,7 +270,7 @@ def align(**params):
 		return(unique_d)
 
 
-	print("Getting unique neighborhood weighting... (ShortStack-U)")
+	print("Getting unique neighborhood weighting... (ShortStack-U)", flush=True)
 	unique_d = get_unique_weighting()
 
 
@@ -514,7 +514,7 @@ def align(**params):
 		return(map_c, lib_c)
 
 	print()
-	print("Making alignment with multimapper placement...")
+	print("Making alignment with multimapper placement...", flush=True)
 	map_c, lib_c = do_weighted_alignment()
 
 
@@ -553,7 +553,7 @@ def align(**params):
 
 	start = time.time()
 	print()
-	print("Sorting...")
+	print("Sorting...", flush=True)
 	pysam.sort("-o", str(sorted_bam), str(unsorted_bam))
 
 	print_elapsed(start)
@@ -563,7 +563,7 @@ def align(**params):
 
 
 	print()
-	print("Writing table of abundance by library + reference + strand + length...")
+	print("Writing table of abundance by library + reference + strand + length...", flush=True)
 	make_depth_file(sorted_bam, verbose=False)
 
 
