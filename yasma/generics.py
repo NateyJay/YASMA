@@ -433,9 +433,21 @@ class inputClass():
 	def write(self):
 
 		self.encode_inputs()
+
+		self.remove_duplicates()
+
 		with open(self.file, 'w') as outf:
 			outf.write(json.dumps(self.inputs, indent=2))
 		self.decode_inputs()
+
+
+	def remove_duplicates(self):
+
+		keys = ['srrs','untrimmed_libraries','trimmed_libraries']
+
+		for key in keys:
+			self.inputs[key] = list(dict.fromkeys(self.inputs[key]))
+
 
 
 
@@ -464,6 +476,7 @@ class inputClass():
 		for p in ["alignment_file", 'genome_file', 'jbrowse_directory', 'gene_annotation_file']:
 			if self.inputs[p]:
 				self.inputs[p] = encode_path(self.inputs[p])
+
 
 
 
