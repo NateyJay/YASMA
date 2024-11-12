@@ -78,18 +78,20 @@ def download(**params):
 		unzipped_file = Path(untrimmed_dir, f"{srr}.fastq")
 		zipped_file   = Path(untrimmed_dir, f"{srr}.fq.gz")
 
+		print(f"  {i+1} of {len(srrs)}")
 
 		if not params['unzipped'] and zipped_file.is_file():
+			print(' ', zipped_file, 'found...')
 			untrimmed_libraries.append(zipped_file)
 			continue
 
 		elif params['unzipped'] and unzipped_file.is_file():
+			print(' ', unzipped_file, 'found...')
 			untrimmed_libraries.append(unzipped_file)
 			continue
 
 
 
-		print(f"  {i+1} of {len(srrs)}")
 
 
 		call = ['prefetch', "-O", str(download_dir), srr]
