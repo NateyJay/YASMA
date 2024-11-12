@@ -12,6 +12,7 @@ from .cli import cli
 
 import gzip
 from shutil import rmtree
+import time
 
 
 @cli.command(group='Processing', help_priority=2)
@@ -94,15 +95,35 @@ def download(**params):
 
 
 
+		valid = False
+		try_counter = 0
 
-		call = ['prefetch', "-O", str(download_dir), srr]
+		while not valid:
+			try_counter += 1
+			call = ['prefetch', "-O", str(download_dir), srr]
 
-		print("calling: ", " ".join(call))
+			print(f"calling (attempt {try_counter}: ", " ".join(call))
 
-		p = Popen(call, encoding=ENCODING, stdout=PIPE)
-		for line in p.stdout:
-			print("  ", line.strip())
-		p.wait()
+			p = Popen(call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
+			for line in p.stdout:
+				print("  ", line.strip())
+
+				if f"'{srr}' is found locally" in line:
+					valid=True
+				if f"'{srr}' was downloaded successfully" in line:
+					valid=True
+
+			p.wait()
+
+			if not valid:
+				n = try_counter * 10
+				print(f'prefetch failed. Waiting {n} seconds')
+				time.sleep(n)
+
+			if try_counter > 25:
+				sys.exit(f"ERROR: could not prefetch {srr}")
+
+		
 
 
 
