@@ -446,7 +446,8 @@ class inputClass():
 		keys = ['srrs','untrimmed_libraries','trimmed_libraries']
 
 		for key in keys:
-			self.inputs[key] = list(dict.fromkeys(self.inputs[key]))
+			if self.inputs[key]:
+				self.inputs[key] = list(dict.fromkeys(self.inputs[key]))
 
 
 
