@@ -242,9 +242,13 @@ def align(**params):
 			bowtie_call.append("-")
 			p = Popen(bowtie_call, encoding=ENCODING, stdout=PIPE, stderr=PIPE, stdin=gzip.stdout)
 
+
+			print(" ".join(call), "|", " ".join(bowtie_call))
 		else:
 			bowtie_call.append(str(lib))
 			p = Popen(bowtie_call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
+
+			print(" ".join(bowtie_call))
 
 
 
