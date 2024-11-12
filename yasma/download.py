@@ -137,17 +137,18 @@ def download(**params):
 
 			print(f"  {unzipped_file} ->")
 			print(f"        {zipped_file}")
+
 			with open(unzipped_file, 'rb') as unzippedf:
 				with gzip.open(zipped_file, 'wb') as zippedf:
 					zippedf.writelines(unzippedf)
 
 			unzipped_file.unlink()
 
-	else:
-		for i,srr in enumerate(srrs):
+		else:
+			for i,srr in enumerate(srrs):
 
-			unzipped_file = Path(untrimmed_dir, f"{srr}.fastq")
-			untrimmed_libraries.append(zipped_file)
+				unzipped_file = Path(untrimmed_dir, f"{srr}.fastq")
+				untrimmed_libraries.append(zipped_file)
 
 
 	print(f"writing untrimmed_libraries to inputs.json")
