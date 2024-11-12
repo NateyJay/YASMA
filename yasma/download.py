@@ -52,10 +52,14 @@ def download(**params):
 	srrs              = list(ic.inputs['srrs'])
 
 
+
 	untrimmed_dir = Path(output_directory, "untrimmed")
 	untrimmed_dir.mkdir(parents=True, exist_ok=True)
 
 	download_dir = Path(output_directory, "download")
+
+	log_file = Path(output_directory,"download/log.txt")
+	sys.stdout = Logger(log_file)
 
 	for srr in srrs:
 		lock_file_1 = Path(download_dir, srr, f"{srr}.sra.lock")
@@ -75,11 +79,11 @@ def download(**params):
 		zipped_file   = Path(untrimmed_dir, f"{srr}.fq.gz")
 
 
-		if zipped_file.is_file():
+		if not params['unzipped'] and zipped_file.is_file():
 			untrimmed_libraries.append(zipped_file)
 			continue
 
-		elif unzipped_file.is_file():
+		elif params['unzipped'] and unzipped_file.is_file():
 			untrimmed_libraries.append(unzipped_file)
 			continue
 
