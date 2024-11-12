@@ -692,6 +692,10 @@ def tradeoff(**params):
 
 	### cleaning up conditions and libraries
 
+	if not conditions:
+		conditions['all'] = libraries
+
+
 	if annotation_conditions:
 		print(f" Annotation conditions: {annotation_conditions}")
 
