@@ -285,6 +285,8 @@ def align(**params):
 				if not line.startswith("@"):
 					a = pysam.AlignedSegment()
 
+					print(a)
+
 					try:
 						a = a.fromstring(line, bamfile.header)
 					except ValueError as err:
