@@ -295,7 +295,7 @@ def align(**params):
 						a = a.fromstring(line, bamfile.header)
 					except ValueError as err:
 						print(err)
-						print(f'call: {call}')
+						# print(f'call: {call}')
 						print(f'line: {line}')
 
 						print(f"bowtie err:")
