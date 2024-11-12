@@ -92,7 +92,7 @@ def download(**params):
 		print(f"  {i+1} of {len(srrs)}")
 
 
-		call = ['prefetch', "-O", str(download_dir)] + srr
+		call = ['prefetch', "-O", str(download_dir), srr]
 
 		print("calling: ", " ".join(call))
 
