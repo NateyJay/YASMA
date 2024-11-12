@@ -838,6 +838,8 @@ def tradeoff(**params):
 	print()
 
 
+	stat_d['genome_length'] = genome_length
+	stat_d['aligned_reads'] = aligned_read_count
 
 
 	## Getting positional coverage accross the alignment
@@ -1436,7 +1438,7 @@ def tradeoff(**params):
 	print(' finding regions...')
 	all_regions = get_regions(depth_threshold, chromosomes)
 
-
+	stat_d['regions'] = len(all_regions)
 
 
 	# pprint(regions)
@@ -1477,6 +1479,9 @@ def tradeoff(**params):
 	print(f"    {total_annotated_reads:,} reads ({ round(total_annotated_reads / aligned_read_count *100,1) }%) in regions")
 	print(f"        expected: {round(100*read_score,1)}%")
 
+
+	stat_d['total_region_space'] = total_region_space
+	stat_d['total_region_reads'] = total_annotated_reads
 
 	# sys.exit("holding here...")
 
@@ -1857,6 +1862,14 @@ def tradeoff(**params):
 	diff = round(total_revised_reads/aligned_read_count *100,1) - round(total_annotated_reads/aligned_read_count *100,1)
 	print(f"      +{round(diff,2)}% over unrevised regions")
 
+
+
+	stat_d['total_revised_space'] = revised_genomic_space
+	stat_d['total_revised_reads'] = total_revised_reads
+
+
+
+
 	max_chrom_word_length = max([len(c) for c,l in chromosomes])
 
 	class progressClass():
@@ -2124,6 +2137,8 @@ def tradeoff(**params):
 
 		# perc = percentageClass(increment=5, total=len(regions))
 
+		stat_d['unfiltered_loci'] = len(loci)
+
 		last_stop = 0
 		for i,locus in enumerate(loci):
 
@@ -2266,85 +2281,8 @@ def tradeoff(**params):
 			top_reads_save(best_seq, reads_file, abd, name)
 
 
-
-			# print_progress_string(chrom_count, len(chromosomes), chrom,  len(regions), len(loci), terminal_only=False)
-
 		pc.show(terminal_only=False)
-		# print()
 
-
-		# if regions:
-		# 	print_progress_string(chrom_count, len(chromosomes), chrom, len(regions), len(loci), print_percentage, terminal_only=False)
-		# else:
-		# 	print_progress_string(chrom_count, len(chromosomes), chrom,  len(regions), len(loci), terminal_only=False)
-
-
-		# locus_lengths = [l[3]-l[2] for l in regions]
-		# try:
-		# 	mean_length   = round(mean(locus_lengths),1)
-		# except StatisticsError:
-		# 	mean_length = None
-		# try:
-		# 	median_length = median(locus_lengths)
-		# except StatisticsError:
-		# 	median_length = None
-
-		# if len(regions) > 0:
-		# 	proportion_chromosome_annotated = round(sum(locus_lengths) / chrom_length, 4)
-		# else:
-		# 	proportion_chromosome_annotated = None
-
-		# # print(best_strand[l[0]])
-		# read_depths = [sum(best_strand[l[0]].values()) for l in regions]
-		# try:
-		# 	mean_depth   = round(mean(read_depths),1)
-		# except StatisticsError:
-		# 	mean_depth = None
-		# try:
-		# 	median_depth = median(read_depths)
-		# except StatisticsError:
-		# 	median_depth = None
-		# if len(regions) > 0:
-		# 	try:
-		# 		proportion_libraries_annotated = round(sum(read_depths) / chrom_depth_c[chrom], 4)
-		# 	except ZeroDivisionError:
-		# 		proportion_libraries_annotated = None
-		# else:
-		# 	proportion_libraries_annotated = None
-
-
-
-		# with open(stats_file, 'a') as outf:
-		# 	out = [project_name, chrom]
-		# 	out += [unclumped_regions_count, len(regions)]
-		# 	out += [chrom_length, proportion_chromosome_annotated, mean_length, median_length]
-		# 	out += [chrom_depth_c[chrom], proportion_libraries_annotated, mean_depth, median_depth]
-		# 	print("\t".join(map(str, out)), file=outf)
-
-		# print()
-
-
-		# try:
-		# 	overall_d['region_count']  += unclumped_regions_count
-		# 	overall_d['regions_count'] += len(regions)
-		# 	overall_d['genome_length'] += chrom_length
-		# 	overall_d['locus_lengths'] += locus_lengths
-		# 	overall_d['total_depth']   = aligned_read_count
-		# 	overall_d['read_depths']   += read_depths
-
-		# except KeyError:
-		# 	overall_d['region_count']   = unclumped_regions_count
-		# 	overall_d['regions_count']  = len(regions)
-		# 	overall_d['genome_length']  = chrom_length
-		# 	overall_d['locus_lengths']  = locus_lengths
-		# 	overall_d['total_depth']    = aligned_read_count
-		# 	overall_d['read_depths']    = read_depths
-
-
-		# print()
-
-
-	# sys.exit("stopping here")
 
 
 	def bool_to_check(val):
@@ -2367,6 +2305,13 @@ def tradeoff(**params):
 	print(f"  {annotated_space:,} genomic nt ({round(annotated_space / genome_length * 100, 1)}%) in loci")
 	print(f"  {annotated_reads:,} reads ({round(annotated_reads / aligned_read_count * 100, 1)}%) in loci")
 	print()
+
+
+	stat_d['total_final_space'] = annotated_space
+	stat_d['total_final_reads'] = annotated_reads
+
+
+	stat_d['filtered_loci'] = locus_name_i
 
 	# with open(overall_file, 'a') as outf:
 
