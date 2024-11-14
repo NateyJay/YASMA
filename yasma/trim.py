@@ -93,6 +93,8 @@ def trim(**params):
 	ic = inputClass(params)
 	ic.check(['untrimmed_libraries', 'adapter'])
 
+	ic.inputs['untrimmed_libraries'] = []
+
 
 	output_directory        = ic.output_directory
 	untrimmed_libraries     = ic.inputs['untrimmed_libraries']
@@ -105,7 +107,6 @@ def trim(**params):
 	Path(output_directory, "trim").mkdir(parents=True, exist_ok=True)
 
 	log_file = Path(output_directory,"trim/log.txt")
-
 	sys.stdout = Logger(log_file)
 
 
