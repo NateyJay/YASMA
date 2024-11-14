@@ -51,6 +51,15 @@ import shutil
 	help='Number of cores to use for alignment with bowtie.')
 
 
+@optgroup.option('--max_multi',
+	default=50,
+	help='The maximum number of possible mapping sites for a valid read.')
+
+
+@optgroup.option('--max_random',
+	default=3,
+	help='Reads with no weighting will be unmapped if they exceed this number.')
+
 @optgroup.option('--compression',
 	default='bam',
 	type=click.Choice(['cram', 'bam']),
@@ -86,12 +95,11 @@ def align(**params):
 
 	cores                   = params['cores']
 	compression             = params['compression']
+	max_multi               = params['max_multi']
+	max_random              = params['max_random']
 
 	locality = 50
 	half_locality = round(locality/2)
-
-	max_multi  = 50
-	max_random = 3
 
 
 	for tool, _, version in rc.reqs:
@@ -226,7 +234,7 @@ def align(**params):
 		if mmap == 'unique':
 			bowtie_call += ['-v', '1', '-p', str(cores), '-S', '-m', '1', '--best', '--strata']
 		elif mmap == 'multi':
-			bowtie_call += ['-v', '1', '-p', str(cores), '-S', '-a', '-m', str(max_multi), '--best', '--strata']
+			bowtie_call += ['-v', '1', '-p', str(cores), '-S', '-a', '-m', str(max_multi+1), '--best', '--strata']
 
 		if bowtie_version >= 1.3:
 			bowtie_call.append("-x")
@@ -243,12 +251,12 @@ def align(**params):
 			p = Popen(bowtie_call, encoding=ENCODING, stdout=PIPE, stderr=PIPE, stdin=gzip.stdout)
 
 
-			print(" ".join(call), "|", " ".join(bowtie_call))
+			# print(" ".join(call), "|", " ".join(bowtie_call))
 		else:
 			bowtie_call.append(str(lib))
 			p = Popen(bowtie_call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
 
-			print(" ".join(bowtie_call))
+			# print(" ".join(bowtie_call))
 
 
 
@@ -385,10 +393,6 @@ def align(**params):
 
 		for lib in trimmed_libraries:
 			rg = get_rg(lib)
-			# print(rg)
-
-
-
 
 
 			lib_iter = bowtie_generator(lib, 'multi')
@@ -416,6 +420,7 @@ def align(**params):
 
 			while True:
 
+
 				read_i += 1
 				qname = a.query_name
 
@@ -437,14 +442,22 @@ def align(**params):
 				if a.flag == 4:
 					## non-mappers and excluded
 
-					if a.get_tag("XM") == 0:
-						a.set_tag("XY","N","Z")
-					else:
-						a.set_tag("XY","H","Z")
-
+					a.set_tag("XY","N","Z")
 					a.set_tag("XZ",0.0,'f')
 
+				elif a.get_tag("XM") == max_multi:
+
+					a.set_tag("XY","H","Z")
+					a.set_tag("XZ",0.0,'f')
+
+					a.flag = 4
+					a.reference_name = '*'
+					a.reference_start = -1
+					a.is_mapped = False
+
+
 				else:
+
 					weight  = max([unique_d[a.reference_name][a.query_alignment_start], unique_d[a.reference_name][a.query_alignment_end]])
 					weights = [weight]
 
@@ -600,7 +613,7 @@ def align(**params):
 		print("project\tlibrary\tumap\tmmap_wg\tmmap_nw\txmap_nw\txmap_ma\txmap_nv", file=outf)
 
 		for lib in trimmed_libraries:
-			rg = lib.stem
+			rg = get_rg(lib)
 			to_print = [ic.inputs['project_name'], rg]
 			to_print += [lib_c[(rg, i)] for i in ['U','P','R','Q','H','N']]
 
