@@ -185,6 +185,8 @@ def shortstack3(**params):
 
 	else:
 		dir_name = 'shortstack3'
+		
+	Path(output_directory, dir_name).mkdir(parents=True, exist_ok=True)
 
 	log_file = f"{output_directory}/{dir_name}/yasma_log.txt"
 	sys.stdout = Logger(log_file)
@@ -193,7 +195,6 @@ def shortstack3(**params):
 
 
 
-	Path(output_directory, dir_name).mkdir(parents=True, exist_ok=True)
 
 
 	log_file = f"{output_directory}/{dir_name}/yasma_log.txt"
