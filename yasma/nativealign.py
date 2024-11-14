@@ -68,7 +68,6 @@ import shutil
 
 @optgroup.option('--override', is_flag=True, default=False, help='Overrides config file changes without prompting.')
 
-@optgroup.option('--cleanup', is_flag=True, default=False, help='Removes download and untrimmed data to save space')
 
 
 
@@ -654,36 +653,6 @@ def align(**params):
 	print()
 	print("alignment complete!")
 
-
-	if params['cleanup']:
-
-		print("Warning: flag 'cleanup' activated. SRR downloads and untrimmed files will be deleted in 10 seconds...")
-		time.sleep(10)
-
-		for srr in ic.inputs['srrs']:
-
-			try:
-				shutil.rmtree(Path(output_directory, 'download', srr))
-			except FileNotFoundError:
-				pass
-
-		# for file in ic.inputs['trimmed_libraries']:
-		# 	try:
-		# 		Path(file).unlink()
-		# 	except FileNotFoundError:
-		# 		pass
-
-		for file in ic.inputs['untrimmed_libraries']:
-
-			try:
-				Path(file).unlink()
-			except FileNotFoundError:
-				pass
-
-		print("  -> deletion successful. Scrubbing inputs.json")
-
-		ic.inputs['untrimmed_libraries'] = []
-		ic.write()
 
 			# input()
 
