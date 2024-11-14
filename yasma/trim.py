@@ -93,7 +93,7 @@ def trim(**params):
 	ic = inputClass(params)
 	ic.check(['untrimmed_libraries', 'adapter'])
 
-	ic.inputs['untrimmed_libraries'] = []
+	ic.inputs['trimmed_libraries'] = []
 
 
 	output_directory        = ic.output_directory
