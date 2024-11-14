@@ -240,12 +240,11 @@ def shortstack4(**params):
 
 	shutil.rmtree(temp_folder)
 
-
 	now = datetime.now()
-
 
 	date_time = now.strftime("%Y/%m/%d, %H:%M:%S")
 	print("Run completed:",date_time)	
+
 
 
 

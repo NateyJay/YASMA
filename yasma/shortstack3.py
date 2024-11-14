@@ -115,6 +115,9 @@ def shortstack3(**params):
 	name                    = params['name']
 
 
+	log_file = f"{output_directory}/{dir_name}/yasma_log.txt"
+	sys.stdout = Logger(log_file)
+	
 	def get_target_rpm():
 		bamf = pysam.AlignmentFile(alignment_file, "rb")
 
@@ -233,7 +236,7 @@ def shortstack3(**params):
 	p.wait()
 
 
-	os.rename(Path(temp_folder, 'log.txt'), Path(temp_folder, 'shortstack_log.txt'))
+	# os.rename(Path(temp_folder, 'log.txt'), Path(temp_folder, 'shortstack_log.txt'))
 
 	for file in os.listdir(temp_folder):
 		Path(temp_folder, file).rename(Path(annotation_folder, file))
