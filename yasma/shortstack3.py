@@ -115,9 +115,6 @@ def shortstack3(**params):
 	name                    = params['name']
 
 
-	log_file = f"{output_directory}/{dir_name}/yasma_log.txt"
-	sys.stdout = Logger(log_file)
-	
 	def get_target_rpm():
 		bamf = pysam.AlignmentFile(alignment_file, "rb")
 
@@ -189,6 +186,9 @@ def shortstack3(**params):
 	else:
 		dir_name = 'shortstack3'
 
+	log_file = f"{output_directory}/{dir_name}/yasma_log.txt"
+	sys.stdout = Logger(log_file)
+	
 
 
 
