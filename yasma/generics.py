@@ -806,6 +806,7 @@ def validate_library_paths(ctx, param, value):
 			f = open(str(path), 'r')
 			line = f.readline()
 
+
 		if not line.startswith(first_char):
 			sys.exit(f"FileTypeError: '{str(path)}' does not start with the expected character '{first_char}'. Are you sure this file is OK?")
 
@@ -1043,6 +1044,11 @@ def make_depth_file(alignment_file, verbose=True):
 	depth_file = alignment_file.with_suffix(".depth.txt")
 	try:
 		os.remove(str(alignment_file) + ".bai")
+	except FileNotFoundError:
+		pass
+
+	try:
+		os.remove(str(alignment_file) + ".csi")
 	except FileNotFoundError:
 		pass
 
