@@ -60,6 +60,11 @@ import shutil
 	default=3,
 	help='Reads with no weighting will be unmapped if they exceed this number.')
 
+
+@optgroup.option('--unique_locality',
+	default=50,
+	help='Window size in nucleotides for unique weighting.')
+
 @optgroup.option('--compression',
 	default='bam',
 	type=click.Choice(['cram', 'bam']),
@@ -96,8 +101,11 @@ def align(**params):
 	compression             = params['compression']
 	max_multi               = params['max_multi']
 	max_random              = params['max_random']
+	locality                = params['unique_locality']
 
-	locality = 50
+	pprint(params)
+
+	
 	half_locality = round(locality/2)
 
 
@@ -213,7 +221,6 @@ def align(**params):
 	bamfile = pysam.AlignmentFile(unsorted_bam, "wb", header=header)
 
 
-
 	def bowtie_generator(lib, mmap):
 
 
@@ -233,7 +240,7 @@ def align(**params):
 		if mmap == 'unique':
 			bowtie_call += ['-v', '1', '-p', str(cores), '-S', '-m', '1', '--best', '--strata']
 		elif mmap == 'multi':
-			bowtie_call += ['-v', '1', '-p', str(cores), '-S', '-a', '-m', str(max_multi+1), '--best', '--strata']
+			bowtie_call += ['-v', '1', '-p', str(cores), '-S', '-a', '--best', '--strata']
 
 		if bowtie_version >= 1.3:
 			bowtie_call.append("-x")
@@ -261,9 +268,13 @@ def align(**params):
 
 		while True:
 			line = p.stdout.readline().strip()
+			if line == '':
+				break
 			yield line
 
+
 		p.wait()
+
 
 
 
@@ -281,6 +292,7 @@ def align(**params):
 
 
 		for lib in trimmed_libraries:
+
 			print(" ", str(lib))
 			# print()
 
@@ -444,8 +456,9 @@ def align(**params):
 					a.set_tag("XY","N","Z")
 					a.set_tag("XZ",0.0,'f')
 
-				elif a.get_tag("XM") == max_multi:
+				elif a.get_tag("XM") >= max_multi:
 
+					
 					a.set_tag("XY","H","Z")
 					a.set_tag("XZ",0.0,'f')
 
@@ -453,6 +466,14 @@ def align(**params):
 					a.reference_name = '*'
 					a.reference_start = -1
 					a.is_mapped = False
+
+					for r in range(a.get_tag("XM")-2):
+
+						try:
+							line = next(lib_iter)
+						except StopIteration:
+							break
+
 
 
 				else:
@@ -497,30 +518,6 @@ def align(**params):
 								print("WEIRD ERROR 1 - please report to nate!")
 								sys.exit()
 		
-
-
-							# try:
-							# 	unique_d[a.reference_name]
-							# 	alns.append(a)
-
-							# except KeyError:
-
-							# 	## this is a strange error. No contig name, but supposedly is an alignment. What is going on?
-							# 	## it seems like bowtie is sometimes reporting more alignments than it actually finds. I will just silence this with a weight 0
-
-							# 	# print("line:")
-							# 	# print(line)
-							# 	# print("r:", r)
-							# 	# print("alignment:")
-							# 	# print(a)
-							# 	# print("reference_name:")
-							# 	# print(a.reference_name)
-							# 	# print("WEIRD ERROR - report to nate please!!!")
-							# 	# sys.exit()
-							# 	pass
-
-							# alns.append((new_ref, new_loc))
-
 
 
 						same_weight = len(set(weights)) == 1
@@ -583,14 +580,10 @@ def align(**params):
 			# p.wait()
 
 
-
 		bamfile.close()
 
 		print_progress(read_i, map_c, None, done_rgs)
 
-		# print()
-		# pprint(map_c)
-		# pprint(lib_c)
 
 		return(map_c, lib_c)
 
