@@ -1180,16 +1180,18 @@ def tradeoff(**params):
 
 			peak_i = max(range(len(kdiffs)), key=kdiffs.__getitem__)
 
-
+			last_thr   = 0
+			last_pgen  = 0
+			last_pread = 0
 			with open(Path(output_directory, dir_name, 'thresholds.txt'), 'w') as outf:
 				print('depth\tannotated_space\tp_genome\tannotated_reads\tp_reads\taverage_score\tkdiff\tpeak', file=outf)
 
 				for i, threshold in enumerate(found_depths):
 
 					space     = annotated_space[i]
-					p_gen     = p_gens[i]
+					p_gen     = round(p_gens[i],4)
 					reads     = annotated_reads[i]
-					p_read    = p_reads[i]
+					p_read    = round(p_reads[i],4)
 					average   = averages[i]
 					kdiff     = kdiffs[i]
 
@@ -1210,7 +1212,17 @@ def tradeoff(**params):
 					else:
 						peak = 0
 
-					print(threshold, space, p_gen, reads, p_read, average, kdiff, peak, sep='\t', file=outf)
+
+
+					if treshold - last_thr > 0 or last_pgen - p_gen > 0 or last_pread - p_read > 0 or peak == 1:
+						print(threshold, space, p_gen, reads, p_read, average, kdiff, peak, sep='\t', file=outf)
+
+
+					last_thr   = threshold
+					last_pgen  = p_gen
+					last_pread = p_read
+
+
 
 			return(out, readp_thresholds, genp_thresholds)
 		
