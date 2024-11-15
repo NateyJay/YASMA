@@ -121,6 +121,7 @@ def trim(**params):
 	trimmed_libraries = []
 
 	for file in untrimmed_libraries:
+		print(f"trimming: {file}", flush=True)
 
 
 		path = PurePath(file)
