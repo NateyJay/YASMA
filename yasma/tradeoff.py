@@ -1214,7 +1214,7 @@ def tradeoff(**params):
 
 
 
-					if treshold - last_thr > 0 or last_pgen - p_gen > 0 or last_pread - p_read > 0 or peak == 1:
+					if threshold - last_thr > 0 or last_pgen - p_gen > 0 or last_pread - p_read > 0 or peak == 1:
 						print(threshold, space, p_gen, reads, p_read, average, kdiff, peak, sep='\t', file=outf)
 
 
