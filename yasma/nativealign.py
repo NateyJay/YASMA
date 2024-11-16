@@ -523,10 +523,11 @@ def align(**params):
 						same_weight = len(set(weights)) == 1
 
 						if alignment_count >= max_random and same_weight:
-							a.set_tag("XY","Q","Z")
-							a.set_tag("XZ",round(1/len(weights),3), 'f')
 
 							a = alns[0]
+							
+							a.set_tag("XY","Q","Z")
+							a.set_tag("XZ",round(1/len(weights),3), 'f')
 							a.flag = 4
 							a.reference_name = '*'
 							a.reference_start = -1
