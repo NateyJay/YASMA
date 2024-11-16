@@ -526,6 +526,19 @@ def align(**params):
 							a.set_tag("XY","Q","Z")
 							a.set_tag("XZ",round(1/len(weights),3), 'f')
 
+							a = alns[0]
+							a.flag = 4
+							a.reference_name = '*'
+							a.reference_start = -1
+							a.is_mapped = False
+
+					# for r in range(a.get_tag("XM")-2):
+
+					# 	try:
+					# 		line = next(lib_iter)
+					# 	except StopIteration:
+					# 		break
+
 
 						else:
 
