@@ -400,11 +400,6 @@ def get_bin_threshold(cdf_c, to_save=False, to_print=False):
 	type=click.UNPROCESSED, callback=validate_path,
 	help='Alignment file input (bam or cram).')
 
-@optgroup.option('-ac', '--annotation_conditions', 
-	required=False,
-	multiple=True,
-	default=None,
-	help="List of conditions names which will be included in the annotation. Defaults to use all libraries, though this is likely not what you want if you have multiple groups.")
 
 @optgroup.option("-o", "--output_directory", 
 	# default=f"Annotation_{round(time())}", 
@@ -425,6 +420,11 @@ def get_bin_threshold(cdf_c, to_save=False, to_print=False):
 	type=click.UNPROCESSED, callback=validate_condition,
 	help='Values denoting condition groups (sets of replicate libraries) for projects with multiple tissues/treatments/genotypes. Can be entered here as space sparated duplexes, with the library base_name and condition groups delimited by a colon. E.g. SRR1111111:WT SRR1111112:WT SRR1111113:mut SRR1111114:mut')
 
+@optgroup.option('-ac', '--annotation_conditions', 
+	required=False,
+	multiple=True,
+	default=None,
+	help="List of conditions names which will be included in the annotation. Defaults to use all libraries, though this is likely not what you want if you have multiple groups.")
 
 
 @optgroup.group('\n  Coverage options',
