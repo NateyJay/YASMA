@@ -59,21 +59,23 @@ def coverage(**params):
 	output_directory        = ic.output_directory
 	alignment_file          = ic.inputs["alignment_file"]
 	project_name            = ic.inputs['project_name']
-	annotation_readgroups   = ic.inputs['annotation_readgroups']
+	# annotation_readgroups   = ic.inputs['annotation_readgroups']
 
 	peaks = list(params['peaks'])
 
 
 
-	chromosomes, bam_rgs = get_chromosomes(alignment_file)
-	annotation_readgroups = check_rgs(annotation_readgroups, bam_rgs)
+	chromosomes, libraries = get_chromosomes(alignment_file)
+
+	# libraries = 
+	# annotation_readgroups = check_rgs(annotation_readgroups, bam_rgs)
 
 	chrom_depth_c = get_global_depth(alignment_file, aggregate_by=['rg','chrom'])
 
 
 	keys = list(chrom_depth_c.keys())
 	for key in keys:
-		if key[0] in annotation_readgroups:
+		if key[0] in libraries:
 			chrom_depth_c[key[1]] += chrom_depth_c[key]
 
 		del chrom_depth_c[key]
@@ -136,7 +138,7 @@ def coverage(**params):
 			if read.is_unmapped:
 				continue
 
-			if read.get_tag("RG") not in annotation_readgroups:
+			if read.get_tag("RG") not in libraries:
 				continue
 
 			if read.is_forward:
