@@ -71,6 +71,7 @@ class configClass():
 			self.config_d['assemblies'].append(self.make_assembly_object())
 			
 
+
 		## initializng output folders
 		for key in ['coverages','annotations','debug']:
 			directory = Path(self.output_directory, "jbrowse", self.genome_name, f"{self.output_directory.name}_{key}")
@@ -78,6 +79,10 @@ class configClass():
 
 
 	def add_track(self, file, name=None, gene_annotation = False):
+
+		if not file:
+			return
+
 		if not file.is_file():
 			return
 
@@ -330,10 +335,18 @@ class configClass():
 	type=click.UNPROCESSED, callback=validate_path,
 	help='Alignment file input (bam or cram).')
 
-@optgroup.option('-r', '--annotation_readgroups', 
+
+@optgroup.option("-c", "--conditions", 
+	required=False, 
+	multiple=True,
+	type=click.UNPROCESSED, callback=validate_condition,
+	help='Values denoting condition groups (sets of replicate libraries) for projects with multiple tissues/treatments/genotypes. Can be entered here as space sparated duplexes, with the library base_name and condition groups delimited by a colon. E.g. SRR1111111:WT SRR1111112:WT SRR1111113:mut SRR1111114:mut')
+
+@optgroup.option('-ac', '--annotation_conditions', 
 	required=False,
 	multiple=True,
-	help="List of read groups (RGs, libraries) to be considered for the annotation. 'ALL' uses all readgroups for annotation, but often pertainent RGs will need to be specified individually.")
+	default=None,
+	help="List of conditions names which will be included in the annotation. Defaults to use all libraries, though this is likely not what you want if you have multiple groups.")
 
 @optgroup.option("-o", "--output_directory", 
 	# default=f"Annotation_{round(time())}", 
@@ -415,15 +428,16 @@ def jbrowse(**params):
 	'''Tool to build coverage and config files for jbrowse2.'''
 
 	ic = inputClass(params)
-	ic.check(["alignment_file", "annotation_readgroups", "genome_file", "jbrowse_directory"])
+	ic.check(["alignment_file", "genome_file"])
 
 	output_directory       = ic.output_directory
 	alignment_file         = ic.inputs["alignment_file"]
-	annotation_readgroups  = ic.inputs['annotation_readgroups']
 	genome_file            = ic.inputs['genome_file']
 	jbrowse_directory      = ic.inputs['jbrowse_directory']
 	gene_annotation_file   = ic.inputs["gene_annotation_file"]
 	project_name           = ic.inputs['project_name']
+	conditions             = ic.inputs['conditions']
+	annotation_conditions  = ic.inputs['annotation_conditions']
 
 	min_size               = params['min_size']
 	max_size               = params['max_size']
@@ -481,14 +495,14 @@ def jbrowse(**params):
 
 
 
-	chromosomes, bam_rgs = get_chromosomes(alignment_file)
-	annotation_readgroups = check_rgs(annotation_readgroups, bam_rgs)
+	chromosomes, libraries = get_chromosomes(alignment_file)
+	# annotation_readgroups = check_rgs(annotation_readgroups, bam_rgs)
 
 	chrom_depth_c = get_global_depth(alignment_file, aggregate_by=['rg','chrom'])
 
 	keys = list(chrom_depth_c.keys())
 	for key in keys:
-		if key[0] in annotation_readgroups:
+		if key[0] in libraries:
 			chrom_depth_c[key[1]] += chrom_depth_c[key]
 
 		del chrom_depth_c[key]
@@ -499,8 +513,38 @@ def jbrowse(**params):
 
 
 
+	### cleaning up conditions and libraries
+
+	if not conditions:
+		conditions = {'all' : libraries}
 
 
+	if annotation_conditions:
+		print(f" Annotation conditions: {annotation_conditions}")
+
+	else:
+		print(f" Annotation conditions: {annotation_conditions} (all libraries used)")
+		annotation_conditions = list(conditions.keys())
+	# print(" Annotation libraries:", annotation_readgroups)
+
+
+	conditions = {c: conditions[c] for c in annotation_conditions}
+
+
+	rev_conditions = {}
+	for cond, lib_set in conditions.items():
+		for lib in lib_set:
+			rev_conditions[lib] = cond
+
+	libraries  = []
+	for lib_set in conditions.values():
+		for lib in lib_set:
+			libraries.append(lib)
+
+
+
+
+	### copying annotations
 	
 	cc.add_track(gene_annotation_file, gene_annotation=True)
 	cc.add_track(Path(output_directory, 'tradeoff', "loci.gff3"),    f"{project_name}_loci")
@@ -613,7 +657,7 @@ def jbrowse(**params):
 
 			perc = percentageClass(1, chrom_depth_c[chrom])
 
-			reads = samtools_view(alignment_file, rgs=annotation_readgroups, contig=chrom)
+			reads = samtools_view(alignment_file, rgs=libraries, contig=chrom)
 
 			for i, read in enumerate(reads):
 
@@ -650,7 +694,7 @@ def jbrowse(**params):
 
 
 
-	if not isdir(jbrowse_directory):
+	if not jbrowse_directory or not jbrowse_directory.is_dir():
 		print("Error: jbrowse_directory not found")
 		print(" ->", jbrowse_directory)
 		print()
