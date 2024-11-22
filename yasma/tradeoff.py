@@ -825,7 +825,7 @@ def tradeoff(**params):
 
 	stats_file = f"{output_directory}/{dir_name}/stats.txt"
 	with open(stats_file, 'w') as outf:
-		print('project\tchromosomes\tgenome_length\taligned_reads\tregions\tregion_space\tregion_reads\tloci\tloci_space\tloci_reads\tfiltered_loci\tfiltered_space\tfiltered_regions', file=outf)
+		print('project\tchromosomes\tgenome_length\taligned_reads\tregion_count\tregion_space\tregion_reads\tloci_count\tloci_space\tloci_reads\tfiltered_count\tfiltered_space\tfiltered_reads', file=outf)
 
 
 
