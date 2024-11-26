@@ -504,7 +504,7 @@ def get_bin_threshold(cdf_c, to_save=False, to_print=False):
 	help="Distance in nucleotides for which sRNA peaks should be considered for 'clumping'. Clumped regions must have sufficient similarity in sRNA-size profile and strand-preference. Default 500 nt.")
 
 @optgroup.option("--merge_strand_similarity",
-	default=0.7,
+	default=0.5,
 	help="Similarity threshold of strand fraction for clumping two peaks. Difference in fraction must be smaller than threshold. Default 0.5.")
 
 @optgroup.option("--min_locus_length",
@@ -672,8 +672,8 @@ def tradeoff(**params):
 		# chromosomes = chromosomes[20:30]
 		# chromosomes = chromosomes[2:5]
 		# chromosomes = chromosomes[:2]
-		# chromosomes = chromosomes[:1]
-		chromosomes = chromosomes[4:5]
+		chromosomes = chromosomes[:1]
+		# chromosomes = chromosomes[4:7]
 
 
 	chromosome_max_lengths = {}
@@ -1331,6 +1331,14 @@ def tradeoff(**params):
 
 	pos_d, pos_size_d, threshold_stats, readp_thresholds, genp_thresholds = get_kernel_coverage()
 
+
+	# sys.exit()
+	# print(pos_size_d)
+
+	# for chrom, poslens in pos_size_d.items():
+	# 	for i, lens in enumerate(poslens):
+	# 		if lens:
+	# 			print(i, lens)
 	# sys.exit()
 
 
@@ -1692,13 +1700,18 @@ def tradeoff(**params):
 			w_strands['-'] = p[1]
 
 			for w in range(window_start, window_end+1):
-				try:
-					sizes = pos_size_d[chrom][w]
-				except KeyError:
-					pass
+				sizes = pos_size_d[chrom][w]
+
 				if sizes:
 					w_sizes.update(sizes)
 
+
+
+			# print()
+			# print(chrom, ":", window_start, "-", window_end, sep='')
+			# print(w_strands)
+			# print(w_sizes)
+			# input()
 
 			if expand: 
 				## trimming doesnt worry about hitting other loci
@@ -1830,11 +1843,14 @@ def tradeoff(**params):
 
 			# print(region)
 			# print()
+			sc = sizeClass()
 
+			for p in range(new_start, new_stop+1):
+				sc.update(pos_size_d[chrom][p])
 
 			gff_line = [
 				chrom, 'test_region','region', new_start, new_stop, '.', '.', '.',
-				f'ID={name}']
+				f'ID={name};sizecall={sc};fractop={round(rc.frac_top,3)}']
 
 			print('\t'.join(map(str,gff_line)), file=outf)
 
@@ -1999,11 +2015,9 @@ def tradeoff(**params):
 		def get_region_stats(chrom, start, stop):
 
 			size= sizeClass(minmax=read_minmax)
-			for w in range(start, start):
-				try:
-					size.update(pos_size_d[chrom][w])
-				except IndexError:
-					pass
+
+			for w in range(start, stop):
+				size.update(pos_size_d[chrom][w])
 
 			strand = Counter()
 			p = np.sum(pos_d[chrom][start: stop, ...], axis=(0,1,2))
@@ -2044,15 +2058,23 @@ def tradeoff(**params):
 
 		def check_merge(curr_name, next_name, curr_stop, next_start):
 
-			dist_test = next_start - curr_stop <= params['merge_dist']
+			with open(merge_file,'a') as merf:
 
-			size_test = sizecall_d[curr_name] == sizecall_d[next_name]
+				print("", file=merf)
+				print(f"testing: {curr_name} <<< {next_name}", file=merf)
+				dist_test = next_start - curr_stop <= params['merge_dist']
+				print(f'   {curr_stop} ~ {next_start} -> {dist_test}', file=merf)
+
+				size_test = sizecall_d[curr_name] == sizecall_d[next_name]
+				print(f'   {sizecall_d[curr_name]} -> {sizecall_d[next_name]} ? {size_test}', file=merf)
 
 
-			curr_ft = strand_d[curr_name]
-			next_ft = strand_d[next_name]
+				curr_ft = strand_d[curr_name]
+				next_ft = strand_d[next_name]
 
-			frac_test = abs(get_ft(curr_ft) - get_ft(next_ft)) < clump_strand_similarity
+
+				frac_test = abs(get_ft(curr_ft) - get_ft(next_ft)) < clump_strand_similarity
+				print(f'   {round(get_ft(curr_ft),3)} -> {round(get_ft(next_ft),3)} ? {frac_test}', file=merf)
 
 			return size_test and frac_test and dist_test
 
@@ -2104,7 +2126,7 @@ def tradeoff(**params):
 					del sizecall_d[next_name]
 
 					with open(merge_file, 'a') as outf:
-						print(i, f"{curr_name} <<< {betw_name}, {next_name}", file=outf)
+						print(f"\nmerging: {curr_name} <<< {betw_name}, {next_name}", file=outf)
 					locus_count -= 1
 
 					loc_stop  = regions[i+1][3]
@@ -2120,7 +2142,7 @@ def tradeoff(**params):
 
 
 					with open(merge_file, 'a') as outf:
-						print(i, f"{locus_name} <<< {curr_name}", file=outf)
+						print(f"\nassigning: {locus_name} <<< {curr_name}", file=outf)
 
 					curr_name = next_name
 					loc_start = regions[i+1][2]
