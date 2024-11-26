@@ -219,7 +219,7 @@ def shortstack4(**params):
 		# ic.write()
 
 
-	args = ["ShortStack4", '--bamfile', alignment_file, "--genomefile", genome_file, "--outdir", temp_folder , '--threads', '4', '--dn_rna']
+	args = ["ShortStack4", '--bamfile', alignment_file, "--genomefile", genome_file, "--outdir", temp_folder , '--threads', '4', '--dn_mirna']
 
 	if params['subsample']:
 		args += ['--mincov', target_rpm]
