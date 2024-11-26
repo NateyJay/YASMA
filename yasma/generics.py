@@ -264,19 +264,19 @@ class requirementClass():
 
 		self.reqs.append(('bowtie', found, version))
 
-	def add_rnafold(self):
-		try:
-			p = Popen(['RNAfold', '--version'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
-			out,err = p.communicate()
-			out = out.split("\n")
-			found=True
-			version = out[0].split()[-1]
+	# def add_rnafold(self):
+	# 	try:
+	# 		p = Popen(['RNAfold', '--version'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+	# 		out,err = p.communicate()
+	# 		out = out.split("\n")
+	# 		found=True
+	# 		version = out[0].split()[-1]
 
-		except FileNotFoundError:
-			found=False
-			version=''
+	# 	except FileNotFoundError:
+	# 		found=False
+	# 		version=''
 
-		self.reqs.append(('RNAfold', found, version))
+	# 	self.reqs.append(('RNAfold', found, version))
 
 	def add_RNAfold(self):
 
@@ -1543,12 +1543,19 @@ def RNAfold(seq):
 
 
 def complement(s):
-	d = {"U" : "A", 
+	d = {"U":"A", 
 	"A":"U", "G":"C", "C":"G", "N":"N"}
 
 	s = "".join([d[letter] for letter in s])
 	return(s)
 
+
+def dna_complement(s):
+	d = {"T":"A", 
+	"A":"T", "G":"C", "C":"G", "N":"N"}
+
+	s = "".join([d[letter.upper()] for letter in s])
+	return(s)
 
 
 
