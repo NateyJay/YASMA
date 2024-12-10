@@ -16,6 +16,8 @@ from math import floor
 
 
 import pysam
+import json
+import pyBigWig
 
 
 
@@ -27,7 +29,6 @@ ENCODING='cp850'
 class trackClass():
 	def __init__(self, bw_file, chromosomes):
 
-		import pyBigWig
 
 		self.bw = pyBigWig.open(str(bw_file), 'w')
 		self.bw.addHeader(chromosomes)
@@ -104,8 +105,6 @@ class bigwigClass():
 	'''A class to handle producing rpm bigwig files from a counter object c[pos] = depth'''
 
 	def __init__(self, file, total_reads, chromosomes, strand= "+", name=''):
-
-		import pyBigWig
 
 
 		self.file = str(file)
@@ -315,16 +314,16 @@ class requirementClass():
 
 		fail=False
 
-		print(color.BOLD + "Requirements:" + color.END)
+		print("Requirements:")
 
 		for tool, found, version in self.reqs:
 			if not found:
 				fail = True
 
 			if found:
-				print(color.BOLD + '[x]' + color.END, tool, "->", version)
+				print('[x]', tool, "->", version)
 			else:
-				print(color.BOLD + '[ ]' + color.END, tool)
+				print('[ ]', tool)
 
 		
 		if fail:
@@ -335,8 +334,6 @@ class requirementClass():
 class inputClass():
 
 	def __init__(self, params):
-
-		import json
 
 		try:
 			if params['override']:
@@ -583,14 +580,14 @@ class inputClass():
 
 		self.required_options = required_options
 
-		print(color.BOLD + "Required options:" + color.END)
+		print("Required options:")
 		pass_check = True
 		offset = 25
 
 		for option in required_options:
 			value = self.inputs[option]
 
-			print(color.BOLD + '[', end='')
+			print('[', end='')
 			if not value:
 				pass_check=False
 				print(" ", end='')
@@ -598,9 +595,9 @@ class inputClass():
 			else:
 				print(f"x", end='')
 
-			print('] ' + color.END, end='')
+			print('] ', end='')
 
-			print(f"{option}:", "." * (offset-len(option)), f"{color.BOLD}{value}{color.END}")
+			print(f"{option}:", "." * (offset-len(option)), value)
 
 
 			# 	pass_check = False
@@ -611,7 +608,7 @@ class inputClass():
 
 			sys.exit("Error: one or more essential options are not provided in 'inputs.json' or program call")
 
-		print(color.BOLD + "Other options:" + color.END)
+		print("Other options:")
 
 		options = list(self.inputs.keys())
 		options += [o for o in self.inputs.keys() if o not in options]
@@ -624,15 +621,13 @@ class inputClass():
 			else:
 				value = self.params[option]
 
-			print(f"    {option}:", "." * (offset-len(option)), f"{color.BOLD}{value}{color.END}")
+			print(f"    {option}:", "." * (offset-len(option)), value)
 
 		print()
 
 
 
 	def check_chromosomes(self):
-
-		import pysam
 
 		genome_chromosomes = set()
 		if self.inputs['genome_file']:
@@ -813,7 +808,7 @@ def validate_path(ctx, param, value):
 	if not value:
 		return(None)
 
-	path = value.strip()
+	path = Path(value.strip())
 
 	if not path.is_file() and not path.is_dir():
 		raise click.BadParameter(f"path not found: {path}")
@@ -1071,8 +1066,6 @@ def get_global_depth(alignment_file, force=False, aggregate_by=['rg','chrom','le
 
 def samtools_view(bam, rgs='all', contig=None, start=None, stop=None, threads=4, boundary_rule='loose'): #, read_minmax=(15,30)):
 
-	import pysam
-
 	bamf = pysam.AlignmentFile(bam,'rb', threads=threads)
 
 	if not bamf.has_index():
@@ -1146,8 +1139,6 @@ def samtools_view(bam, rgs='all', contig=None, start=None, stop=None, threads=4,
 
 
 def get_chromosomes(file):
-	
-	import pysam 
 
 	chromosomes = []
 	rgs = []
@@ -1449,8 +1440,8 @@ def check_rgs(annotation_readgroups, bam_rgs):
 def module_title(module, version):
 	print()
 	print()
-	print(f"{color.BOLD}Module:{color.END} {module}")
-	print(f"{color.BOLD}Version:{color.END} {version}")
+	print(f"Module:  {module}")
+	print(f"Version: {version}")
 	print()
 
 

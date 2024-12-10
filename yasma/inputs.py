@@ -128,7 +128,7 @@ def inputs(**params):
 	ic.check_paired_end()
 
 	print()
-	print(color.BOLD + "Inputs:" + color.END)
+	print("Inputs:")
 	pprint(ic.inputs)
 
 

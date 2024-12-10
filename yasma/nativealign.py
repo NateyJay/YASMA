@@ -318,7 +318,7 @@ def align(**params):
 		read_p = round(read_i / total_reads * 100,1)
 
 		counts = [map_c[c] for c in ['U','P','R','Q','H','N']]
-		percs  = [round(c/read_i*100,1) for c in counts]
+		percs  = [round(c/total_reads*100,1) for c in counts]
 
 
 		# to_print = f'\n  command:\n    {" ".join(call)}\n\n  libraries:\n'
