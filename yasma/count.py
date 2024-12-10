@@ -89,12 +89,12 @@ def init(l, r, a, o, ):
 	help='Values denoting condition groups (sets of replicate libraries) for projects with multiple tissues/treatments/genotypes. Can be entered here as space sparated duplexes, with the library base_name and condition groups delimited by a colon. E.g. SRR1111111:WT SRR1111112:WT SRR1111113:mut SRR1111114:mut')
 
 
-@optgroup.option("-a", "--annotation_file", 
+@optgroup.option("-an", "--annotation_file", 
 	required=False, 
 	type=click.UNPROCESSED, callback=validate_path,
 	default = "tradeoff/loci.gff3",
 	multiple=False,
-	help='Locus annotation in gff, gff3, bed, or tabular format. Tabular requires contig:start-stop and locus_namein the first two columns (tab-delimited, "#" escape char). Defaults to tradeoff/loci.gff3, but that may not be prefered if alignment includes conditions.')
+	help='Locus annotation in gff, gff3, gtf, bed, or tabular format. Tabular requires contig:start-stop and locus_namein the first two columns (tab-delimited, "#" escape char). Defaults to tradeoff/loci.gff3, but that may not be prefered if alignment includes conditions.')
 
 @optgroup.option("-n", "--name", 
 	required=False,
@@ -154,7 +154,11 @@ def count(** params):
 
 					elif file.suffix == '.gff' or file.suffix == '.gff3':
 						coords = f"{line[0]}:{line[3]}-{line[4]}"
-						name   = line[8].split(";")[0].split("=")[-1]
+						name   = line[8].split(";")[0].split("=")[-1].strip('"')
+
+					elif file.suffix == '.gtf':
+						coords = f"{line[0]}:{line[3]}-{line[4]}"
+						name   = line[8].split(";")[0].split()[-1].strip('"')
 
 					elif file.suffix == '.bed':
 						name   = f"bed_{i}"
