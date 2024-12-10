@@ -507,9 +507,9 @@ def get_bin_threshold(cdf_c, to_save=False, to_print=False):
 	default=0.5,
 	help="Similarity threshold of strand fraction for clumping two peaks. Difference in fraction must be smaller than threshold. Default 0.5.")
 
-@optgroup.option("--min_locus_length",
-	default=30,
-	help="Minimum size for a locus to be included. Default 30 nt.")
+# @optgroup.option("--min_locus_length",
+# 	default=30,
+# 	help="Minimum size for a locus to be included. Default 30 nt.")
 
 
 
