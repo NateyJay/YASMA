@@ -5,10 +5,9 @@ from click_option_group import optgroup
 from .generics import *
 from .cli import cli
 
-import random
+from random import choices
 import time
 
-import shutil
 
 
 
@@ -502,7 +501,7 @@ def align(**params):
 
 
 
-					choice = random.choices(range(alignment_count), weights, k=1)[0]
+					choice = choices(range(alignment_count), weights, k=1)[0]
 					a = alns[choice]
 
 					if same_weight:

@@ -1,33 +1,9 @@
 
-import sys
-
-import click
-from click_option_group import optgroup
-
-from pathlib import Path
-from os.path import isfile, isdir
-from collections import Counter#, deque
-from pprint import pprint
-from random import sample
-
-# import numpy as np
-# from statistics import quantiles
-import math
-
 from .generics import *
-from .cli import cli
 
-from statistics import mean, median
-
-from time import time
 
 import json
-
 from shutil import copyfile
-from subprocess import PIPE, Popen
-
-
-
 from datetime import datetime
 
 
@@ -52,7 +28,7 @@ class configClass():
 
 		names = [c['name'] for c in self.config_d['plugins']]
 		if 'MyNoBuildPlugin' not in names:
-			print(f"  adding plugins: {color.BOLD}MyNoBuildPlugin{color.END}")
+			print(f"  adding plugins: MyNoBuildPlugin")
 			self.config_d['plugins'].append(self.make_plugins_object())
 
 
@@ -67,7 +43,7 @@ class configClass():
 		## adding assembly
 		names = [c['name'] for c in self.config_d['assemblies']]
 		if self.genome_name not in names:
-			print(f"  adding assembly: {color.BOLD}{self.genome_name}{color.END}")
+			print(f"  adding assembly: {self.genome_name}")
 			self.config_d['assemblies'].append(self.make_assembly_object())
 			
 
@@ -104,7 +80,7 @@ class configClass():
 		if not name:
 			name = file.stem
 		if name not in names:
-			print(f"  adding track: {color.BOLD}{file.name}{color.END}")
+			print(f"  adding track: {file.name}")
 			at = self.make_annotation_track(
 				name=name,
 				uri=str(uri))
@@ -117,7 +93,7 @@ class configClass():
 
 		names = [c['name'] for c in self.config_d['tracks']]
 		if f"{self.project_name}_coverage" not in names:
-			print(f"  adding track: {color.BOLD}{self.project_name}_coverage{color.END}")
+			print(f"  adding track: {self.project_name}_coverage")
 			self.config_d['tracks'].append(self.make_bigwig_track())
 
 
@@ -294,8 +270,8 @@ class configClass():
 			elif des.name == "Results.gff3":
 				des = des.with_name("shortstack4.gff3")
 
-			if self.params['force'] or not isfile(des) or self.params['recopy']:
-				if not isfile(src):
+			if self.params['force'] or not des.is_file() or self.params['recopy']:
+				if not src.is_file():
 					print(f"Warning: source {src} could not be found and copied to jbrowse directory.")
 				else:
 					print(f"    {src}")
@@ -452,7 +428,7 @@ def jbrowse(**params):
 		# jbrowse_directory = jbrowse_directory.rstrip("/")
 		input_config = Path(jbrowse_directory, "config.json")
 
-		if not isfile(input_config):
+		if not input_config.is_file():
 			print("Warning: config.json in jbrowse_directory not found")
 			print(" ->", input_config)
 			print()
@@ -619,8 +595,9 @@ def jbrowse(**params):
 
 	coverage_already_made = False
 	for key in keys:
-		file = f"{cov_dir}/{key}.bigwig"
-		if isfile(file):
+		file = Path(cov_dir, f"{key}.bigwig")
+
+		if file.is_file():
 			coverage_already_made = True
 
 	if coverage_already_made and not force:
@@ -637,7 +614,6 @@ def jbrowse(**params):
 					name=key)
 
 
-		counter_d = {}
 
 		for chrom_count, chrom_and_length in enumerate(chromosomes):
 

@@ -1,35 +1,9 @@
 
 
 
-import sys
-import os
-
-import click
-from click_option_group import optgroup
-
-from pathlib import Path
-from os.path import isfile, isdir
-from collections import Counter#, deque
-from pprint import pprint
-
-# from random import sample
-
-# import numpy as np
-# from statistics import quantiles
-# import math
-import shutil
-import re
-
 from .generics import *
-from .cli import cli
 
-# from statistics import mean, median, StatisticsError
-
-# from time import time
-
-from datetime import datetime
-
-import pysam
+from shutil import rmtree
 
 
 @cli.command(group='Ann. wrappers', help_priority=5)
@@ -65,26 +39,26 @@ import pysam
 	type=str,
 	help="Optional name alignment. Useful if comparing annotations.")
 
-@optgroup.option('--subsample',
-	help="Allows the user to subsample alignments for the annotation to a defined depth. Accepts an integer number of reads, which can be modified with a 10^3 prefix (ex. 10M).")
+# @optgroup.option('--subsample',
+# 	help="Allows the user to subsample alignments for the annotation to a defined depth. Accepts an integer number of reads, which can be modified with a 10^3 prefix (ex. 10M).")
 
-@optgroup.option('--subsample_seed',
-	type=int,
-	default=0,
-	help="Seed value used for subsampling (default: 42)")
+# @optgroup.option('--subsample_seed',
+# 	type=int,
+# 	default=0,
+# 	help="Seed value used for subsampling (default: 42)")
 
-@optgroup.option('--subsample_n',
-	type=int,
-	default=0,
-	help="The index of which split group from the subsets you want to use for the annotation. For example, a 105M deep alignment will be split into 5 distinct sets when subset by 20M (residual 5M are ignored). This option which pick which to use (base-0)")
+# @optgroup.option('--subsample_n',
+# 	type=int,
+# 	default=0,
+# 	help="The index of which split group from the subsets you want to use for the annotation. For example, a 105M deep alignment will be split into 5 distinct sets when subset by 20M (residual 5M are ignored). This option which pick which to use (base-0)")
 
 
-@optgroup.option('--subsample_keep_max',
-	type=int,
-	default=1,
-	help="The maximum number of subset alignments that will be written to the disk. Numbers higher than 1 are really only useful for performance comparisons. This value will automatically be raised to a minimum of the subsample_n+1.")
+# @optgroup.option('--subsample_keep_max',
+# 	type=int,
+# 	default=1,
+# 	help="The maximum number of subset alignments that will be written to the disk. Numbers higher than 1 are really only useful for performance comparisons. This value will automatically be raised to a minimum of the subsample_n+1.")
 
-@optgroup.option('--force', is_flag=True, default=False, help='force resubsample')
+# @optgroup.option('--force', is_flag=True, default=False, help='force resubsample')
 @optgroup.option('--override', is_flag=True, default=False, help='Overrides config file changes without prompting.')
 
 
@@ -115,35 +89,38 @@ def shortstack3(**params):
 	name                    = params['name']
 
 
-	def get_target_rpm():
-		bamf = pysam.AlignmentFile(alignment_file, "rb")
+	# def get_target_rpm():
 
-		if not bamf.has_index():
-			pysam.index(str(alignment_file))
-			bamf.close()
-			bamf = pysam.AlignmentFile(alignment_file,'rb')
+	# 	import pysam
 
-		ls = bamf.get_index_statistics()
-		total = 0
-		for l in ls:
-			total += l[3]
-			# print(l)
+	# 	bamf = pysam.AlignmentFile(alignment_file, "rb")
 
-		# print(bamf.nocoordinate)
-		if bamf.nocoordinate == 0:
-			sys.exit("alignment contains no unmapped reads, meaning it has been subsampled. For shortstack runs, you must let yasma do the subsampling, as shortstack requires information on the unmapped reads.")
+	# 	if not bamf.has_index():
+	# 		pysam.index(str(alignment_file))
+	# 		bamf.close()
+	# 		bamf = pysam.AlignmentFile(alignment_file,'rb')
+
+	# 	ls = bamf.get_index_statistics()
+	# 	total = 0
+	# 	for l in ls:
+	# 		total += l[3]
+	# 		# print(l)
+
+	# 	# print(bamf.nocoordinate)
+	# 	if bamf.nocoordinate == 0:
+	# 		sys.exit("alignment contains no unmapped reads, meaning it has been subsampled. For shortstack runs, you must let yasma do the subsampling, as shortstack requires information on the unmapped reads.")
 
 
-		primaries = total + bamf.nocoordinate
+	# 	primaries = total + bamf.nocoordinate
 
 
 
-		target_rpm = primaries / total * 0.5
+	# 	target_rpm = primaries / total * 0.5
 
-		bamf.close()
-		return(round(target_rpm,3))
+	# 	bamf.close()
+	# 	return(round(target_rpm,3))
 
-	target_rpm = get_target_rpm()
+	# target_rpm = get_target_rpm()
 
 
 
@@ -155,11 +132,11 @@ def shortstack3(**params):
 	aligned_read_count = sum(chrom_depth_c.values())
 
 
-	if params['subsample']:
+	# if params['subsample']:
 
-		alignment_file = subsample(aligned_read_count, alignment_file, params)
-		chrom_depth_c = get_global_depth(alignment_file, aggregate_by=['rg','chrom'])
-		aligned_read_count = sum(chrom_depth_c.values())
+	# 	alignment_file = subsample(aligned_read_count, alignment_file, params)
+	# 	chrom_depth_c = get_global_depth(alignment_file, aggregate_by=['rg','chrom'])
+	# 	aligned_read_count = sum(chrom_depth_c.values())
 
 
 
@@ -179,9 +156,9 @@ def shortstack3(**params):
 	if name:
 		dir_name = f'shortstack3_{name}'
 
-	elif params['subsample']:
-		floor(aligned_read_count/1000000)
-		dir_name = f"shortstack3_{floor(aligned_read_count/1000000)}M_n{params['subsample_n']}_s{params['subsample_seed']}"
+	# elif params['subsample']:
+	# 	floor(aligned_read_count/1000000)
+	# 	dir_name = f"shortstack3_{floor(aligned_read_count/1000000)}M_n{params['subsample_n']}_s{params['subsample_seed']}"
 
 	else:
 		dir_name = 'shortstack3'
@@ -204,12 +181,12 @@ def shortstack3(**params):
 	annotation_folder = Path(output_directory, dir_name)
 	MIRNAs_folder     = Path(annotation_folder, 'MIRNAs')
 
-	if isdir(temp_folder):
-		shutil.rmtree(temp_folder)
+	if temp_folder.is_dir():
+		rmtree(temp_folder)
 
 
-	if isdir(MIRNAs_folder):
-		shutil.rmtree(MIRNAs_folder)
+	if MIRNAs_folder.is_dir():
+		rmtree(MIRNAs_folder)
 
 
 	args = ["ShortStack3"]

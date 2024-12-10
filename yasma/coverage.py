@@ -1,18 +1,6 @@
 
-import sys
-import os
-
-import click
-from click_option_group import optgroup
-
-from pathlib import Path
-from os.path import isfile, isdir
-from collections import Counter#, deque
-from pprint import pprint
-
-
 from .generics import *
-from .cli import cli
+
 
 
 
@@ -176,15 +164,5 @@ def coverage(**params):
 
 	bamf.close()
 
-	sys.exit()
-
-
-	# bw_file = alignment_file.with_suffix(".bw")
-
-	tc = trackClass(bw_file, chromosomes)
-
-
-	tc.process_bam(alignment_file, aligned_depth)
-	tc.close()
 
 

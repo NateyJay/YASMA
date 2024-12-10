@@ -1,25 +1,10 @@
 
-import sys
-import os
-
-import click
-from click_option_group import optgroup
-
-from pathlib import Path, PurePath
-from os.path import isfile, isdir
-from collections import Counter#, deque
-from pprint import pprint
-
-# from random import sample
-
-# import numpy as np
-# from statistics import quantiles
-# import math
-import shutil
-# import re
 
 from .generics import *
-from .cli import cli
+
+from shutil import rmtree
+
+
 
 
 
@@ -124,7 +109,7 @@ def trim(**params):
 		print(f"trimming: {file}", flush=True)
 
 
-		path = PurePath(file)
+		path = Path(file)
 
 
 
@@ -161,7 +146,7 @@ def trim(**params):
 		for srr in ic.inputs['srrs']:
 
 			try:
-				shutil.rmtree(Path(output_directory, 'download', srr))
+				rmtree(Path(output_directory, 'download', srr))
 			except FileNotFoundError:
 				pass
 

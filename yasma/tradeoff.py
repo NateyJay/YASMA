@@ -1,41 +1,19 @@
 
 
-import sys
-import os
 
-import click
-from click_option_group import optgroup
+from .generics import *
 
-from pathlib import Path
-import shutil
-from os.path import isfile, isdir
-from collections import Counter#, deque
-from pprint import pprint
 from random import sample
 from itertools import chain
 
-# import numpy as np
-# from statistics import quantiles
-import math
-
-from .generics import *
-from .cli import cli
-
-from statistics import mean, median, StatisticsError, stdev
-
-from time import time
-
-import re
-
-# from tqdm import tqdm
-
+from math import sqrt
 
 from datetime import datetime
 
-
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
-# from pympler import asizeof
+
+
 
 np.seterr(all='raise')
 
@@ -440,24 +418,24 @@ def get_bin_threshold(cdf_c, to_save=False, to_print=False):
 
 
 
-@optgroup.option('--subsample',
-	help="Allows the user to subsample alignments for the annotation to a defined depth. Accepts an integer number of reads, which can be modified with a 10^3 prefix (ex. 10M).")
+# @optgroup.option('--subsample',
+# 	help="Allows the user to subsample alignments for the annotation to a defined depth. Accepts an integer number of reads, which can be modified with a 10^3 prefix (ex. 10M).")
 
-@optgroup.option('--subsample_seed',
-	type=int,
-	default=0,
-	help="Seed value used for subsampling (default: 0)")
+# @optgroup.option('--subsample_seed',
+# 	type=int,
+# 	default=0,
+# 	help="Seed value used for subsampling (default: 0)")
 
-@optgroup.option('--subsample_n',
-	type=int,
-	default=0,
-	help="The index of which split group from the subsets you want to use for the annotation. For example, a 105M deep alignment will be split into 5 distinct sets when subset by 20M (residual 5M are ignored). This option which pick which to use (base-0)")
+# @optgroup.option('--subsample_n',
+# 	type=int,
+# 	default=0,
+# 	help="The index of which split group from the subsets you want to use for the annotation. For example, a 105M deep alignment will be split into 5 distinct sets when subset by 20M (residual 5M are ignored). This option which pick which to use (base-0)")
 
 
-@optgroup.option('--subsample_keep_max',
-	type=int,
-	default=1,
-	help="The maximum number of subset alignments that will be written to the disk. Numbers higher than 1 are really only useful for performance comparisons. This value will automatically be raised to a minimum of the subsample_n+1.")
+# @optgroup.option('--subsample_keep_max',
+# 	type=int,
+# 	default=1,
+# 	help="The maximum number of subset alignments that will be written to the disk. Numbers higher than 1 are really only useful for performance comparisons. This value will automatically be raised to a minimum of the subsample_n+1.")
 
 
 
@@ -559,7 +537,7 @@ def get_bin_threshold(cdf_c, to_save=False, to_print=False):
 @optgroup.group('\n Other options',
 				help='')
 
-@optgroup.option('--force', is_flag=True, default=False, help='force resubsample')
+# @optgroup.option('--force', is_flag=True, default=False, help='force resubsample')
 @optgroup.option('--debug', is_flag=True, default=False, help='Debug flag')
 @optgroup.option('--test_mode', is_flag=True, default=False, help='test_mode flag')
 @optgroup.option('--override', is_flag=True, default=False, help='Overrides config file changes without prompting.')
@@ -586,8 +564,8 @@ def tradeoff(**params):
 	min_locus_length        = params['min_locus_length']
 	debug                   = params['debug']
 	annotation_name         = params['name']
-	target_depth            = params['subsample']
-	seed                    = params['subsample_seed']
+	# target_depth            = params['subsample']
+	# seed                    = params['subsample_seed']
 
 	read_minmax = (params['min_read_length'], params['max_read_length'])
 
@@ -771,11 +749,11 @@ def tradeoff(**params):
 
 	### calling subsampling if needed
 
-	if params['subsample']:
+	# if params['subsample']:
 
-		alignment_file = subsample(aligned_read_count, alignment_file, params)
-		chrom_depth_c = get_global_depth(alignment_file, aggregate_by=['rg','chrom'])
-		aligned_read_count = sum(chrom_depth_c.values())
+	# 	alignment_file = subsample(aligned_read_count, alignment_file, params)
+	# 	chrom_depth_c = get_global_depth(alignment_file, aggregate_by=['rg','chrom'])
+	# 	aligned_read_count = sum(chrom_depth_c.values())
 
 
 
@@ -870,10 +848,10 @@ def tradeoff(**params):
 			i += l
 
 		cov_window = params['coverage_window']
-		half_cov_window = math.floor(cov_window/2)
+		half_cov_window = floor(cov_window/2)
 
 		ker_window = params['kernel_window']
-		half_ker_window = math.floor(ker_window/2)
+		half_ker_window = floor(ker_window/2)
 
 		def get_max_lib_counts():
 			lib_counts = []
@@ -913,7 +891,7 @@ def tradeoff(**params):
 			condition = rev_conditions[lib]
 
 
-			pos += math.floor(length / 2)
+			pos += floor(length / 2)
 
 			strand_i    = ["+", "-"].index(strand)
 			condition_i = annotation_conditions.index(condition)
@@ -943,50 +921,50 @@ def tradeoff(**params):
 
 
 
-		class trackClass():
-			def __init__(self, bw_file, chromosomes):
-				self.bw = pyBigWig.open(str(bw_file), 'w')
-				self.bw.addHeader(chromosomes)
+		# class trackClass():
+		# 	def __init__(self, bw_file, chromosomes):
+		# 		self.bw = pyBigWig.open(str(bw_file), 'w')
+		# 		self.bw.addHeader(chromosomes)
 
-				self.last_start      = 0
-				self.interval_length = 1
-				self.last_chrom = chromosomes[0][0]
-				self.last_val   = 0
+		# 		self.last_start      = 0
+		# 		self.interval_length = 1
+		# 		self.last_chrom = chromosomes[0][0]
+		# 		self.last_val   = 0
 
-			def write(self):
-				stop = self.last_start + self.interval_length
-				self.bw.addEntries(
-								[self.last_chrom], 
-								[self.last_start], 
-								ends= [stop], 
-								values= [float(self.last_val)]
-								)
-
-
-			def add(self, chrom, pos, val):
-
-				if chrom != self.last_chrom:
-					self.write()
-					self.last_start      = 0
-					self.interval_length = 1
-
-				elif pos > self.last_start:
-
-					if val != self.last_val:
-						self.write()
-						self.last_start = pos
-						self.interval_length = 1
-
-					else:
-						self.interval_length += 1
+		# 	def write(self):
+		# 		stop = self.last_start + self.interval_length
+		# 		self.bw.addEntries(
+		# 						[self.last_chrom], 
+		# 						[self.last_start], 
+		# 						ends= [stop], 
+		# 						values= [float(self.last_val)]
+		# 						)
 
 
-				self.last_val   = val
-				self.last_chrom = chrom
+		# 	def add(self, chrom, pos, val):
 
-			def close(self):
-				self.write()
-				self.bw.close()
+		# 		if chrom != self.last_chrom:
+		# 			self.write()
+		# 			self.last_start      = 0
+		# 			self.interval_length = 1
+
+		# 		elif pos > self.last_start:
+
+		# 			if val != self.last_val:
+		# 				self.write()
+		# 				self.last_start = pos
+		# 				self.interval_length = 1
+
+		# 			else:
+		# 				self.interval_length += 1
+
+
+		# 		self.last_val   = val
+		# 		self.last_chrom = chrom
+
+		# 	def close(self):
+		# 		self.write()
+		# 		self.bw.close()
 
 
 
@@ -1162,10 +1140,10 @@ def tradeoff(**params):
 				genp_thresholds.append((p_gen, threshold))
 				readp_thresholds.append((p_read, threshold))
 
-				average = mean([p_read, p_gen])
+				average = sum([p_read, p_gen]) / 2
 
 				vdist = p_read - p_gen
-				pdist = math.sqrt( (average - p_gen)**2 * 2 )
+				pdist = sqrt( (average - p_gen)**2 * 2 )
 				kdiff = vdist - pdist
 
 
@@ -1954,7 +1932,23 @@ def tradeoff(**params):
 			sys.stdout.write(to_print, terminal_only = terminal_only)
 
 
+	def top_reads_save(read_c, file, read_equivalent, name):
+		cum_count = 0
+		top_reads = read_c.most_common(100)
+		for rank, read in enumerate(top_reads):
 
+			seq, dep = read
+			rpm = round(dep * read_equivalent, 4)
+
+			cum_count += dep
+
+			loc_prop = round(cum_count / sum(read_c.values()), 4)
+
+			with open(file, 'a') as outf:
+				print(name, seq, rank, dep, rpm, loc_prop, file=outf, sep='\t')
+
+				if loc_prop >= 0.3:
+					break
 
 
 	# def print_progress_string(i, n, chrom, input_loci, output_loci, assess=False, terminal_only=False):

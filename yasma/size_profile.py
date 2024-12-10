@@ -1,26 +1,9 @@
-import sys
-import os
 
-import click
-from click_option_group import optgroup
 
-from pathlib import Path, PurePath
-from os.path import isfile, isdir
-from collections import Counter#, deque
-from pprint import pprint
+from .generics import *
 
 from statistics import stdev, median
 
-# from random import sample
-
-# import numpy as np
-# from statistics import quantiles
-# import math
-import shutil
-# import re
-
-from .generics import *
-from .cli import cli
 
 
 
@@ -429,7 +412,7 @@ def size_profile(**params):
 				libraries += conditions[a]
 			except KeyError:
 				print(f"KeyError: condition '{a}' not found in conditions:")
-				pprint(list(conditions.keys()))
+				print(list(conditions.keys()))
 				sys.exit()
 
 	if len(libraries) == 0:

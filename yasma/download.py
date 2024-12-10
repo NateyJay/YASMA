@@ -1,18 +1,10 @@
 ## SRA tools utility for downloading SRRs
 
-import sys
-
-import click
-from click_option_group import optgroup
-
-from pprint import pprint
-
 from .generics import *
-from .cli import cli
 
 import gzip
 from shutil import rmtree
-import time
+from time import sleep
 
 
 @cli.command(group='Processing', help_priority=2)
@@ -40,7 +32,7 @@ import time
 def download(**params):
 	'''Tool to check untrimmed-libraries for 3' adapter content.'''
 
-	pprint(params)
+	print(params)
 	rc = requirementClass()
 	rc.add_sratools()
 	rc.check()
@@ -120,7 +112,7 @@ def download(**params):
 			if not valid:
 				n = try_counter * 10
 				print(f'prefetch failed. Waiting {n} seconds')
-				time.sleep(n)
+				sleep(n)
 
 			if try_counter > 25:
 				sys.exit(f"ERROR: could not prefetch {srr}")
