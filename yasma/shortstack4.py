@@ -97,6 +97,7 @@ def shortstack4(**params):
 
 	rc = requirementClass()
 	rc.add_samtools()
+	rc.add_bedtools()
 	# rc.add_bowtie()
 	# rc.add_shortstack()
 	# rc.add_rnafold()
@@ -219,7 +220,7 @@ def shortstack4(**params):
 		# ic.write()
 
 
-	args = ["ShortStack4", '--bamfile', alignment_file, "--genomefile", genome_file, "--outdir", temp_folder , '--threads', '4', '--dn_mirna']
+	args = ["ShortStack4", '--bamfile', alignment_file, "--genomefile", genome_file, "--outdir", temp_folder , '--threads', '4']
 
 	if params['subsample']:
 		args += ['--mincov', target_rpm]
