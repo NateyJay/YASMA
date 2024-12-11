@@ -561,7 +561,7 @@ def tradeoff(**params):
 
 	clump_dist              = params['merge_dist']
 	clump_strand_similarity = params['merge_strand_similarity']
-	min_locus_length        = params['min_locus_length']
+	# min_locus_length        = params['min_locus_length']
 	debug                   = params['debug']
 	annotation_name         = params['name']
 	# target_depth            = params['subsample']
@@ -783,7 +783,7 @@ def tradeoff(**params):
 
 	reads_file = Path(output_directory, dir_name, 'reads.txt')
 	with open(reads_file, 'w') as outf:
-		print(TOP_READS_HEADER, file=outf)
+		print("cluster\tseq\trank\tdepth\trpm\tlocus_prop", file=outf)
 
 
 	merge_file = Path(output_directory, dir_name, 'merges.txt')

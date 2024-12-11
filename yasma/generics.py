@@ -756,7 +756,8 @@ def validate_glob_path(ctx, param, value):
 
 	full_paths = []
 	for path in paths:
-		full_paths.append(str(Path(path).absolute()))
+		path = Path(path)
+		full_paths.append(path.absolute())
 
 		if not path.is_file() and not path.is_dir():
 			raise click.BadParameter(f"path not found: {path}")

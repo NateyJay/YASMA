@@ -200,7 +200,7 @@ def count(** params):
 
 	chroms, rgs = get_chromosomes(alignment_file)
 
-	pprint(conditions)
+	# pprint(conditions)
 
 	rev_conditions = {}
 	for k,vs in conditions.items():

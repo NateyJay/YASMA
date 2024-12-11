@@ -72,7 +72,7 @@ def download(**params):
 		unzipped_file = Path(untrimmed_dir, f"{srr}.fastq")
 		zipped_file   = Path(untrimmed_dir, f"{srr}.fq.gz")
 
-		print(f"  {i+1} of {len(srrs)}")
+		print(f"\n  downloading {i+1} of {len(srrs)}  ")
 
 		if not params['unzipped'] and zipped_file.is_file():
 			print(' ', zipped_file, 'found...')
