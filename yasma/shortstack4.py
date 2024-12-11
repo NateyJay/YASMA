@@ -74,8 +74,8 @@ def shortstack4(**params):
 	rc = requirementClass()
 	rc.add_samtools()
 	rc.add_bedtools()
-	# rc.add_bowtie()
-	# rc.add_shortstack()
+	# strucvis
+	rc.add_shortstack()
 	# rc.add_rnafold()
 	rc.check()
 
@@ -198,8 +198,8 @@ def shortstack4(**params):
 
 	args = ["ShortStack4", '--bamfile', alignment_file, "--genomefile", genome_file, "--outdir", temp_folder , '--threads', '4']
 
-	if params['subsample']:
-		args += ['--mincov', target_rpm]
+	# if params['subsample']:
+	# 	args += ['--mincov', target_rpm]
 
 
 	args = list(map(str, args))
@@ -212,7 +212,7 @@ def shortstack4(**params):
 	# os.rename(Path(temp_folder, 'log.txt'), Path(temp_folder, 'shortstack_log.txt'))
 
 
-	for file in os.listdir(temp_folder):
+	for file in temp_folder.iterdir():
 		Path(temp_folder, file).rename(Path(annotation_folder, file))
 
 	shutil.rmtree(temp_folder)
