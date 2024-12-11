@@ -5,6 +5,7 @@ from click_option_group import optgroup
 from .generics import *
 from .cli import cli
 
+from itertools import chain
 from random import choices
 import time
 
@@ -102,7 +103,7 @@ def align(**params):
 	max_random              = params['max_random']
 	locality                = params['unique_locality']
 
-	pprint(params)
+	# pprint(params)
 
 	
 	half_locality = round(locality/2)
@@ -264,8 +265,8 @@ def align(**params):
 			bowtie_call.append("-")
 			p = Popen(bowtie_call, encoding=ENCODING, stdout=PIPE, stderr=PIPE, stdin=gzip.stdout)
 
-
 			# print(" ".join(call), "|", " ".join(bowtie_call))
+
 		else:
 			bowtie_call.append(str(lib))
 			p = Popen(bowtie_call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
@@ -428,14 +429,17 @@ def align(**params):
 		# print(rg, 'mmap')
 
 		gen = bowtie_generator(lib, mmap='multi')
+
 		for a in gen:
+
 			read_i += 1
 
 			qname = a.query_name
-				
-			if a.get_tag("XM") >= max_multi:
 
-				
+			alignment_count = a.get_tag("XM")-1 ## Bowtie reports XM as +1 over the number of reported alignments
+
+			if alignment_count > max_multi:
+
 				a.set_tag("XY","H","Z")
 				a.set_tag("XZ",0.0,'f')
 
@@ -444,9 +448,10 @@ def align(**params):
 				a.reference_start = -1
 				a.is_mapped = False
 
-				for r in range(a.get_tag("XM")-2):
+				## Clearing the other alignments for this read
+				for r in range(alignment_count-1):
 					next(gen)
-
+		
 			else:
 
 				weight  = max([unique_d[a.reference_name][a.query_alignment_start], unique_d[a.reference_name][a.query_alignment_end]])
@@ -455,7 +460,7 @@ def align(**params):
 				alns    = [a]
 
 				# print("", read_count, a.query_name, f"{a.reference_name}:{a.query_alignment_start}", weight, sep='\t')
-				alignment_count = a.get_tag("XM")-1
+				
 
 
 				for r in range(alignment_count-1):
@@ -475,7 +480,10 @@ def align(**params):
 						print("qname mismatch!")
 						print(f"expected: {qname}")
 						print(f"found:    {a.query_name}")
-						print(a)
+						print(r+2, "<- alignment number")
+						print(alignment_count, "<- total expected alignments")
+						for a in alns:
+							print("  ", a)
 						print("WEIRD ERROR 1 - please report to nate!")
 						sys.exit()
 
@@ -483,7 +491,7 @@ def align(**params):
 
 				same_weight = len(set(weights)) == 1
 
-				if alignment_count >= max_random and same_weight:
+				if alignment_count > max_random and same_weight:
 
 					a = alns[0]
 					
@@ -500,7 +508,6 @@ def align(**params):
 						weights = [1] * len(weights)
 
 
-
 					choice = choices(range(alignment_count), weights, k=1)[0]
 					a = alns[choice]
 
@@ -511,7 +518,6 @@ def align(**params):
 					else:
 						a.set_tag("XY","P","Z")
 						a.set_tag("XZ",round(weights[choice]/sum(weights),3), 'f')
-
 
 
 			map_c[a.get_tag("XY")] += 1
@@ -527,6 +533,7 @@ def align(**params):
 
 				print_progress(read_i, map_c, (rg, 'mmap'), done_rgs, status_message=f'{rg} mmap mapping', terminal_only=True)
 
+
 		done_rgs.add((rg, 'mmap'))
 
 	print_progress(read_i, map_c, (rg, 'mmap'), done_rgs, status_message='done', terminal_only=True)
@@ -535,297 +542,6 @@ def align(**params):
 
 
 
-
-
-	# def get_unique_weighting():
-	# 	'''returns a double dictionary which has the unique read count by [contig][pos]'''
-	# 	## unique alignment
-
-	# 	unique_d = dict()
-	# 	with open(genome_file.with_suffix(genome_file.suffix + ".fai"), 'r') as f:
-	# 		for line in f:
-
-	# 			ref, length, _, _, _ = line.strip().split()
-
-	# 			unique_d[ref] = [0] * int(length)
-
-
-	# 	for lib in trimmed_libraries:
-
-	# 		print(" ", str(lib))
-	# 		# print()
-
-	# 		lib_iter = bowtie_generator(lib, 'unique')
-
-	# 		## removing header and getting first line
-	# 		while True:
-	# 			try:
-	# 				line = next(lib_iter)
-	# 			except StopIteration:
-	# 				break
-
-	# 			if not line.startswith("@"):
-	# 				a = pysam.AlignedSegment()
-
-	# 				try:
-	# 					a = a.fromstring(line, bamfile.header)
-	# 				except ValueError as err:
-	# 					print(err)
-	# 					# print(f'call: {call}')
-	# 					print(f'line: {line}')
-
-	# 					print(f"bowtie err:")
-	# 					for e in p.stderr:
-	# 						print(" ", e.strip())
-	# 					raise 
-
-	# 				break
-
-	# 		while True:
-
-				
-	# 			if a.is_mapped:
-
-	# 				left  = a.query_alignment_start - half_locality
-	# 				right = a.query_alignment_end   + half_locality
-
-	# 				for r in range(left, right):
-	# 					try:
-	# 						unique_d[a.reference_name][r] += 1
-	# 					except IndexError:
-	# 						pass
-
-	# 			try:
-	# 				line = next(lib_iter)
-	# 			except StopIteration:
-	# 				break
-	# 			try:
-	# 				a = pysam.AlignedSegment()
-	# 				a = a.fromstring(line.strip(), bamfile.header)
-	# 			except ValueError:
-	# 				break
-
-	# 	return(unique_d)
-
-
-	# print("Getting unique neighborhood weighting... (ShortStack-U)", flush=True)
-	# unique_d = get_unique_weighting()
-
-
-
-
-
-
-
-	# def do_weighted_alignment():
-	# 	read_i = 0
-	# 	threshold_i = 0
-	# 	lib_c = Counter()
-	# 	map_c = Counter()
-	# 	done_rgs = set()
-
-	# 	for lib in trimmed_libraries:
-	# 		rg = get_rg(lib)
-
-
-	# 		lib_iter = bowtie_generator(lib, 'multi')
-
-
-	# 		## removing header and getting first line
-	# 		while True:
-
-	# 			try:
-	# 				line = next(lib_iter)
-	# 			except StopIteration:
-	# 				break
-
-	# 			if not line.startswith("@"):
-	# 				a = pysam.AlignedSegment()
-	# 				try:
-	# 					a = a.fromstring(line, bamfile.header)
-	# 				except ValueError as err:
-	# 					print(err)
-	# 					print(f'call: {call}')
-	# 					print(f'line: {line}')
-	# 					raise 
-
-	# 				break
-
-	# 		while True:
-
-
-	# 			read_i += 1
-	# 			qname = a.query_name
-
-
-	# 			## some useful pysam properties
-	# 			# a.flag
-	# 			# a.reference_name
-	# 			# a.reference_length
-	# 			# a.get_tag("XM")
-	# 			# a.query_length
-	# 			# a.is_mapped
-	# 			# a.query_alignment_start
-	# 			# a.query_alignment_end
-
-
-	# 			read_count = 1
-
-
-	# 			if a.flag == 4:
-	# 				## non-mappers and excluded
-
-	# 				a.set_tag("XY","N","Z")
-	# 				a.set_tag("XZ",0.0,'f')
-
-	# 			elif a.get_tag("XM") >= max_multi:
-
-					
-	# 				a.set_tag("XY","H","Z")
-	# 				a.set_tag("XZ",0.0,'f')
-
-	# 				a.flag = 4
-	# 				a.reference_name = '*'
-	# 				a.reference_start = -1
-	# 				a.is_mapped = False
-
-	# 				for r in range(a.get_tag("XM")-2):
-
-	# 					try:
-	# 						line = next(lib_iter)
-	# 					except StopIteration:
-	# 						break
-
-
-
-	# 			else:
-
-	# 				weight  = max([unique_d[a.reference_name][a.query_alignment_start], unique_d[a.reference_name][a.query_alignment_end]])
-	# 				weights = [weight]
-
-	# 				alns    = [a]
-
-	# 				# print("", read_count, a.query_name, f"{a.reference_name}:{a.query_alignment_start}", weight, sep='\t')
-	# 				alignment_count = a.get_tag("XM")-1
-
-	# 				if alignment_count == 1:
-	# 					a.set_tag("XY","U","Z")
-	# 					a.set_tag("XZ",1.0,'f')
-
-	# 				else:
-
-	# 					for r in range(alignment_count-1):
-
-	# 						try:
-	# 							line = next(lib_iter)
-	# 						except StopIteration:
-	# 							break
-
-	# 						a = a.fromstring(line, bamfile.header)
-
-	# 						read_count += 1
-	# 						weight  = max([unique_d[a.reference_name][a.query_alignment_start], unique_d[a.reference_name][a.query_alignment_end]])
-	# 						weights.append(weight)
-
-	# 						# print("  ", read_count, a.query_name, f"{a.reference_name}:{a.query_alignment_start}", weight, sep='\t')
-	# 						alns.append(a)	
-
-
-	# 						if a.query_name != qname:
-	# 							# break
-	# 							print("qname mismatch!")
-	# 							print(f"expected: {qname}")
-	# 							print(f"found:    {a.query_name}")
-	# 							print(a)
-	# 							print("WEIRD ERROR 1 - please report to nate!")
-	# 							sys.exit()
-		
-
-
-	# 					same_weight = len(set(weights)) == 1
-
-	# 					if alignment_count >= max_random and same_weight:
-
-	# 						a = alns[0]
-							
-	# 						a.set_tag("XY","Q","Z")
-	# 						a.set_tag("XZ",round(1/len(weights),3), 'f')
-	# 						a.flag = 4
-	# 						a.reference_name = '*'
-	# 						a.reference_start = -1
-	# 						a.is_mapped = False
-
-	# 				# for r in range(a.get_tag("XM")-2):
-
-	# 				# 	try:
-	# 				# 		line = next(lib_iter)
-	# 				# 	except StopIteration:
-	# 				# 		break
-
-
-	# 					else:
-
-	# 						if sum(weights) == 0:
-	# 							weights = [1] * len(weights)
-
-		
-
-	# 						choice = random.choices(range(alignment_count), weights, k=1)[0]
-	# 						a = alns[choice]
-
-	# 						if same_weight:
-	# 							a.set_tag("XY","R","Z")
-	# 							XZ = round(1/sum(weights),3)
-
-	# 						else:
-	# 							a.set_tag("XY","P","Z")
-	# 							a.set_tag("XZ",round(weights[choice]/sum(weights),3), 'f')
-
-
-
-	# 			map_c[a.get_tag("XY")] += 1
-	# 			lib_c[(rg, a.get_tag("XY"))] += 1
-
-	# 			a.set_tag("RG", rg, "Z")
-	# 			bamfile.write(a)
-
-	# 			if read_i >= threshold_i:
-	# 				threshold_i += 100000
-	# 				if threshold_i > total_reads:
-	# 					threshold_i = total_reads
-
-	# 				print_progress(read_i, map_c, rg, done_rgs, terminal_only=True)
-
-
-	# 			## getting a new line
-
-	# 			try:
-	# 				line = next(lib_iter)
-	# 			except StopIteration:
-	# 				break
-
-	# 			try:
-	# 				a = pysam.AlignedSegment()
-	# 				a = a.fromstring(line.strip(), bamfile.header)
-	# 			except ValueError:
-	# 				break
-
-	# 		done_rgs.add(rg)
-
-
-	# 		# p.wait()
-
-
-	# 	bamfile.close()
-
-	# 	print_progress(read_i, map_c, None, done_rgs)
-
-
-	# 	return(map_c, lib_c)
-
-	# print()
-	# print("Making alignment with multimapper placement...", flush=True)
-	# map_c, lib_c = do_weighted_alignment()
 
 
 	with open(project_table, 'w') as outf:
@@ -858,6 +574,7 @@ def align(**params):
 		h_elapsed = round((end-start)/ 60 / 60)
 		print(f"time elapsed: {h_elapsed:02}:{m_elapsed:02}:{s_elapsed:02}")
 
+	print()
 	print_elapsed(start)
 
 
@@ -869,7 +586,7 @@ def align(**params):
 	print_elapsed(start)
 
 
-	os.remove(unsorted_bam)
+	unsorted_bam.unlink()
 
 
 	print()
