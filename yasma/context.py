@@ -1,14 +1,8 @@
 # Genomic context module
 
-import os
-import click
-from subprocess import PIPE, Popen, call
-from pathlib import Path
-from os.path import isfile, isdir
-from pprint import pprint
-
 from .generics import *
 from .cli import cli
+
 
 @cli.command(group='Calculation', help_priority=3)
 
@@ -57,14 +51,14 @@ def context(**params):
 
 
 
-	ann_file = f"{output_directory}/peak/loci.gff3"
+	ann_file = Path(output_directory, "peak/loci.gff3")
 
-	if not isfile(ann_file):
+	if not ann_file.is_file():
 		sys.exit(f"Annotation file {ann_file} does not exist. Are you sure the output folder contains an annotation?")
 
-	results_file = f"{output_directory}/peak/loci.txt"
+	results_file =  Path(output_directory, "peak/loci.txt")
 
-	if not isfile(results_file):
+	if not results_file.is_file():
 		sys.exit(f"results file ({results_file}) not found")
 
 	# 1) make subfiles
@@ -101,13 +95,13 @@ def context(**params):
 		exon_file = gene_annotation_file.with_suffix(".exon.gff3")
 		cds_file  = gene_annotation_file.with_suffix(".cds.gff3")
 
-		if not isfile(mRNA_file) or not isfile(exon_file) or not isfile(cds_file):
+		if not mRNA_file.is_file() or not exon_file.is_file() or not cds_file.is_file():
 			sort()
 
 
 		def write_file(file, key):
 			lines_written = 0
-			if not isfile(file):
+			if not file.is_file():
 				with open(file, 'w') as outf:
 					with open(gene_annotation_file, 'r') as f:
 						for line in f:
@@ -291,7 +285,7 @@ def context(**params):
 					gene_relationship = 'genic'
 
 				else:
-					pprint(d)
+					# pprint(d)
 					sys.exit('gene relationship error')
 
 
@@ -311,7 +305,7 @@ def context(**params):
 					stranding = 'unstranded'
 
 				else:
-					pprint(d)
+					# pprint(d)
 					sys.exit('stranding error')
 
 
@@ -330,7 +324,7 @@ def context(**params):
 					intragene_context = 'exon-CDS'
 
 				else:
-					pprint(d)
+					# pprint(d)
 					sys.exit('intragene_context error')
 
 
