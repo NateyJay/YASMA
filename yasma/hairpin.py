@@ -1344,7 +1344,7 @@ def hairpin(**params):
 	results_file = Path(output_directory, 'tradeoff', "loci.txt")
 
 
-	assert isfile(results_file), f"results_file {results_file} not found... (Have you run annotation with this directory?)"
+	assert results_file.is_file(), f"results_file {results_file} not found... (Have you run annotation with this directory?)"
 
 	input_mas_d = {}
 	# tops_file = f"{output_directory}/tradeoff/reads.txt"
