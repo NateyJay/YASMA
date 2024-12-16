@@ -90,6 +90,9 @@ class customClickClass(click.Group):
 		first = False
 		out_args = [args.pop(0)]
 
+		if len(args) > 0 and not args[0].startswith("-"):
+			sys.exit(f"Error: value {args[0]} provided with no prior argument." )
+
 		for arg in args:
 			# print(arg)
 
