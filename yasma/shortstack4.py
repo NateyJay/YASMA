@@ -196,7 +196,7 @@ def shortstack4(**params):
 		# ic.write()
 
 
-	args = ["ShortStack4", '--bamfile', alignment_file, "--genomefile", genome_file, "--outdir", temp_folder , '--threads', '4']
+	args = ["ShortStack4", '--bamfile', alignment_file, "--genomefile", genome_file, "--outdir", temp_folder , '--threads', '4', '--dn_mirna']
 
 	# if params['subsample']:
 	# 	args += ['--mincov', target_rpm]
@@ -213,7 +213,8 @@ def shortstack4(**params):
 
 
 	for file in temp_folder.iterdir():
-		Path(temp_folder, file).rename(Path(annotation_folder, file))
+		# print(file)
+		file.rename(Path(annotation_folder, file.name))
 
 	shutil.rmtree(temp_folder)
 
