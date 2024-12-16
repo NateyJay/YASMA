@@ -610,7 +610,7 @@ class hairpinClass():
 			if self.star_structures:
 				self.status.append("secondary structure found in STAR")
 				self.ruling = self.ruling[:8] + "-" + self.ruling[9:]
-				
+
 
 			else:
 				self.valid = True
@@ -1084,7 +1084,7 @@ class hairpinClass():
 		else:
 			status = ''
 
-		print(self.ruling, len(self.seq), sizecall, self.name, self.locus, miRNA, status, sep='\t')
+		print(self.ruling, len(self.seq), sizecall, self.name, self.locus, miRNA, status, sep='\t', flush=True)
 
 
 
