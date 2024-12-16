@@ -101,6 +101,8 @@ def trim(**params):
 		ic.write()
 		print('trimming complete')
 		sys.exit("Libraries PRE-TRIMMED... Skipping trim.")
+	elif adapter == 'None':
+		sys.exit("Adapter identification failed. Trimming not possible. Are you sure this is sRNA-seq?")
 
 
 	trimmed_libraries = []
