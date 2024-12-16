@@ -6,6 +6,7 @@ from .generics import *
 from time import time, sleep
 from math import log10, sqrt
 from Levenshtein import distance
+from collections import deque
 
 
 
@@ -592,7 +593,7 @@ class hairpinClass():
 
 		if self.mas_structures:
 			self.status.append("secondary structure found in MAS")
-			self.ruling[7] = "-"
+			self.ruling = self.ruling[:7] + "-" + self.ruling[8:]
 			return
 
 		self.star_found = self.find_star()
@@ -608,7 +609,8 @@ class hairpinClass():
 
 			if self.star_structures:
 				self.status.append("secondary structure found in STAR")
-				self.ruling[8] = "-"
+				self.ruling = self.ruling[:8] + "-" + self.ruling[9:]
+				
 
 			else:
 				self.valid = True
