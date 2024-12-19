@@ -872,7 +872,17 @@ def parse_locus(locus):
 
 	return(chrom, start, stop)
 
-def samtools_faidx(locus, strand, genome_file):
+def samtools_faidx(locus=None, strand=None, genome_file=None):
+
+	if not genome_file:
+		sys.exit("genome_file not defined - why is this?")
+
+
+	if not locus:
+		call = ['samtools', 'faidx', genome_file]
+		p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+		p.wait()
+		return
 
 	call = ['samtools', 'faidx', genome_file, locus]
 	# print(" ".join(call))
