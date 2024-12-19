@@ -7,7 +7,7 @@ from .cli import cli
 from click_option_group import optgroup
 
 
-from subprocess import PIPE, Popen, call
+from subprocess import PIPE, Popen, call, DEVNULL
 from pathlib import Path
 from time import time
 from collections import Counter
