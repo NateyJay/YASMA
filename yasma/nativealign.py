@@ -536,7 +536,7 @@ def align(**params):
 
 		done_rgs.add((rg, 'mmap'))
 
-	print_progress(read_i, map_c, (rg, 'mmap'), done_rgs, status_message='done', terminal_only=True)
+	print_progress(read_i, map_c, (rg, 'mmap'), done_rgs, status_message='done', terminal_only=False)
 
 	bamfile.close()
 
