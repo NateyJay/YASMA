@@ -11,8 +11,6 @@ import time
 
 
 
-
-
 @cli.command(group='Processing', help_priority=3)
 
 
@@ -198,7 +196,13 @@ def align(**params):
 		header['HD'] = {'VN': '1.0', 'SO':'coordinate'}
 
 		header['SQ'] = []
-		with open(genome_file.with_suffix(genome_file.suffix + ".fai"), 'r') as f:
+
+		faidx_file = genome_file.with_suffix(genome_file.suffix + ".fai")
+
+		if not faidx_file.is_file():
+			samtools_faidx(genome_file=genome_file)
+
+		with open(faidx_file, 'r') as f:
 			for line in f:
 
 				ref, length, _, _, _ = line.strip().split()
@@ -257,26 +261,27 @@ def align(**params):
 		bowtie_call.append(str(genome_file.with_suffix('')))
 
 
+
+
 		if ".gz" in lib.suffixes:
 
 			call = ['gzip', '-cd', str(lib)]
 			gzip = Popen(call, stdout=PIPE, encoding=ENCODING)
 
 			bowtie_call.append("-")
-			p = Popen(bowtie_call, encoding=ENCODING, stdout=PIPE, stderr=PIPE, stdin=gzip.stdout)
+			p = Popen(bowtie_call, encoding=ENCODING, stdout=PIPE, stderr=DEVNULL, stdin=gzip.stdout)
 
 			# print(" ".join(call), "|", " ".join(bowtie_call))
 
 		else:
 			bowtie_call.append(str(lib))
-			p = Popen(bowtie_call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
-
-			# print(" ".join(bowtie_call))
+			p = Popen(bowtie_call, encoding=ENCODING, bufsize=1, stdout=PIPE, stderr=DEVNULL)
 
 
 
-		while True:
-			line = p.stdout.readline().strip()
+
+		for line in iter(p.stdout.readline, ''):
+			line = line.strip()
 
 			if line.startswith("@"):
 				continue
@@ -290,13 +295,12 @@ def align(**params):
 				a = a.fromstring(line, bamfile.header)
 			except ValueError as err:
 				print(err)
-				print(f'call: {call}')
+				print(f'call: {bowtie_call}')
 				print(f'line: {line}')
 				raise 
 
 			yield a
 
-		p.wait()
 
 		if mmap == 'multi':
 			max_file.unlink()
@@ -385,6 +389,7 @@ def align(**params):
 
 		for a in gen:
 			read_i += 1
+
 
 			if a.is_mapped:
 
