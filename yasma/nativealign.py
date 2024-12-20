@@ -63,10 +63,11 @@ import time
 	default=50,
 	help='Window size in nucleotides for unique weighting.')
 
-@optgroup.option('--compression',
-	default='bam',
-	type=click.Choice(['cram', 'bam']),
-	help="Compression algorithm used for resulting alignment. Cram is more space efficient, but Bam is more robust/portable.")
+
+@optgroup.option('--offrate',
+	default=3,
+	type=int,
+	help='Offrate governs the tradeoff betwee disk + memory impact and speed with bowtie. Lower is faster, but with higher system requirements. Bowtie sets this to 5 by defaut, but yasma chooses 3, assuming higher memory availability.')
 
 
 @optgroup.option('--override', is_flag=True, default=False, help='Overrides config file changes without prompting.')
@@ -96,7 +97,7 @@ def align(**params):
 	genome_file             = ic.inputs['genome_file']
 
 	cores                   = params['cores']
-	compression             = params['compression']
+	offrate                 = params['offrate']
 	max_multi               = params['max_multi']
 	max_random              = params['max_random']
 	locality                = params['unique_locality']
@@ -131,7 +132,7 @@ def align(**params):
 	bowtie_build_index = genome_file.with_suffix(".1.ebwt")
 
 	if not bowtie_build_index.is_file():
-		call = ['bowtie-build', genome_file, genome_file.with_suffix('')]
+		call = ['bowtie-build', '--offrate', str(offrate), genome_file, genome_file.with_suffix('')]
 		print(f"bowtie index file not found '{bowtie_build_index}'")
 		print(f"building de novo...")
 
@@ -244,15 +245,16 @@ def align(**params):
 			sys.exit(f'unknown library suffixes: {lib.suffixes}. Are you sure this is a library?')
 
 		stem = lib.stem.rstrip(''.join(lib.suffixes))
-		max_file = Path(align_folder, get_rg(lib) + '.max' + suff)
+		max1_file = Path(align_folder, get_rg(lib) + '.max1' + suff)
+		maxn_file = Path(align_folder, get_rg(lib) + f'.max{max_multi}' + suff)
 
 
 		if mmap == 'unique':
-			bowtie_call += ['-v', '1', '-p', str(cores), '-S', '-m', '1', '--best', '--strata', '--max', str(max_file)]
+			bowtie_call += ['-v', '1', '-p', str(cores), '-S', '-m', '1', '--best', '--strata', '--offrate', str(offrate), '--max', str(max1_file)]
 
 		elif mmap == 'multi':
-			lib = max_file
-			bowtie_call += ['-v', '1', '-p', str(cores), '-S', '-a', '--best', '--strata']
+			lib = max1_file
+			bowtie_call += ['-v', '1', '-p', str(cores), '-S', '-m', str(max_multi), '-a', '--best', '--strata', '--offrate', str(offrate), '--max', str(maxn_file)]
 
 
 		if bowtie_version >= 1.3:
@@ -279,31 +281,62 @@ def align(**params):
 
 
 
+		if mmap == 'over':
 
-		for line in iter(p.stdout.readline, ''):
-			line = line.strip()
-
-			if line.startswith("@"):
-				continue
-
-			if line == '':
-				break
+			with open(maxn_file, 'r') as f:
 
 
-			a = pysam.AlignedSegment()
-			try:
-				a = a.fromstring(line, bamfile.header)
-			except ValueError as err:
-				print(err)
-				print(f'call: {bowtie_call}')
-				print(f'line: {line}')
-				raise 
+				while True:
+					line = f.readline().strip()
 
-			yield a
+					if line == '':
+						break
+
+					a = pysam.AlignedSegment()
+					a.query_name = line[1:].split()[0]
+					a.flag = 4
+					a.reference_name = '*'
+					a.reference_start = -1
+					a.is_mapped = False
+					a.query_sequence = f.readline().strip()
+
+					yield a
+
+					if suff == '.fq':
+						f.readline()
+						f.readline()
 
 
-		if mmap == 'multi':
-			max_file.unlink()
+			maxn_file.unlink()
+
+
+
+		else:
+
+			for line in iter(p.stdout.readline, ''):
+				line = line.strip()
+
+				if line.startswith("@"):
+					continue
+
+				if line == '':
+					break
+
+
+				a = pysam.AlignedSegment()
+				try:
+					a = a.fromstring(line, bamfile.header)
+				except ValueError as err:
+					print(err)
+					print(f'call: {bowtie_call}')
+					print(f'line: {line}')
+					raise 
+
+				yield a
+
+
+			if mmap == 'multi':
+				max1_file.unlink()
 
 
 	
@@ -330,13 +363,13 @@ def align(**params):
 
 		to_print = f"\n#### performing alignment ####\n\n"
 		to_print += f'  libraries:\n'
-		to_print += f'     u   m  \n'
+		to_print += f'     u   m   o \n'
 		for lib in trimmed_libraries:
 			rg = get_rg(lib)
 
 
 			glyphs = []
-			for step in ['unique','mmap']:
+			for step in ['unique','mmap', 'over']:
 
 				if (rg, step) in done:
 					glyphs.append("x")
@@ -346,7 +379,7 @@ def align(**params):
 					glyphs.append(" ")
 
 
-			to_print += f"    [{glyphs[0]}] [{glyphs[1]}] {rg}     \n"
+			to_print += f"    [{glyphs[0]}] [{glyphs[1]}] [{glyphs[2]}] {rg}     \n"
 
 		to_print += f'''  
   status: {status_message}                   
@@ -380,6 +413,7 @@ def align(**params):
 	threshold_i = 0
 	done_rgs = set()
 	status_message = 'not defined'
+
 
 	for lib in trimmed_libraries:
 		rg = get_rg(lib)
@@ -425,6 +459,8 @@ def align(**params):
 
 
 		done_rgs.add((rg, 'unique'))
+
+
 
 	# pprint(map_c)
 
@@ -541,9 +577,37 @@ def align(**params):
 
 		done_rgs.add((rg, 'mmap'))
 
-	print_progress(read_i, map_c, (rg, 'mmap'), done_rgs, status_message='done', terminal_only=False)
+
+	for lib in trimmed_libraries:
+		rg  = get_rg(lib)
+		gen = bowtie_generator(lib, mmap='over')
+
+		for a in gen:
+			read_i += 1
+
+			a.set_tag("XY","H","Z")
+			a.set_tag("XZ",0.0,'f')
+			a.set_tag("RG", rg, "Z")
+
+			map_c["H"] += 1
+
+			bamfile.write(a)
+
+			if read_i >= threshold_i:
+				threshold_i += 100000
+				if threshold_i > total_reads:
+					threshold_i = total_reads
+
+				print_progress(read_i, map_c, (rg, 'over'), done_rgs, status_message=f'{rg} including [xmap_ma] reads', terminal_only=True)
+
+
+		done_rgs.add((rg, 'over'))
+
+	print_progress(read_i, map_c, (rg, 'over'), done_rgs, status_message='done', terminal_only=False)
 
 	bamfile.close()
+
+
 
 
 
