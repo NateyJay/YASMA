@@ -1,25 +1,7 @@
 
-import sys
-import os
 
-import click
-from click_option_group import optgroup
-
-from pathlib import Path, PurePath
-from os.path import isfile, isdir
-from collections import Counter#, deque
-from pprint import pprint
-
-# from random import sample
-
-# import numpy as np
-# from statistics import quantiles
-# import math
-import shutil
-# import re
 
 from .generics import *
-from .cli import cli
 
 
 
@@ -93,7 +75,6 @@ def normalize_alignment_name(**params):
 	ic.inputs['alignment_file'] = alignment_file.absolute()
 	ic.write()
 
-	# pprint(ic.inputs)
 
 
 
@@ -159,10 +140,6 @@ def cram_to_bam(**params):
 		ic.write()
 
 
-
-
-
-## branch test
 
 
 
