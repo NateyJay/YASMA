@@ -1,6 +1,7 @@
 # generic functions
 
 import sys
+import os
 
 import click
 from .cli import cli
@@ -962,19 +963,19 @@ class percentageClass():
 
 
 
-def read_loci(results_file):
+# def read_loci(results_file):
 
 
-	# results_file = f"{params['output_directory']}/tradeoff/loci.txt"
-	with open(results_file, 'r') as f:
-		header = f.readline().strip().split("\t")
-		header = [h.lower() for h in header]
+# 	# results_file = f"{params['output_directory']}/tradeoff/loci.txt"
+# 	with open(results_file, 'r') as f:
+# 		header = f.readline().strip().split("\t")
+# 		header = [h.lower() for h in header]
 
-		for line in f:
-			line = line.strip().split("\t")
-			d = dict(zip(header, line))
+# 		for line in f:
+# 			line = line.strip().split("\t")
+# 			d = dict(zip(header, line))
 
-			yield d
+# 			yield d
 
 def make_depth_file(alignment_file, verbose=True):
 
