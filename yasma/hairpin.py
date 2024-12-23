@@ -1224,9 +1224,113 @@ def trim_hairpin(hpc, offset=2, wiggle = 5):
 	# print(trimmed_locus)
 	return(trimmed_locus)
 
-# def run_job(params=0, inputs=0, name=0, sub_name=0, locus=0, length=0, input_mas=0, full_pos_d=0, strand=0, sizecall=0, 
-# 	hairpin_file=0,
-# 	**kwargs):
+
+def full_trim_hairpin(hpc, offset=2, wiggle = 5):
+	chrom, start, stop, strand = hpc.chrom, hpc.start, hpc.stop, hpc.strand
+
+
+
+	d2d = hpc.mas_positions + hpc.star_positions
+	
+	left  = min(d2d) - offset - wiggle
+	right = max(d2d)          + wiggle
+
+	bad_limit = 5
+	length_limit = 15
+
+	bad = 0
+	while True:
+		left -= 1
+		# print(left, 'left')
+
+		try:
+			pair = hpc.pairing[left]
+		except IndexError:
+			left = 0
+			break
+
+
+		if pair == ".":
+			bad += 1
+			if bad >= bad_limit:
+				break
+		elif pair < left:
+			break
+		else:
+			bad -= 1
+
+		if left == 0:
+			break
+
+
+	while True:
+		if hpc.pairing[left] != '.':
+			break
+		left += 1
+
+
+	bad = 0
+	while True:
+		right += 1
+		# print(right, 'right')
+
+		try:
+			pair = hpc.pairing[right]
+		except IndexError:
+			right = len(hpc.fold) - 1
+			break
+
+		if pair == ".":
+			bad += 1
+			if bad >= bad_limit:
+				break
+		elif pair > right:
+			break
+		else:
+			bad -= 1
+
+	while True:
+		if hpc.pairing[right] != '.':
+			break
+		right -= 1
+
+
+	# print(left, right)
+	if left > hpc.pairing[right]:
+		left = hpc.pairing[right]
+
+
+	elif right < hpc.pairing[left]:
+		right = hpc.pairing[left]
+
+
+	if hpc.length - (right - left)  < length_limit:
+		return False
+
+
+
+	# print(left, right)
+	if strand == "-":
+		left, right = stop-right-1, stop-left-1
+
+	elif strand == "+":
+		left, right = start+left, start+right
+
+	else:
+		sys.exit("ONLY STRANDED EXPECTED")
+
+
+	# print()
+
+	# print(chrom, start, stop, strand)
+
+	trimmed_locus = f"{chrom}:{left}-{right}"
+	# print(trimmed_locus, "<- trimmed_locus")
+
+	# print(trimmed_locus)
+	return(trimmed_locus)
+
+
 
 
 def read_locus(alignment_file, contig, start, stop, strand):
@@ -1237,7 +1341,7 @@ def read_locus(alignment_file, contig, start, stop, strand):
 		start = 0
 
 
-	print(alignment_file, contig, start, stop)
+	# print(alignment_file, contig, start, stop)
 
 	for read in samtools_view(alignment_file, contig=contig, start=start, stop=stop):
 
@@ -1297,7 +1401,12 @@ def run_job(job):
 
 	if hpc.valid:
 
-		trimmed_locus = trim_hairpin(hpc)
+		trimmed_locus = full_trim_hairpin(hpc)
+
+		if not trimmed_locus:
+			return
+
+
 		if sub_name == '':
 			trim_name = 't'
 		else:
@@ -1654,15 +1763,23 @@ def hairpin(**params):
 					job_params['stop']      = sub_stop
 					job_params['sub_name']  = f"sub{i}"
 
+					# if job_params['sub_name'] == 'sub6':
+					# 	print(job_params['locus'])
+
 					jobs.append(dict(job_params))
 
 
 
-		# if len(jobs) > 5:
-		# 	break
+		if len(jobs) > 500:
+			break
 
 	print(f"analyzing hairpins over ({proc_n}) processes:")
 	print()
+
+
+
+
+
 	print("""
 stranded
 ┋
