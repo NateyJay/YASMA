@@ -3,7 +3,7 @@
 
 from .generics import *
 
-from shutil import rmtree
+import shutil
 
 
 @cli.command(group='Ann. wrappers', help_priority=5)
@@ -84,8 +84,8 @@ def shortstack3(**params):
 	alignment_file          = ic.inputs['alignment_file']
 	genome_file             = ic.inputs['genome_file']
 
-	target_depth            = params['subsample']
-	seed                    = params['subsample_seed']
+	# target_depth            = params['subsample']
+	# seed                    = params['subsample_seed']
 	name                    = params['name']
 
 
@@ -200,8 +200,8 @@ def shortstack3(**params):
 
 	args += ["--genomefile", genome_file, "--outdir", temp_folder]
 
-	if params['subsample']:
-		args += ['--mincov', f"{target_rpm}rpm"]
+	# if params['subsample']:
+	# 	args += ['--mincov', f"{target_rpm}rpm"]
 
 
 
