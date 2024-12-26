@@ -207,7 +207,7 @@ class assessClass():
 
 	def __init__(self):
 
-		self.header = ['Locus','Name','Length','Reads','RPM']
+		self.header =  ['Locus','Name','Length','Reads','RPM']
 		self.header += ['UniqueReads','FracTop','Strand','MajorRNA','MajorRNAReads','Complexity']
 		self.header += ['Gap', 'skew', 'size_1n','size_1n_depth', 'size_2n','size_2n_depth', 'size_3n','size_3n_depth', 'sizecall', 'condition']
 
@@ -650,8 +650,12 @@ def tradeoff(**params):
 		# chromosomes = chromosomes[20:30]
 		# chromosomes = chromosomes[2:5]
 		# chromosomes = chromosomes[:2]
-		chromosomes = chromosomes[:1]
+		# chromosomes = chromosomes[:1]
 		# chromosomes = chromosomes[4:7]
+		# chromosomes = chromosomes[7:8]
+		chromosomes = chromosomes[9:]
+
+
 
 
 	chromosome_max_lengths = {}
@@ -2148,6 +2152,9 @@ def tradeoff(**params):
 				pc.show(locus_count=locus_count-1)
 
 				if i == len(regions) - 1:
+					locus_name_i += 1
+					locus_name   = f"locus_{locus_name_i}"
+					loci.append([locus_name, chrom, loc_start, loc_stop])
 					break
 
 				betw_name = regions[i][0].replace("region_", "a")
@@ -2185,6 +2192,7 @@ def tradeoff(**params):
 			rc = reviseClass(locus)
 			locus[2], locus[3] = rc.trim()
 			# print(locus, i)
+			# print()
 
 			old_name = locus[0]
 			regions_name_i += 1
