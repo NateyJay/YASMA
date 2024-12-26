@@ -121,6 +121,9 @@ def count(** params):
 		counts_file      = Path(output_directory, 'counts', 'counts.txt')
 		deep_counts_file = Path(output_directory, 'counts', 'deepcounts.txt') 
 
+	print()
+	print(f'counting annotation: {annotation_file}')
+	print()
 
 	c = Counter()
 
