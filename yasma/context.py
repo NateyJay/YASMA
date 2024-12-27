@@ -11,10 +11,11 @@ from .cli import cli
 	type=click.UNPROCESSED, callback=validate_path,
 	help='Gene annotation file in gff3 format. Tested with NCBI annotation formats.')
 
-@click.option("-o", "--output_directory", 
-	required=True, 
-	type=click.Path(),
-	help="Directory name for annotation output")
+@optgroup.option("-o", "--output_directory", 
+	# default=f"Annotation_{round(time())}", 
+	required=False,
+	type=click.UNPROCESSED, callback=validate_outdir,
+	help="Directory name for annotation output. Defaults to the current directory, with this directory name as the project name.")
 
 
 @click.option("--intergenic_distance", 
