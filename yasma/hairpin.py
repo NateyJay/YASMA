@@ -1448,10 +1448,11 @@ def run_job(job):
 # 	multiple=True,
 # 	help="List of read groups (RGs, libraries) to be considered for the annotation. 'ALL' uses all readgroups for annotation, but often pertainent RGs will need to be specified individually.")
 
-@click.option("-o", "--output_directory",
-	required=True, 
-	type=click.Path(),
-	help="Directory name for annotation output")
+@optgroup.option("-o", "--output_directory", 
+	# default=f"Annotation_{round(time())}", 
+	required=False,
+	type=click.UNPROCESSED, callback=validate_outdir,
+	help="Directory name for annotation output. Defaults to the current directory, with this directory name as the project name.")
 
 @click.option("-g", "--genome_file", 
 	# default=f"Annotation_{round(time())}", 

@@ -31,9 +31,9 @@ from datetime import datetime
 
 @optgroup.option("-o", "--output_directory", 
 	# default=f"Annotation_{round(time())}", 
-	required=True,
-	type=click.Path(),
-	help="Directory name for annotation output.")
+	required=False,
+	type=click.UNPROCESSED, callback=validate_outdir,
+	help="Directory name for annotation output. Defaults to the current directory, with this directory name as the project name.")
 
 @optgroup.option("-n", "--name", 
 	# default=f"Annotation_{round(time())}", 

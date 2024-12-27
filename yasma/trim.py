@@ -31,9 +31,9 @@ from shutil import rmtree
 
 @optgroup.option("-o", "--output_directory", 
 	# default=f"Annotation_{round(time())}", 
-	required=True,
-	type=click.Path(),
-	help="Directory name for annotation output.")
+	required=False,
+	type=click.UNPROCESSED, callback=validate_outdir,
+	help="Directory name for annotation output. Defaults to the current directory, with this directory name as the project name.")
 
 
 @optgroup.option("-a", "--adapter", 
@@ -45,7 +45,7 @@ from shutil import rmtree
 
 
 
-@optgroup.group('\n  Cutadapt options',
+@optgroup.group('\n  Trim options',
 				help='')
 
 @optgroup.option("--min_length",
@@ -84,9 +84,8 @@ def trim(**params):
 	output_directory        = ic.output_directory
 	untrimmed_libraries     = ic.inputs['untrimmed_libraries']
 	adapter                 = ic.inputs['adapter']
-
-	max_length              = params['max_length']
-	min_length              = params['min_length']
+	max_length              = ic.inputs['max_length']
+	min_length              = ic.inputs['min_length']
 
 
 	Path(output_directory, "trim").mkdir(parents=True, exist_ok=True)

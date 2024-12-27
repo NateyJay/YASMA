@@ -32,9 +32,9 @@ from shutil import copyfile
 
 @optgroup.option("-o", "--output_directory", 
 	# default=f"Annotation_{round(time())}", 
-	required=True,
-	type=click.Path(),
-	help="Directory name for annotation output.")
+	required=False,
+	type=click.UNPROCESSED, callback=validate_outdir,
+	help="Directory name for annotation output. Defaults to the current directory, with this directory name as the project name.")
 
 
 
@@ -56,6 +56,8 @@ from shutil import copyfile
 # 	help="List of read groups (RGs, libraries) to be considered for the annotation. 'ALL' uses all readgroups for annotation, but often pertainent RGs will need to be specified individually.")
 
 
+@optgroup.group('\n  File input parameters',
+				help='')
 
 @optgroup.option("-g", "--genome_file", 
 	# default=f"Annotation_{round(time())}", 
@@ -96,6 +98,9 @@ from shutil import copyfile
 	multiple=True,
 	help='Path to untrimmed libraries. Accepts wildcards (*).')
 
+@optgroup.group('\n  Other shared parameters',
+				help='')
+
 @optgroup.option("-s", "--srrs", 
 	required=False, 
 	multiple=True,
@@ -113,6 +118,14 @@ from shutil import copyfile
 	default=None,
 	help="List of conditions names which will be included in the annotation. Defaults to use all libraries, though this is likely not what you want if you have multiple groups.")
 
+@optgroup.option("--min_length",
+	default = 15,
+	help= 'Minimum allowed size for a trimmed read. (default 10)')
+
+
+@optgroup.option("--max_length",
+	default = 50,
+	help= 'Maxiumum allowed size for a trimmed read. (default 50)')
 
 def inputs(**params):
 	'''A tool to log inputs, which will be referenced by later tools.'''

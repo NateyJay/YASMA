@@ -344,23 +344,13 @@ class inputClass():
 		except KeyError:
 			self.override = False
 
-		output_directory = params['output_directory']
-		output_directory = output_directory.rstrip("/")
-
-		self.output_directory = Path(output_directory)
-		
-
-		if self.output_directory == Path("."):
-			self.output_directory = Path().cwd()
-
-		else:
-			self.output_directory.mkdir(parents=True, exist_ok=True)
-
+		self.output_directory = params['output_directory']
+		self.output_directory.mkdir(parents=True, exist_ok=True)
 
 
 		project_name = self.output_directory.name
 
-		self.file = Path(output_directory, "inputs.json")
+		self.file = Path(self.output_directory, "inputs.json")
 
 
 		self.inputs = {'project_name' : None}
@@ -377,7 +367,9 @@ class inputClass():
 			"annotation_conditions",
 			'genome_file',
 			'jbrowse_directory',
-			'gene_annotation_file'
+			'gene_annotation_file',
+			'min_length',
+			'max_length'
 			]
 
 		self.rep_groups = {}
@@ -742,6 +734,20 @@ def reverse_conditions(c):
 
 
 
+def validate_outdir(ctx, param, od):
+
+	if od is None or od == '.':
+		od = Path().cwd()
+
+	else:
+		od = Path(od)
+		if not od.is_dir():
+			sys.exit(f"InputError: --output_directory '{od}' not found!")
+
+
+	# name = od.name
+
+	return(od)
 
 
 			
@@ -1080,6 +1086,11 @@ def samtools_view(bam, rgs='all', contig=None, start=None, stop=None, threads=4,
 
 	bamf = pysam.AlignmentFile(bam,'rb', threads=threads)
 
+	if contig == '*':
+		until_eof = True
+	else:
+		until_eof = False
+
 	if not bamf.has_index():
 		print(f'   index not found for {bam}. Indexing with samtools.')
 
@@ -1098,11 +1109,11 @@ def samtools_view(bam, rgs='all', contig=None, start=None, stop=None, threads=4,
 
 	if boundary_rule == 'tight' and start and stop:
 
-		for read in bamf.fetch(contig=contig, start=start, stop=stop):
+		for read in bamf.fetch(contig=contig, start=start, stop=stop, until_eof=until_eof):
 			if not read.get_tag("RG") in rgs:
 				continue
 
-			if read.is_unmapped:
+			if read.is_unmapped and contig != '*':
 				continue
 
 			read_length = read.infer_read_length()
@@ -1124,12 +1135,12 @@ def samtools_view(bam, rgs='all', contig=None, start=None, stop=None, threads=4,
 				read.query_name)
 	else:
 
-		for read in bamf.fetch(contig=contig, start=start, stop=stop):
+		for read in bamf.fetch(contig=contig, start=start, stop=stop, until_eof=until_eof):
 
 			if not read.get_tag("RG") in rgs:
 				continue
 
-			if read.is_unmapped:
+			if read.is_unmapped and contig != '*':
 				continue
 
 			read_length = read.infer_read_length()

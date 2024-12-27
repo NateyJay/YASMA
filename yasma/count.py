@@ -64,9 +64,10 @@ def init(l, r, a, o, ):
 	help='Alignment file input (bam or cram).')
 
 @optgroup.option("-o", "--output_directory", 
-	required=True,
-	type=click.Path(),
-	help="Directory name for annotation output")
+	# default=f"Annotation_{round(time())}", 
+	required=False,
+	type=click.UNPROCESSED, callback=validate_outdir,
+	help="Directory name for annotation output. Defaults to the current directory, with this directory name as the project name.")
 
 @optgroup.option("-c", "--conditions", 
 	required=False, 
@@ -92,6 +93,12 @@ def init(l, r, a, o, ):
 @optgroup.option("--include_zeros",
 	is_flag=False,
 	help="Include to save 0-depth rows in the deep counts. By default, these are excluded to save space (except for one entry to make sure downstream analyses will include un-found entries)")
+
+
+# @optgroup.option("--ignore_unaligned",
+# 	is_flag=False,
+# 	help="Include to skip counting unaligned reads in deepcounts.txt. These are useful for some analyses, but it can be faster to ignore.")
+
 
 
 def count(** params):
@@ -225,43 +232,108 @@ def count(** params):
 		print('name', 'condition', 'rg','length','strand','count', sep='\t', file=outf)
 
 
-	missed_rg     = set(rgs)
-	missed_length = set(range(15,31))
-	missed_strand = set(["-","+"])
 
-	perc = percentageClass(1,len(loci))
+	### new
+
+	print("finding annotated positions...")
+	chrom_d = {}
+	for chrom, chrom_length in chroms:
+		chrom_d[chrom] = [None] * chrom_length
+
+
 
 	for i, locus in enumerate(loci):
 
 		name, locus = locus
+		# print(name, locus)
+
+		contig = locus.split(":")[0]
+		start  = int(locus.split(":")[1].split("-")[0])
+		stop   = int(locus.split(":")[1].split("-")[1])
+
+		for r in range(start, stop):
+			chrom_d[contig][r] = name
+
+
+
+
+
+	deep_c = Counter()
+
+
+	bamf = pysam.AlignmentFile(alignment_file,'rb')
+
+	if not bamf.has_index():
+		print(f'   index not found for {bam}. Indexing with samtools.')
+
+		pysam.index(str(bam))
+		bamf.close()
+		bamf = pysam.AlignmentFile(alignment_file,'rb')
+
+
+
+
+	for read_i, read in enumerate(bamf.fetch(until_eof=True)):
+
+
+		
+
+		if read.is_mapped:
+			l_locus = chrom_d[read.reference_name][read.reference_start-1]
+			r_locus = chrom_d[read.reference_name][read.reference_end-1]
+			
+			strand = "-" if read.is_reverse else "+"
+			if l_locus == r_locus:
+				locus = l_locus
+				if locus is None:
+					locus = 'unannotated'
+
+			else:
+				locus = 'unannotated'
+		else:
+			strand = "*"
+			locus  = 'unaligned'
+
+
+		deep_c[(locus, read.get_tag("RG"), read.infer_read_length(), strand)] += 1
+
+		if read_i % 1000000 == 0:
+			if read.reference_name is not None:
+				info = read.reference_name
+			else:
+				info = locus
+			print(f"  {info}  {read_i:,}  ", end='\r')
+
+
+
+		# sam_strand, sam_length, sam_size, sam_pos, sam_chrom, sam_rg, sam_seq, sam_read_id = read
+
+
+
+
+
+
+
+
+	missed_rg     = set(rgs)
+	missed_length = set(range(15,31))
+	missed_strand = set(["-","+", "*"])
+	missed_loci   = set(['unannotated', 'unaligned'])
+
+
+
+
+	for name, locus in loci + [('unannotated', "*"), ("unaligned", "*")]:
+
+		count_line = [name, locus]
+
+
+
 
 		c = Counter()
-		deep_c = Counter()
-
-		p_count = perc.get_percent(i)
-		if p_count:
-			print(f"   quantifying... {p_count}%", end='\r')
-
-		chrom, start, stop = parse_locus(locus)
-
-		for read in samtools_view(alignment_file, contig=chrom, start=start, stop=stop):
-			sam_strand, sam_length, sam_size, sam_pos, sam_chrom, sam_rg, sam_seq, sam_read_id = read
+		with open(deep_counts_file, 'a') as deepf:
 
 
-			c[sam_rg] += 1
-			deep_c[(sam_rg, sam_length, sam_strand)] += 1
-
-
-
-		line = [name, locus]
-
-		line += [c[rg] for rg in rgs]
-
-		with open(counts_file, 'a') as outf:
-
-			print("\t".join(map(str, line)), file=outf)
-
-		with open(deep_counts_file, 'a') as outf:
 			for rg in rgs:
 				try:
 					cond = rev_conditions[rg]
@@ -269,11 +341,15 @@ def count(** params):
 					cond = 'None'
 
 				for length in range(15,31):
-					for strand in {"+", "-"}:
-						count = deep_c[(rg, length, strand)]
+					for strand in {"+", "-", "*"}:
+						count = deep_c[(name, rg, length, strand)]
+						c[rg] += 1
 
 						if count > 0 or include_zeros:
-							print(name, cond, rg, length, strand, count, sep='\t', file=outf)
+							if count == 0 and strand == "*":
+								continue
+
+							print(name, cond, rg, length, strand, count, sep='\t', file=deepf)
 
 							try:
 								missed_strand.remove(strand)
@@ -284,13 +360,118 @@ def count(** params):
 								missed_rg.remove(rg)
 							except KeyError:
 								pass
-	
+
 							try:
 								missed_length.remove(length)
 							except KeyError:
 								pass
+
+
+
+		with open(counts_file, 'a') as countf:
+			count_line += [c[rg] for rg in rgs]
+			print("\t".join(map(str, count_line)), file=countf)
+
+
+
+	# perc = percentageClass(1,len(loci))
+
+	# for i, locus in enumerate(loci):
+
+	# 	name, locus = locus
+
+	# 	c = Counter()
+	# 	deep_c = Counter()
+
+	# 	p_count = perc.get_percent(i)
+	# 	if p_count:
+	# 		print(f"   quantifying... {p_count}%", end='\r')
+
+	# 	chrom, start, stop = parse_locus(locus)
+
+	# 	for read in samtools_view(alignment_file, contig=chrom, start=start, stop=stop):
+	# 		sam_strand, sam_length, sam_size, sam_pos, sam_chrom, sam_rg, sam_seq, sam_read_id = read
+
+
+	# 		c[sam_rg] += 1
+	# 		deep_c[(sam_rg, sam_length, sam_strand)] += 1
+
+
+
+	# 	line = [name, locus]
+
+	# 	line += [c[rg] for rg in rgs]
+
+	# 	with open(counts_file, 'a') as outf:
+
+	# 		print("\t".join(map(str, line)), file=outf)
+
+	# 	with open(deep_counts_file, 'a') as outf:
+	# 		for rg in rgs:
+	# 			try:
+	# 				cond = rev_conditions[rg]
+	# 			except KeyError:
+	# 				cond = 'None'
+
+	# 			for length in range(15,31):
+	# 				for strand in {"+", "-"}:
+	# 					count = deep_c[(rg, length, strand)]
+
+	# 					if count > 0 or include_zeros:
+	# 						print(name, cond, rg, length, strand, count, sep='\t', file=outf)
+
+	# 						try:
+	# 							missed_strand.remove(strand)
+	# 						except KeyError:
+	# 							pass
+
+	# 						try:
+	# 							missed_rg.remove(rg)
+	# 						except KeyError:
+	# 							pass
+	
+	# 						try:
+	# 							missed_length.remove(length)
+	# 						except KeyError:
+	# 							pass
 						
+	# if params['ignore_unaligned']:
+	# 	print('skipping unaligned reads due to --ignore_unaligned')
+	# else:
+	# 	print("processing unaligned...")
+	# 	deep_c = Counter()
+	# 	for read in samtools_view(alignment_file, contig='*'):
+	# 		sam_strand, sam_length, sam_size, sam_pos, sam_chrom, sam_rg, sam_seq, sam_read_id = read
+
+	# 		deep_c[(sam_rg, sam_length, "*")] += 1
+
+
+	# 	with open(deep_counts_file, 'a') as outf:
+	# 		strand = '*'
+	# 		for rg in rgs:
+	# 			try:
+	# 				cond = rev_conditions[rg]
+	# 			except KeyError:
+	# 				cond = 'None'
+
+	# 			for length in range(15,31):
 					
+	# 				count = deep_c[(rg, length, strand)]
+
+	# 				if count > 0 or include_zeros:
+	# 					print('*', cond, rg, length, strand, count, sep='\t', file=outf)
+
+	# 					try:
+	# 						missed_rg.remove(rg)
+	# 					except KeyError:
+	# 						pass
+
+	# 					try:
+	# 						missed_length.remove(length)
+	# 					except KeyError:
+	# 						pass
+
+
 
 	with open(deep_counts_file, 'a') as outf:
 		for rg in missed_rg:
