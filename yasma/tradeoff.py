@@ -381,9 +381,9 @@ def get_bin_threshold(cdf_c, to_save=False, to_print=False):
 
 @optgroup.option("-o", "--output_directory", 
 	# default=f"Annotation_{round(time())}", 
-	required=True,
-	type=click.Path(),
-	help="Directory name for annotation output.")
+	required=False,
+	type=click.UNPROCESSED, callback=validate_outdir,
+	help="Directory name for annotation output. Defaults to the current directory, with this directory name as the project name.")
 
 @optgroup.option("-n", "--name", 
 	# default=f"Annotation_{round(time())}", 
@@ -494,11 +494,11 @@ def get_bin_threshold(cdf_c, to_save=False, to_print=False):
 @optgroup.group('\n  Read options',
 				help='')
 
-@optgroup.option("--min_read_length",
+@optgroup.option("--min_length",
 	default=15,
 	help="An override filter to ignore aligned reads which are smaller than a min length in locus calculations.")
 
-@optgroup.option("--max_read_length",
+@optgroup.option("--max_length",
 	default=30,
 	help="The same as above, but with a max length.")
 
@@ -531,11 +531,15 @@ def get_bin_threshold(cdf_c, to_save=False, to_print=False):
 @optgroup.option("--min_abundance_density",
 	default=100,
 	type=int,
-	help="Min reads per 1000 nucleotides in a locus")
+	help="Min reads per 1000 nucleotides in a locus.")
 
 
 @optgroup.group('\n Other options',
 				help='')
+
+
+@optgroup.option('--dont_revise_regions', is_flag=True, default=False, help='Argument to skip revising regions step.')
+@optgroup.option('--dont_trim_loci', is_flag=True, default=False, help='Argument to skip final trim of annotated loci.')
 
 # @optgroup.option('--force', is_flag=True, default=False, help='force resubsample')
 @optgroup.option('--debug', is_flag=True, default=False, help='Debug flag')
@@ -567,7 +571,7 @@ def tradeoff(**params):
 	# target_depth            = params['subsample']
 	# seed                    = params['subsample_seed']
 
-	read_minmax = (params['min_read_length'], params['max_read_length'])
+	read_minmax = (ic.inputs['min_length'], ic.inputs['max_length'])
 
 	params['output_directory'] = output_directory
 	params['alignment_file'] = alignment_file
@@ -1043,9 +1047,9 @@ def tradeoff(**params):
 					# print(kernel.dtype)
 					# print(kernel.shape, "<- max kernel")
 					kernel = np.concatenate(
-						(np.array([kernel[0]] * half_cov_window), 
+						(np.array([kernel[0]] * half_ker_window), 
 							kernel, 
-							np.array([kernel[0]] * (half_cov_window-1))), 
+							np.array([kernel[0]] * (half_ker_window-1))), 
 						axis=0)
 					# print(kernel.shape, "<- padded")
 
@@ -1308,77 +1312,70 @@ def tradeoff(**params):
 		return(pos_d, pos_size_d, out, readp_thresholds, genp_thresholds)
 
 
-
-
-
 	pos_d, pos_size_d, threshold_stats, readp_thresholds, genp_thresholds = get_kernel_coverage()
 
 
-	# sys.exit()
-	# print(pos_size_d)
+	def get_thresholds():
+		if params['target_genome_perc']:
+			for p, t in genp_thresholds:
+				if p < params['target_genome_perc']:
+					break
 
-	# for chrom, poslens in pos_size_d.items():
-	# 	for i, lens in enumerate(poslens):
-	# 		if lens:
-	# 			print(i, lens)
-	# sys.exit()
+			depth_threshold = t
+			gen_score       = p
 
-
-	if params['target_genome_perc']:
-		for p, t in genp_thresholds:
-			if p < params['target_genome_perc']:
-				break
-
-		depth_threshold = t
-		gen_score       = p
-
-		for p, t in readp_thresholds:
-			if t == depth_threshold:
-				read_score = p
-				break
+			for p, t in readp_thresholds:
+				if t == depth_threshold:
+					read_score = p
+					break
 
 
-		print(" annotation parameters...")
-		print(f"    depth threshold: ......... {depth_threshold} rpb")
-		print(f" -> set genome proportion: ... {gen_score}")
-		print(f"    exp. read proportion: .... {read_score}")
+			print(" annotation parameters...")
+			print(f"    depth threshold: ......... {depth_threshold} rpb")
+			print(f" -> set genome proportion: ... {gen_score}")
+			print(f"    exp. read proportion: .... {read_score}")
 
 
-	elif params['target_read_perc']:
-		for p, t in readp_thresholds:
-			if p < params['target_read_perc']:
-				break
+		elif params['target_read_perc']:
+			for p, t in readp_thresholds:
+				if p < params['target_read_perc']:
+					break
 
-		depth_threshold = t
-		read_score      = p
+			depth_threshold = t
+			read_score      = p
 
-		for p, t in genp_thresholds:
-			if t == depth_threshold:
-				gen_score = p
-				break
-
-
-		print(" annotation parameters...")
-		print(f"    depth threshold: ......... {depth_threshold} rpb")
-		print(f"    exp. genome proportion: .. {gen_score}")
-		print(f" -> set read proportion: ..... {read_score}")
-
-	else:
-		print(f"Finding threshold through weighted tradeoff. Weight: [{params['read_weight']}] reads to [{params['genome_weight']}] genome")
-
-		depth_threshold = threshold_stats['threshold']
-		gen_score       = threshold_stats['p_gen']
-		# adj_gen_score   = threshold_stats['adj_gen_score']
-		read_score      = threshold_stats['p_read']
-
-		print(" annotation parameters...")
-		print(f"    depth threshold: ......... {round(depth_threshold,2):,} rpb")
-		print(f"    exp. genome proportion: .. {gen_score}")
-		print(f"    exp. read proportion: .... {read_score}")
+			for p, t in genp_thresholds:
+				if t == depth_threshold:
+					gen_score = p
+					break
 
 
-	if threshold_stats['threshold'] == 0.0:
-		print("Warning: detected threshold for annotation is 0 reads per million (0 reads).\nThis will annotate 100%% of reads, leading to a highly unrepresentative sample. This might be caused by problems with the alignment (possibly low absolute alignment), libraries (check file paths in inputs.json), or an internal problem with YASMA (please make an issue on github or report to Nate)\n")
+			print(" annotation parameters...")
+			print(f"    depth threshold: ......... {depth_threshold} rpb")
+			print(f"    exp. genome proportion: .. {gen_score}")
+			print(f" -> set read proportion: ..... {read_score}")
+
+		else:
+			print(f"Finding threshold through weighted tradeoff. Weight: [{params['read_weight']}] reads to [{params['genome_weight']}] genome")
+
+			depth_threshold = threshold_stats['threshold']
+			gen_score       = threshold_stats['p_gen']
+			# adj_gen_score   = threshold_stats['adj_gen_score']
+			read_score      = threshold_stats['p_read']
+
+			print(" annotation parameters...")
+			print(f"    depth threshold: ......... {round(depth_threshold,2):,} rpb")
+			print(f"    exp. genome proportion: .. {gen_score}")
+			print(f"    exp. read proportion: .... {read_score}")
+
+
+		if threshold_stats['threshold'] == 0.0:
+			print("Warning: detected threshold for annotation is 0 reads per million (0 reads).\nThis will annotate 100%% of reads, leading to a highly unrepresentative sample. This might be caused by problems with the alignment (possibly low absolute alignment), libraries (check file paths in inputs.json), or an internal problem with YASMA (please make an issue on github or report to Nate)\n")
+
+		return(depth_threshold, gen_score, read_score)
+
+	depth_threshold, gen_score, read_score = get_thresholds()
+
 
 
 
@@ -1445,15 +1442,6 @@ def tradeoff(**params):
 
 	stat_d['regions'] = len(all_regions)
 
-
-	# pprint(regions)
-
-
-	# all_regions = [
-	# 	['test_1', 'NC_037310.1', 2877634, 2880258],
-	# 	['test_2', 'NC_037310.1', 2815538, 2815794],
-	# 	['locus_68', 'NC_037310.1', 2748416, 2749269]
-	# ]
 
 	print(f"    {len(all_regions):,} regions")
 	print()
@@ -1846,7 +1834,6 @@ def tradeoff(**params):
 
 	print(f' revising regions ... {perc.last_percent}%   ', flush=True)
 
-
 	total_revised_reads = 0
 	for l in all_regions:
 		# print(l)
@@ -1855,19 +1842,6 @@ def tradeoff(**params):
 
 
 		total_revised_reads += np.sum(pos_d[chrom][start:stop+1,])
-
-		# for r in range(start, stop+1):
-		# 	try:
-		# 		total_revised_reads += sum(pos_d[chrom][start:stop+1,])
-		# 	except IndexError:
-		# 		print(chrom, r, "<- index error 4")
-		# 		pass
-
-
-	def string_plus_white(s, length = 7):
-		s = str(s)
-		return s + " " * (length - len(s))
-
 
 
 	print(f"    {revised_genomic_space:,} genomic nt ({round(revised_genomic_space/genome_length *100,1)}%) in revised regions")
@@ -1883,7 +1857,11 @@ def tradeoff(**params):
 
 
 
-	max_chrom_word_length = max([len(c) for c,l in chromosomes])
+
+
+
+
+
 
 	class progressClass():
 		def __init__(self, chrom, region_count=None):
@@ -1955,21 +1933,8 @@ def tradeoff(**params):
 					break
 
 
-	# def print_progress_string(i, n, chrom, input_loci, output_loci, assess=False, terminal_only=False):
-
-	# 	chrom = chrom + (max_chrom_word_length - len(chrom)) * " "
-
-	# 	if not assess:
-	# 		assess = ''
-	# 	else:
-	# 		assess = f"\t{assess}%"
-
-	# 	sys.stdout.write(f"{i+1}/{n}\t{chrom}\t{string_plus_white(input_loci)}\t{string_plus_white(output_loci)}{assess}  \r", 
-	# 		terminal_only=terminal_only)
-	# 	sys.stdout.flush()
 
 	print()
-	# print('prog', "chrom"+(max_chrom_word_length-5)*" ",'regions\tloci\tassess', sep='\t')
 	print(progressClass(chrom).header)
 	print()
 
@@ -2184,21 +2149,15 @@ def tradeoff(**params):
 		last_stop = 0
 		for i,locus in enumerate(loci):
 
-			# print()
-			# print()
-			# print("############")
-			# print(locus)
 
-			rc = reviseClass(locus)
-			locus[2], locus[3] = rc.trim()
-			# print(locus, i)
-			# print()
+			if not params['dont_trim_loci']:
+				rc = reviseClass(locus)
+				locus[2], locus[3] = rc.trim()
+
 
 			old_name = locus[0]
 			regions_name_i += 1
 			locus[0] = f"locus_{regions_name_i}"
-			# print(locus[0])
-			# name = locus[0]
 
 
 			pc.show(assessed_count=i+1)
