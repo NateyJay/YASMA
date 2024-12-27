@@ -36,9 +36,9 @@ import time
 
 @optgroup.option("-o", "--output_directory", 
 	# default=f"Annotation_{round(time())}", 
-	required=True,
-	type=click.Path(),
-	help="Directory name for annotation output.")
+	required=False,
+	type=click.UNPROCESSED, callback=validate_outdir,
+	help="Directory name for annotation output. Defaults to the current directory, with this directory name as the project name.")
 
 
 @optgroup.group('\n  Bowtie options',
@@ -70,6 +70,19 @@ import time
 	help='Offrate governs the tradeoff betwee disk + memory impact and speed with bowtie. Lower is faster, but with higher system requirements. Bowtie sets this to 5 by defaut, but yasma chooses 3, assuming higher memory availability.')
 
 
+@optgroup.group('\n  Read options',
+				help='')
+
+@optgroup.option("--min_length",
+	default = 15,
+	help= 'Minimum allowed size for a trimmed read. (default 10). This should only come into effect for pre-trimmed libraries.')
+
+
+@optgroup.option("--max_length",
+	default = 50,
+	help= 'Maxiumum allowed size for a trimmed read. (default 50). This should only come into effect for pre-trimmed libraries.')
+
+
 @optgroup.option('--override', is_flag=True, default=False, help='Overrides config file changes without prompting.')
 
 
@@ -80,12 +93,8 @@ import time
 def align(**params):
 	'''Aligner based on shortstack3'''
 
-
 	rc = requirementClass()
-	# rc.add_samtools()
 	rc.add_bowtie()
-	# rc.add_shortstack()
-	# rc.add_rnafold()
 	rc.check()
 
 	ic = inputClass(params)
@@ -95,6 +104,8 @@ def align(**params):
 	output_directory        = str(ic.output_directory)
 	trimmed_libraries       = ic.inputs['trimmed_libraries']
 	genome_file             = ic.inputs['genome_file']
+	max_length              = ic.inputs['max_length']
+	min_length              = ic.inputs['min_length']
 
 	cores                   = params['cores']
 	offrate                 = params['offrate']
@@ -355,7 +366,7 @@ def align(**params):
 	def print_progress(read_i, map_c, current, done, status_message, terminal_only=False):
 		read_p = round(read_i / total_reads * 100,1)
 
-		counts = [map_c[c] for c in ['U','P','R','Q','H','N']]
+		counts = [map_c[c] for c in ['U','P','R','Q','H','N','F']]
 		percs  = [round(c/total_reads*100,1) for c in counts]
 
 
@@ -369,7 +380,7 @@ def align(**params):
 
 
 			glyphs = []
-			for step in ['unique','mmap', 'over']:
+			for step in ['unique','mmap','over']:
 
 				if (rg, step) in done:
 					glyphs.append("x")
@@ -386,12 +397,13 @@ def align(**params):
 
   current read:\t{read_i} ({read_p}%)       
                                    maptag\tmapcat\t perc\treads
-  (unique mappers) ............... XY:Z:U\tumap\t {percs[0]}%\t{counts[0]:,}         
-  (mmap, weighted) ............... XY:Z:P\tmmap_wg\t {percs[1]}%\t{counts[1]:,}        
-  (mmap, placed w/o weighting) ... XY:Z:R\tmmap_nw\t {percs[2]}%\t{counts[2]:,}            
+  (unique mappers) ............... XY:Z:U\tumap\t {percs[0]}%\t{counts[0]:,}             
+  (mmap, weighted) ............... XY:Z:P\tmmap_wg\t {percs[1]}%\t{counts[1]:,}          
+  (mmap, placed w/o weighting) ... XY:Z:R\tmmap_nw\t {percs[2]}%\t{counts[2]:,}          
   (nonmap, above rand_max) ....... XY:Z:Q\txmap_nw\t {percs[3]}%\t{counts[3]:,}          
   (nonmap, above max alignments) . XY:Z:H\txmap_ma\t {percs[4]}%\t{counts[4]:,}          
-  (nonmap, no valid alignments ... XY:Z:N\txmap_nv\t {percs[5]}%\t{counts[5]:,}         
+  (nonmap, no valid alignments ... XY:Z:N\txmap_nv\t {percs[5]}%\t{counts[5]:,}          
+  (nonmap, failed read filter .... XY:Z:F\txmap_fr\t {percs[6]}%\t{counts[6]:,}          
 					'''
 
 		if read_i > 1:
@@ -424,8 +436,17 @@ def align(**params):
 		for a in gen:
 			read_i += 1
 
+			if not ic.inputs['min_length'] <= a.query_length <= ic.inputs['max_length'] or "N" in a.query_sequence:
 
-			if a.is_mapped:
+				a.set_tag("XY","F","Z")
+				a.set_tag("XZ",0.0,'f')
+
+				a.flag = 4
+				a.reference_name = '*'
+				a.reference_start = -1
+				a.is_mapped = False
+
+			elif a.is_mapped:
 
 				left  = a.query_alignment_start - half_locality
 				right = a.query_alignment_end   + half_locality
@@ -479,7 +500,23 @@ def align(**params):
 
 			alignment_count = a.get_tag("XM")-1 ## Bowtie reports XM as +1 over the number of reported alignments
 
-			if alignment_count > max_multi:
+
+			read_length = a.infer_read_length()
+			if not ic.inputs['min_length'] <= a.query_length <= ic.inputs['max_length'] or "N" in a.query_sequence:
+
+				a.set_tag("XY","F","Z")
+				a.set_tag("XZ",0.0,'f')
+
+				a.flag = 4
+				a.reference_name = '*'
+				a.reference_start = -1
+				a.is_mapped = False
+
+				## Clearing the other alignments for this read
+				for r in range(alignment_count-1):
+					next(gen)
+
+			elif alignment_count > max_multi:
 
 				a.set_tag("XY","H","Z")
 				a.set_tag("XZ",0.0,'f')
