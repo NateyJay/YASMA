@@ -1251,7 +1251,7 @@ def tradeoff(**params):
 		
 		ec = elapsedClass()
 		out, readp_thresholds, genp_thresholds = knee(gen_c, read_c)
-		print(out)
+		# print(out)
 
 		clock['knee_finding'] += ec.seconds()
 
