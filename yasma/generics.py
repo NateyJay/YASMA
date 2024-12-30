@@ -163,7 +163,10 @@ class bigwigClass():
 
 				ends.append(pos)
 				starts.append(last_pos)
-				values.append(round(last_depth / self.total_reads * 1000000, 8) * self.strand)
+				if self.total_reads == None:
+					values.append(float(last_depth) * self.strand)
+				else:
+					values.append(round(last_depth / self.total_reads * 1000000, 8) * self.strand)
 
 				# print(self.name, chrom, last_pos, "->", pos, depth, sep='\t')
 
@@ -174,7 +177,11 @@ class bigwigClass():
 		if last_pos < pos:
 			ends.append(pos)
 			starts.append(last_pos)
-			values.append(round(last_depth / self.total_reads * 1000000, 8) * self.strand)
+
+			if self.total_reads == None:
+				values.append(float(last_depth) * self.strand)
+			else:
+				values.append(round(last_depth / self.total_reads * 1000000, 8) * self.strand)
 
 
 		if starts[0] == ends[0]:
@@ -1143,7 +1150,9 @@ def samtools_view(bam, rgs='all', contig=None, start=None, stop=None, threads=4,
 			if read.is_unmapped and contig != '*':
 				continue
 
-			read_length = read.infer_read_length()
+			seq = read.get_forward_sequence().replace("T","U")
+			read_length = len(seq)
+			# read_length = read.infer_read_length()
 
 			strand = "-" if read.is_reverse else "+"
 
@@ -1154,7 +1163,7 @@ def samtools_view(bam, rgs='all', contig=None, start=None, stop=None, threads=4,
 				read.reference_start, 
 				read.reference_name, 
 				read.get_tag("RG"), 
-				read.get_forward_sequence().replace("T","U"), 
+				seq, 
 				read.query_name)
 
 	bamf.close()
@@ -1190,22 +1199,10 @@ class Logger(object):
 		self.file_name = file_name
 		self.log = open(file_name, "w")
 
-		# git_dir = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
-		# git_repo = Repo(git_dir)
-		# git_commit = git_repo.head.commit.tree
 
-		# self.terminal.write(f"git_dir:    {git_dir}\n")
-		# self.terminal.write(f"git_commit: {git_commit}\n\n")
-		# self.log.write(f"git_dir:    {git_dir}\n")
-		# self.log.write(f"git_commit: {git_commit}\n\n")
-
-	def clear_ansi(self, message):
-		return(message.replace("\033[1m", "").replace("\033[0m",""))
-
-	def write(self, message, terminal_only=False):
+	def write(self, message):
 		self.terminal.write(message)
-		if not terminal_only:
-			self.log.write(self.clear_ansi(message))
+		self.log.write(message)
 
 
 	def flush(self):
@@ -1218,7 +1215,7 @@ class Logger(object):
 			n = text.count("\n")+1
 		## used to be called write_over_terminal_lines()
 		for r in range(n):
-			self.write("\x1b[1A\x1b[2K", terminal_only = True)
+			self.terminal.write("\x1b[1A\x1b[2K")
 
 
 
