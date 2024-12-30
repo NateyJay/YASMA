@@ -410,7 +410,7 @@ def align(**params):
 			sys.stdout.overwrite_lines(text=to_print.rstrip())
 
 
-		sys.stdout.write(to_print + '\r' , terminal_only = terminal_only)
+		sys.stdout.terminal.write(to_print + '\r')
 		sys.stdout.flush()
 
 
