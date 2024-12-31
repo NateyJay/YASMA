@@ -265,6 +265,9 @@ def align(**params):
 
 		elif mmap == 'multi':
 			lib = max1_file
+			if not lib.is_file():
+				return
+
 			bowtie_call += ['-v', '1', '-p', str(cores), '-S', '-m', str(max_multi), '-a', '--best', '--strata', '--offrate', str(offrate), '--max', str(maxn_file)]
 
 
@@ -293,33 +296,34 @@ def align(**params):
 
 
 		if mmap == 'over':
-			if maxn_file.is_file():
+			if not maxn_file.is_file():
+				return
 
-				with open(maxn_file, 'r') as f:
-
-
-					while True:
-						line = f.readline().strip()
-
-						if line == '':
-							break
-
-						a = pysam.AlignedSegment()
-						a.query_name = line[1:].split()[0]
-						a.flag = 4
-						a.reference_name = '*'
-						a.reference_start = -1
-						a.is_mapped = False
-						a.query_sequence = f.readline().strip()
-
-						yield a
-
-						if suff == '.fq':
-							f.readline()
-							f.readline()
+			with open(maxn_file, 'r') as f:
 
 
-				maxn_file.unlink()
+				while True:
+					line = f.readline().strip()
+
+					if line == '':
+						break
+
+					a = pysam.AlignedSegment()
+					a.query_name = line[1:].split()[0]
+					a.flag = 4
+					a.reference_name = '*'
+					a.reference_start = -1
+					a.is_mapped = False
+					a.query_sequence = f.readline().strip()
+
+					yield a
+
+					if suff == '.fq':
+						f.readline()
+						f.readline()
+
+
+			maxn_file.unlink()
 
 
 
@@ -410,8 +414,8 @@ def align(**params):
 		if read_i > 1:
 			sys.stdout.overwrite_lines(text=to_print.rstrip())
 
-
 		sys.stdout.terminal.write(to_print + '\r')
+
 		if not terminal_only:
 			sys.stdout.log.write(to_print + '\r')
 
