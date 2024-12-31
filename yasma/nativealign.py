@@ -201,6 +201,13 @@ def align(**params):
 	print()
 
 
+	if total_reads == 0:
+		print("input error: no reads found in library files:")
+		for l in trimmed_libraries:
+			print(" ", l)
+		print()
+		print("If these paths look wrong, try supplying them with the -tl/--trimmed_libraries argument.")
+		sys.exit()
 
 
 	def make_bam_header():
