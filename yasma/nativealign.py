@@ -413,7 +413,7 @@ def align(**params):
 
 		sys.stdout.terminal.write(to_print + '\r')
 		if not terminal_only:
-		sys.stdout.log.write(to_print + '\r')
+			sys.stdout.log.write(to_print + '\r')
 
 		sys.stdout.flush()
 
