@@ -551,6 +551,7 @@ def get_bin_threshold(cdf_c, to_save=False, to_print=False):
 				help='')
 
 
+@optgroup.option('-bw', '--bigwig', is_flag=True, default=False, help='Write coverage and kernel tracks to bigwig files. Increases run-time.')
 @optgroup.option('--time_test', is_flag=True, default=False, help='Shows time test statistics for difference parts of the pipeline.')
 @optgroup.option('--dont_revise_regions', is_flag=True, default=False, help='Argument to skip revising regions step.')
 @optgroup.option('--dont_trim_loci', is_flag=True, default=False, help='Argument to skip final trim of annotated loci.')
@@ -941,16 +942,18 @@ def tradeoff(**params):
 
 		ec = elapsedClass()
 
+
 		aligned_read_count = 0
 		for i, read in enumerate(reads):
-			aligned_read_count+=1
 
 			if read.is_unmapped:
 				continue
 
-			lib       = read.get_tag("RG")
+			lib = read.get_tag("RG")
 			if lib not in lib_set:
 				continue
+
+			aligned_read_count+=1
 
 			condition = rev_conditions[lib]
 			strand    = "-" if read.is_reverse else "+"
@@ -994,8 +997,9 @@ def tradeoff(**params):
 
 
 
-			# cov_track = trackClass(Path(output_directory, dir_name, "coverage.bw"), chromosomes)
-			# ker_track = trackClass(Path(output_directory, dir_name, "kernel.bw"), chromosomes)
+			if params['bigwig']:
+				cov_track = trackClass(Path(output_directory, dir_name, "coverage.bw"), chromosomes)
+				ker_track = trackClass(Path(output_directory, dir_name, "kernel.bw"), chromosomes)
 
 			cov_d = {}
 			ker_d = {}
@@ -1078,12 +1082,14 @@ def tradeoff(**params):
 
 				cov_d[chrom] = coverage
 				ker_d[chrom] = kernel
+				
+				if params['bigwig']:
 
-				# for i, c in enumerate(coverage):
-				# 	cov_track.add(chrom, i+1, float(c))
+					for i, c in enumerate(coverage):
+						cov_track.add(chrom, i+1, float(c))
 
-				# for i, k in enumerate(kernel):
-				# 	ker_track.add(chrom, i+1, float(k))
+					for i, k in enumerate(kernel):
+						ker_track.add(chrom, i+1, float(k))
 
 				clock['bw_write'] += ec.seconds()
 
@@ -1093,7 +1099,7 @@ def tradeoff(**params):
 
 				ec = elapsedClass()
 
-				summed = np.round(np.sum(pos_d[chrom], axis=(1,2,3), dtype='uint32'))
+				summed = np.floor(np.sum(pos_d[chrom], axis=(1,2,3), dtype='uint32'))
 				kernel = np.round(kernel, 2)
 
 				gen_c.update(kernel)
@@ -1118,8 +1124,10 @@ def tradeoff(**params):
 			print(f"    computing coverage ........... {chrom_i+1}/{len(chromosomes)} {chrom}                ", end='\n', flush=True)
 
 			print()
-			# cov_track.close()
-			# ker_track.close()
+
+			if params['bigwig']:
+				cov_track.close()
+				ker_track.close()
 
 
 
@@ -1245,6 +1253,7 @@ def tradeoff(**params):
 					last_pgen  = p_gen
 					last_pread = p_read
 
+			print(out)
 
 
 			return(out, readp_thresholds, genp_thresholds)
