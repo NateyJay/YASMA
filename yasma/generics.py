@@ -587,17 +587,29 @@ class inputClass():
 		for option in required_options:
 			value = self.inputs[option]
 
-			print('[', end='')
+			warnings=''
+
 			if not value:
 				pass_check=False
-				print(" ", end='')
+				check_str = " "
 
 			else:
-				print(f"x", end='')
 
-			print('] ', end='')
+				if isinstance(value, Path):
 
-			print(f"{option}:", "." * (offset-len(option)), value)
+					if not value.is_file() and not value.is_dir():
+						pass_check=False
+						check_str = "?"
+						warnings=f"\n  Warning:  Path() not found -> {value}"
+
+					else:
+						check_str = "x"
+
+				else:
+					check_str = "x"
+
+
+			print(f"[{check_str}] {option}:", "." * (offset-len(option)), value, warnings)
 
 
 			# 	pass_check = False
