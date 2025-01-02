@@ -1253,7 +1253,7 @@ def tradeoff(**params):
 					last_pgen  = p_gen
 					last_pread = p_read
 
-			print(out)
+			# print(out)
 
 
 			return(out, readp_thresholds, genp_thresholds)
