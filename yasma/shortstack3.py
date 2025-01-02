@@ -183,11 +183,11 @@ def shortstack3(**params):
 	MIRNAs_folder     = Path(annotation_folder, 'MIRNAs')
 
 	if temp_folder.is_dir():
-		rmtree(temp_folder)
+		shutil.rmtree(temp_folder)
 
 
 	if MIRNAs_folder.is_dir():
-		rmtree(MIRNAs_folder)
+		shutil.rmtree(MIRNAs_folder)
 
 
 	args = ["ShortStack3"]
