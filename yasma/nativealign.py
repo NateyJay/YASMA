@@ -709,6 +709,18 @@ def align(**params):
 
 	unsorted_bam.unlink()
 
+	## removing any old alignment indicies
+	try:
+		sorted_bam.with_suffix(".bam.bai").unlink()
+	except FileNotFoundError:
+		pass
+
+	try:
+		sorted_bam.with_suffix(".bam.csi").unlink()
+	except FileNotFoundError:
+		pass
+
+
 
 	print()
 	print("Writing table of abundance by library + reference + strand + length...", flush=True)
