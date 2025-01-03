@@ -3,54 +3,54 @@
 from .generics import *
 
 
-def call_count(job):
+# def call_count(job):
 
-	name, locus = job
+# 	name, locus = job
 
-	contig = locus.split(":")[0]
-	start = int(locus.split(":")[-1].split("-")[0])
-	stop  = int(locus.split(":")[-1].split("-")[1])
+# 	contig = locus.split(":")[0]
+# 	start = int(locus.split(":")[-1].split("-")[0])
+# 	stop  = int(locus.split(":")[-1].split("-")[1])
 
-	c = Counter()
+# 	c = Counter()
 
-	sam_iter = samtools_view(alignment_file, contig=contig, start=start, stop=stop)
+# 	sam_iter = samtools_view(alignment_file, contig=contig, start=start, stop=stop)
 
-	for read in sam_iter:
-		sam_strand, sam_length, _, sam_pos, _, sam_rg, sam_seq = read
-
-
-		if sam_pos >= start and sam_pos + sam_length <= stop:
-
-			c.update([sam_rg])
+# 	for read in sam_iter:
+# 		sam_strand, sam_length, _, sam_pos, _, sam_rg, sam_seq = read
 
 
-	line = [name, locus, sum(c.values())]
-	for rg in rgs:
-		line.append(c[rg])
+# 		if sam_pos >= start and sam_pos + sam_length <= stop:
 
-	# pprint(c)
-
-	lock.acquire()
-	# print(".", end='', flush=True)
-
-	with open(output_file, 'a') as outf:
-		print("\t".join(map(str, line)), file=outf)
+# 			c.update([sam_rg])
 
 
-	# pbar.update(1)
-	lock.release()
+# 	line = [name, locus, sum(c.values())]
+# 	for rg in rgs:
+# 		line.append(c[rg])
+
+# 	# pprint(c)
+
+# 	lock.acquire()
+# 	# print(".", end='', flush=True)
+
+# 	with open(output_file, 'a') as outf:
+# 		print("\t".join(map(str, line)), file=outf)
+
+
+# 	# pbar.update(1)
+# 	lock.release()
 
 
 
-def init(l, r, a, o, ):
-	global lock
-	global rgs
-	global alignment_file
-	global output_file
-	lock = l
-	rgs = r
-	alignment_file = a
-	output_file = o
+# def init(l, r, a, o, ):
+# 	global lock
+# 	global rgs
+# 	global alignment_file
+# 	global output_file
+# 	lock = l
+# 	rgs = r
+# 	alignment_file = a
+# 	output_file = o
 
 @cli.command(group='Calculation', help_priority=3)
 
@@ -75,20 +75,26 @@ def init(l, r, a, o, ):
 	type=click.UNPROCESSED, callback=validate_condition,
 	help='Values denoting condition groups (sets of replicate libraries) for projects with multiple tissues/treatments/genotypes. Can be entered here as space sparated duplexes, with the library base_name and condition groups delimited by a colon. E.g. SRR1111111:WT SRR1111112:WT SRR1111113:mut SRR1111114:mut')
 
-
 @optgroup.option("-an", "--annotation_file", 
 	required=False, 
 	type=click.UNPROCESSED, callback=validate_path,
-	default = "tradeoff/loci.gff3",
 	multiple=False,
-	help='Locus annotation in gff, gff3, gtf, bed, or tabular format. Tabular requires contig:start-stop and locus_namein the first two columns (tab-delimited, "#" escape char). Defaults to tradeoff/loci.gff3, but that may not be prefered if alignment includes conditions.')
+	help='Locus annotation in gff, gff3, gtf, bed, or tabular format. Tabular requires contig:start-stop and locus_namein the first two columns (tab-delimited, "#" escape char).')
 
 @optgroup.option("-n", "--name", 
 	required=False,
 	type=str,
-	help="Optional name. Useful if comparing annotations.")
+	help="Name for resulting counts and analysis. Required if not using the default annotation file.")
 
+@optgroup.option("-f", "--features", 
+	required=False, 
+	multiple=True,
+	help='A filter to only analyze certain features of an input gff/gtf annotations (field 3). Permits all features by default. Multiple features can be included as space delimited entries. Does not apply for other annotation file types.')
 
+@optgroup.option("--reanalyze", 
+	default=False,
+	is_flag=True,
+	help="Flag calling for the reanalysis of annotated features. Produces a file similar to the 'loci.txt' output of tradeoff, which includes major sRNA locus dimensions.")
 
 @optgroup.option("--include_zeros",
 	is_flag=False,
@@ -108,25 +114,66 @@ def count(** params):
 	rc.check()
 
 	ic = inputClass(params)
-	ic.check(['alignment_file'])
+	ic.check(['alignment_file','annotation_file'])
 
-	output_directory     = str(ic.output_directory)
+	output_directory     = ic.output_directory
 	alignment_file       = ic.inputs['alignment_file']
 	conditions           = ic.inputs['conditions']
+	annotation_file      = ic.inputs['annotation_file']
 
-	annotation_file      = Path(params['annotation_file'])
 	include_zeros        = params['include_zeros']
 	name                 = params['name']
+	feature_filter       = params['features']
 
 	Path(output_directory, "counts").mkdir(parents=True, exist_ok=True)
 
-	if name:
-		counts_file      = Path(output_directory, 'counts', f'{name}_counts.txt')
-		deep_counts_file = Path(output_directory, 'counts', f'{name}_deepcounts.txt') 
 
+	if annotation_file.absolute() != Path(output_directory, "tradeoff", "loci.gff3").absolute():
+		if not name:
+
+			sys.exit("Error: if annotation_file != tradeoff/loci.gff3 a name is required")
+
+
+	if feature_filter:
+		feature_filter = set(feature_filter)
+		print("filtering annotation to include only:", feature_filter)
+
+		if annotation_file.suffix not in ['.gff3','gff2','.gff','.gtf']:
+			sys.exit(f"Error: feature filtering is not compatible with '{annotation_file.suffix}' files")
+
+
+	chromosomes, libraries = get_chromosomes(alignment_file)
+
+	if not conditions:
+		conditions = {'all' : libraries}
+
+
+	if name:
+		name_str = name + "_"
 	else:
-		counts_file      = Path(output_directory, 'counts', 'counts.txt')
-		deep_counts_file = Path(output_directory, 'counts', 'deepcounts.txt') 
+		name_str = "tradeoff_"
+
+	counts_file      = Path(output_directory, 'counts', f'{name_str}counts.txt')
+	deep_counts_file = Path(output_directory, 'counts', f'{name_str}deepcounts.txt') 
+	analysis_file    = Path(output_directory, 'counts', f'{name_str}loci.txt') 
+
+
+
+	chrom_depth_c = get_global_depth(alignment_file, aggregate_by=['rg','chrom'])
+
+	# keys = list(chrom_depth_c.keys())
+	# for key in keys:
+	# 	if key[0] in libraries:
+	# 		chrom_depth_c[key[1]] += chrom_depth_c[key]
+
+	# 	del chrom_depth_c[key]
+
+	# for key in list(chrom_depth_c.keys()):
+	# 	if key not in [c for c,l in chromosomes]:
+	# 		del chrom_depth_c[key]
+
+	aligned_read_count = sum(chrom_depth_c.values())
+
 
 	print()
 	print(f'counting annotation: {annotation_file}')
@@ -135,74 +182,66 @@ def count(** params):
 	c = Counter()
 
 
-	def process_annotation(file):
-		with open(file, 'r') as f:
-			if file.suffix == '.txt':
-				f.readline()
-
-			for i,line in enumerate(f):
-				if not line.startswith("#"):
-					line = line.strip().split("\t")
-
-					if file.suffix == ".txt":
-						coords, name = line[:2]
-						coords = coords.replace("..", '-')
-
-					elif file.suffix == '.gff' or file.suffix == '.gff3':
-						coords = f"{line[0]}:{line[3]}-{line[4]}"
-						name   = line[8].split(";")[0].split("=")[-1].strip('"')
-
-					elif file.suffix == '.gtf':
-						coords = f"{line[0]}:{line[3]}-{line[4]}"
-						name   = line[8].split(";")[0].split()[-1].strip('"')
-
-					elif file.suffix == '.bed':
-						name   = f"bed_{i}"
-						coords = f"{line[0]}:{line[1]}-{line[2]}"
-
-					else:
-						print(f'file.suffix "{file.suffix}" not expected in annotation file...')
-						sys.exit()
-
-					yield (name, coords)
 
 
-
-
-	print('annotations:')
-
+	feature_c = Counter()
 	loci = []
+	coord_d = {}
+
+	with open(annotation_file, 'r') as f:
+		if annotation_file.suffix == '.txt':
+			f.readline()
+
+		for i,line in enumerate(f):
+
+			if not line.startswith("#"):
+				line = line.strip().split("\t")
+
+				if annotation_file.suffix == ".txt":
+					coords, name = line[:2]
+					coords = coords.replace("..", '-')
+
+				elif annotation_file.suffix in ['.gff', '.gff2', '.gff3']:
+					coords  = f"{line[0]}:{line[3]}-{line[4]}"
+					name    = line[8].split(";")[0].split("=")[-1].strip('"')
+					feature = line[2]
+					feature_c[feature] += 1
+
+					if feature_filter and feature in feature_filter:
+						continue
+
+				elif annotation_file.suffix == '.gtf':
+					coords  = f"{line[0]}:{line[3]}-{line[4]}"
+					name    = line[8].split(";")[0].split()[-1].strip('"')
+					feature = line[2]
+					feature_c[feature] += 1
+
+					if feature_filter and feature in feature_filter:
+						continue
+
+				elif annotation_file.suffix == '.bed':
+					name   = f"bed_{i}"
+					coords = f"{line[0]}:{line[1]}-{line[2]}"
+
+				else:
+					print(f'file.suffix "{annotation_file.suffix}" not expected in annotation file...')
+					sys.exit()
 
 
-	for name, coords in process_annotation(annotation_file):
-		# c[file] += 1
-		loci.append((name, coords))
+				loci.append((name, coords))
+				coord_d[name] = coords
+
+	if feature_filter:
+		print("included features found:")
+		found = 0
+		for feature in feature_filter:
+			found += feature_c[feature]
+			print(f"  {feature_c[feature]}\t{feature}")
+
+		print()
+		print(f"  {sum(feature_c.values()) - found} <- feature(s) not included")
 
 
-
-	# for file in locus_files:
-	# 	with open(file, 'r') as f:
-	# 		header = f.readline()
-	# 		for line in f:
-	# 			c[file] += 1
-	# 			line = line.strip().split("\t")[:2]
-	# 			line[1] = line[1].replace("..", "-")
-	# 			loci.append((line[1], line[0]))
-
-	# for file in gff_files:
-	# 	with open(file, 'r') as f:
-	# 		for line in f:
-	# 			if not line.startswith("#"):
-	# 				line = line.strip().split("\t")
-	# 				if line[2] == 'gene':
-	# 					c[file] += 1
-	# 					coords = f"{line[0]}:{line[3]}-{line[4]}"
-	# 					name = line[8].split(";")[0].split("=")[1]
-
-	# 					loci.append((name, coords))
-
-	# for key, val in c.items():
-	# 	print(" ", key, "->", val, 'loci')
 
 	print('')
 	print('processing annotation...')
@@ -230,6 +269,10 @@ def count(** params):
 
 	with open(deep_counts_file, 'w') as outf:
 		print('name', 'condition', 'rg','length','strand','count', sep='\t', file=outf)
+
+	if params['reanalyze']:
+		with open(analysis_file, 'w') as outf:
+			print("\t".join(assessClass().header), file=outf)
 
 
 
@@ -273,10 +316,20 @@ def count(** params):
 
 
 
+	in_locus = False
+
+	seq_c    = Counter()
+	strand_c = Counter()
+	size_c   = sizeClass()
+
+	last_locus  = 'unannotated'
+	last_contig = ''
+
+	if params['reanalyze']:
+		outf = open(analysis_file, 'a')
+
 	for read_i, read in enumerate(bamf.fetch(until_eof=True)):
 
-
-		
 
 		if read.is_mapped:
 			l_locus = chrom_d[read.reference_name][read.reference_start-1]
@@ -287,12 +340,48 @@ def count(** params):
 				locus = l_locus
 				if locus is None:
 					locus = 'unannotated'
-
 			else:
 				locus = 'unannotated'
 		else:
 			strand = "*"
 			locus  = 'unaligned'
+
+
+		check_new_locus  = locus != last_locus
+		check_new_contig = read.reference_name != last_contig
+
+		# if check_new_contig:
+		# 	print()
+
+
+		if params['reanalyze']:
+
+			if check_new_contig or check_new_locus:
+
+				if last_locus not in ['unannotated', 'unaligned']:
+					coords = coord_d[last_locus]
+
+					chrom = coords.split(":")[0]
+					start = int(coords.split(":")[1].split("-")[0])
+					stop  = int(coords.split(":")[1].split("-")[1])
+					results_line, gff_line = assessClass().format((last_locus, chrom, start, stop), seq_c, strand_c, size_c, sum(chrom_depth_c.values()), 0)
+
+					print("\t".join(map(str,results_line)), file=outf)
+
+					seq_c    = Counter()
+					strand_c = Counter()
+					size_c   = sizeClass()
+
+
+			if locus not in ['unannotated', 'unaligned']:
+				seq_c[read.get_forward_sequence()] += 1
+				strand_c[strand] += 1
+				size_c.update([read.infer_read_length()])
+
+
+
+			last_contig = read.reference_name
+			last_locus  = locus
 
 
 		deep_c[(locus, read.get_tag("RG"), read.infer_read_length(), strand)] += 1
@@ -302,14 +391,20 @@ def count(** params):
 				info = read.reference_name
 			else:
 				info = locus
-			print(f"  {info}  {read_i:,}  ", end='\r')
+			print(f"  {info}\t{read_i:,}  ", end='\r')
+
+	if params['reanalyze']:
+		outf.close()
+
+
+
+
+
+
 
 
 
 		# sam_strand, sam_length, sam_size, sam_pos, sam_chrom, sam_rg, sam_seq, sam_read_id = read
-
-
-
 
 
 
