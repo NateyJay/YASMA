@@ -359,9 +359,7 @@ class inputClass():
 
 		self.file = Path(self.output_directory, "inputs.json")
 
-
 		self.inputs = {'project_name' : None}
-
 
 		self.input_list = [
 			"srrs",
@@ -375,6 +373,7 @@ class inputClass():
 			'genome_file',
 			'jbrowse_directory',
 			'gene_annotation_file',
+			'annotation_file',
 			'min_length',
 			'max_length'
 			]
@@ -387,7 +386,8 @@ class inputClass():
 			"alignment_file",
 			'genome_file',
 			'jbrowse_directory',
-			'gene_annotation_file'
+			'gene_annotation_file',
+			'annotation_file'
 			]
 
 
@@ -399,7 +399,7 @@ class inputClass():
 			try:
 				self.read()
 			except json.decoder.JSONDecodeError:
-				print("DECODER ERROR!")
+				print("inputs.json - DECODER ERROR!")
 				pass
 
 		self.inputs['project_name'] = project_name
@@ -461,7 +461,7 @@ class inputClass():
 				for i in range(len(self.inputs[p])):
 					self.inputs[p][i] = encode_path(self.inputs[p][i])
 
-		for p in ["alignment_file", 'genome_file', 'jbrowse_directory', 'gene_annotation_file']:
+		for p in ["alignment_file", 'genome_file', 'jbrowse_directory', 'gene_annotation_file', 'annotation_file']:
 			if self.inputs[p]:
 				self.inputs[p] = encode_path(self.inputs[p])
 
@@ -482,9 +482,12 @@ class inputClass():
 					self.inputs[p][i] = decode_path(self.inputs[p][i])
 
 
-		for p in ["alignment_file", 'genome_file', 'jbrowse_directory', 'gene_annotation_file']:
-			if self.inputs[p]:
-				self.inputs[p] = decode_path(self.inputs[p])
+		for p in ["alignment_file", 'genome_file', 'jbrowse_directory', 'gene_annotation_file', 'annotation_file']:
+			if p in self.inputs:
+				if self.inputs[p]:
+					self.inputs[p] = decode_path(self.inputs[p])
+			else:
+				self.inputs[p] = None
 
 
 
@@ -757,6 +760,8 @@ def validate_outdir(ctx, param, od):
 
 	if od is None or od == '.':
 		od = Path().cwd()
+		if not Path(od, 'inputs.json').is_file():
+			sys.exit("Error: cannot run yasma in an uninitialized directiory (doesn't contain inputs.json) without specifying -o/--output_directory.\n\nTo initialize as a yasma directory, run the same command including the directory you want to use as the home directory of the analysis (-o ./path/to/my_directory) or the current directory with (-o .). This directory name will be used as the project name.")
 
 	else:
 		od = Path(od)
@@ -932,7 +937,264 @@ def samtools_faidx(locus=None, strand=None, genome_file=None):
 
 
 
+class sizeClass():
+	def __init__(self, 
+		sizes=[],
+		minmax=(15,30)):
 
+
+		self.min_size=minmax[0]
+		self.max_size=minmax[1]
+
+		self.depth = 0
+
+		self.size_c = Counter()
+
+		if len(sizes) > 0:
+			self.update(sizes)
+
+	def get_keys(self, size):
+		keys = set()
+
+		keys.add((size,))
+
+		keys.add((size-1, size+0,))
+		keys.add((size-0, size+1,))
+
+		keys.add((size-2, size-1, size+0,))
+		keys.add((size-1, size+0, size+1,))
+		keys.add((size-0, size+1, size+2,))
+
+		keys = [k for k in keys if min(k) >= self.min_size or max(k) <= self.max_size]
+		return(keys)
+
+
+
+	def update(self, sizes):
+
+		# if type(sizes) == int:
+		# 	sizes = [sizes]
+
+		if not sizes:
+			return
+
+		if type(sizes) == int:
+			sizes = [sizes]
+
+		for size in sizes:
+
+
+			if 15 <= size <= 30:
+
+				self.depth += 1
+				self.size_c.update(self.get_keys(size))
+
+				# for mer in [1,2,3]:
+				# 	self.size_d[mer].update(self.size_key_d[mer][size])
+
+
+	def get(self):
+
+		mc = self.size_c.most_common()
+
+		self.size_1_depth, self.size_2_depth, self.size_3_depth = 0,0,0
+		self.size_1_key, self.size_2_key, self.size_3_key = None, None, None
+
+		for key, depth in mc:
+			if self.size_1_depth == 0 and len(key) == 1:
+				self.size_1_key, self.size_1_depth = key, depth
+
+			if self.size_2_depth == 0 and len(key) == 2:
+				self.size_2_key, self.size_2_depth = key, depth
+
+			if self.size_3_depth == 0 and len(key) == 3:
+				self.size_3_key, self.size_3_depth = key, depth
+
+			if self.size_1_depth * self.size_2_depth * self.size_3_depth > 0:
+				break
+
+		# pprint(self.size_c.most_common(10))
+		# print(self.depth, "->", round(self.depth/2), "min")
+		# print(self.size_1_key, self.size_1_depth, sep="\t")
+		# print(self.size_2_key, self.size_2_depth, sep="\t")
+		# print(self.size_3_key, self.size_3_depth, sep="\t")
+
+		####################################
+		## revision Jul 12 2024
+		### these used to just require majority for all... (> 0.5), but that is a really weak standard. For example, to have contiguous sizes make up just a bare majority?
+		### I think it is more reasonable to say that it is -> freq(n.sizes) > n.sizes / (n.sizes+1)
+		### depth safe guards are still important... otherwise we will get some weird loci
+		### size_1 did not have a depth threshold... i have added it to 15 to make sure we're not calling loci with virtually no reads to be selective. (8/15 reads must be one size)
+		####################################
+		## revision Jul 18 2024
+		## On second thought, i have opted for just a bare majority to consider a locus size specific.
+		## This increasing threshold looks to hold many loci ~just outside~ of consideration. This makes some sense, where there is probably a single predominant size, and adding in peripheral off-sized reads is unlikely to add 1/6 (1-size) or 1/4 (2-sizes) of total locus abundance. 
+		## I also upped the minimums abundances a bit. Seems like high-duplication loci (loci skewed towards one or a few sequences) are a problem and maybe this can help it.	
+		####################################
+
+		if self.size_1_depth > self.depth * 0.5 and self.depth > 30:
+			sizecall = self.size_1_key
+
+		elif self.size_2_depth > self.depth * 0.5 and self.depth > 45:
+			sizecall = self.size_2_key
+
+		elif self.size_3_depth > self.depth * 0.5 and self.depth > 60:
+			sizecall = self.size_3_key
+
+		else:
+			sizecall = tuple("N")
+
+		self.sizecall = sizecall
+		# print(self.depth)
+		# print(self.sizecall)
+		# sys.exit()
+
+		return(sizecall)
+
+
+	def __str__(self):
+		out = self.get()
+		# print(out)
+		out = "_".join(map(str, out))
+
+		return(out)
+
+
+	def __eq__(self, other):
+
+		self.get()
+		other.get()
+
+		# print(self.sizecall)
+		# print(other.sizecall)
+
+
+		scall = set(self.sizecall)
+		ocall = set(other.sizecall)
+
+
+		def expand_call(call):
+			if len(call) == 3:
+				call.add("N")
+				return(call)
+
+			if "N" in call:
+				return(call)
+
+			call.add(min(call)-1)
+			call.add(max(call)+1)
+
+			return(call)
+
+
+		scall = expand_call(scall)
+		ocall = expand_call(ocall)
+
+
+		common = scall.intersection(ocall)
+
+		if len(common) > 1:
+			return True
+		elif "N" in common:
+			return True
+		else:
+			return False
+
+	def __add__(self, other):
+		self.size_c += other.size_c
+		self.depth += other.depth
+		return(self)
+
+
+
+class assessClass():
+	'''produces a line assessment of a locus, similar to ShortStack3'''
+
+	def __init__(self):
+
+		self.header =  ['Locus','Name','Length','Reads','RPM']
+		self.header += ['UniqueReads','FracTop','Strand','MajorRNA','MajorRNAReads','Complexity']
+		self.header += ['Gap', 'skew', 'size_1n','size_1n_depth', 'size_2n','size_2n_depth', 'size_3n','size_3n_depth', 'sizecall']
+
+
+
+	def format(self, locus, seq_c, strand_c, sizecall, aligned_depth, last_stop):
+
+		name, chrom, start, stop = locus
+
+
+		### Basic information
+
+		depth = sum(seq_c.values())
+		rpm = depth / aligned_depth * 1000000
+
+
+		### ShortStack standard metrics
+
+		unique_reads = len(seq_c.keys())
+		frac_top = strand_c["+"] / sum(strand_c.values())
+
+	
+		if frac_top > 0.8:
+			strand = "+"
+		elif frac_top < 0.2:
+			strand = "-"
+		else:
+			strand = "."
+
+		major_rna = seq_c.most_common()[0][0]
+		major_rna_depth = seq_c.most_common()[0][1]
+
+
+		# complexity = unique_reads / depth
+
+
+		### More derived metrics
+
+
+		complexity = unique_reads / (stop - start)
+
+		skew = major_rna_depth / depth
+
+		gap = start - last_stop
+
+
+		
+
+
+
+		frac_top   = round(frac_top,3)
+		complexity = round(complexity,3)
+		rpm        = round(rpm,3)
+		skew       = round(skew, 3)
+
+		sizecall.get()
+
+		result_line = [f"{chrom}:{start}-{stop}", name, stop-start, depth, rpm]
+		result_line += [unique_reads, frac_top, strand, major_rna, major_rna_depth, complexity]
+		result_line += [
+			gap, skew, 
+			sizecall.size_1_key, sizecall.size_1_depth,
+			sizecall.size_2_key, sizecall.size_2_depth,
+			sizecall.size_3_key, sizecall.size_3_depth,
+			sizecall
+		]
+
+
+		if 'N' in sizecall.sizecall:
+			feature_type = "OtherRNA"
+		else:
+			feature_type = f"RNA_{sizecall}"
+
+		if start < 1:
+			start = 1
+		gff_line = [
+			chrom, 'yasma_locus',feature_type, start, stop, '.', strand, '.',
+			f'ID={name};sizecall={sizecall};depth={depth};rpm={rpm};fracTop={frac_top};complexity={complexity};skew={skew};majorRNA={major_rna}'
+		]
+
+
+		return(result_line, gff_line)
 
 
 class percentageClass():
