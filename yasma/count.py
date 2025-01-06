@@ -2,6 +2,7 @@
 
 from .generics import *
 
+from shutil import rmtree
 
 # def call_count(job):
 
@@ -126,7 +127,13 @@ def count(** params):
 	feature_filter       = params['features']
 
 	Path(output_directory, "counts").mkdir(parents=True, exist_ok=True)
+	temp_dir = Path(output_directory, 'counts', 'temp')
 
+	try:
+		rmtree(temp_dir)
+	except FileNotFoundError:
+		pass
+	temp_dir.mkdir(parents=True, exist_ok=True)
 
 	if annotation_file.absolute() != Path(output_directory, "tradeoff", "loci.gff3").absolute():
 		if not name:
@@ -153,9 +160,10 @@ def count(** params):
 	else:
 		name_str = "tradeoff_"
 
-	counts_file      = Path(output_directory, 'counts', f'{name_str}counts.txt')
-	deep_counts_file = Path(output_directory, 'counts', f'{name_str}deepcounts.txt') 
-	analysis_file    = Path(output_directory, 'counts', f'{name_str}loci.txt') 
+	counts_file      = Path(temp_dir, f'{name_str}counts.txt')
+	deep_counts_file = Path(temp_dir, f'{name_str}deepcounts.txt') 
+	analysis_file    = Path(temp_dir, f'{name_str}loci.txt') 
+
 
 
 
@@ -275,7 +283,6 @@ def count(** params):
 			print("\t".join(assessClass().header), file=outf)
 
 
-
 	### new
 
 	print("finding annotated positions...")
@@ -316,72 +323,85 @@ def count(** params):
 
 
 
-	in_locus = False
-
 	seq_c    = Counter()
 	strand_c = Counter()
 	size_c   = sizeClass()
 
-	last_locus  = 'unannotated'
-	last_contig = ''
+	locus_stop   = 0
+	locus_contig = ''
 
-	if params['reanalyze']:
-		outf = open(analysis_file, 'a')
+	read_i = 0
+
+	in_locus = False
+	
+	total_aligned_depth = sum(chrom_depth_c.values())
+
+	class openLocusClass():
+		def __init__(self, name):
+
+			self.name = name
+			self.coords = coord_d[name]
+			self.contig = self.coords.split(":")[0]
+			self.start = int(self.coords.split(":")[1].split("-")[0])
+			self.stop  = int(self.coords.split(":")[1].split("-")[1])
+
+			self.seq_c    = Counter()
+			self.strand_c = Counter()
+			self.size_c   = sizeClass()
+
+		def check_passed(self, pos):
+			if pos > self.stop + 1:
+				return True
+			else:
+				return False
+
+		def add(self, read):
+			strand = "-" if read.is_reverse else "+"
+			self.seq_c[read.get_forward_sequence()] += 1
+			self.strand_c[strand] += 1
+			self.size_c.update([read.infer_read_length()])
+
+		def write_to_file(self):
+			locus_tuple = (self.name, self.contig, self.start, self.stop)
+			results_line, gff_line = assessClass().format(locus_tuple, self.seq_c, self.strand_c, self.size_c, total_aligned_depth, 0)
+					
+			with open(analysis_file, 'a') as outf:
+				print("\t".join(map(str,results_line)), file=outf)
+
+	locus_d = {}
+
 
 	for read_i, read in enumerate(bamf.fetch(until_eof=True)):
 
 
+
 		if read.is_mapped:
 			l_locus = chrom_d[read.reference_name][read.reference_start-1]
-			r_locus = chrom_d[read.reference_name][read.reference_end-1]
 			
 			strand = "-" if read.is_reverse else "+"
-			if l_locus == r_locus:
-				locus = l_locus
-				if locus is None:
-					locus = 'unannotated'
+
+			if l_locus is None:
+				locus_name = 'unannotated'
+
+			elif chrom_d[read.reference_name][read.reference_end-1] is None:
+				locus_name = 'unannotated'
+
 			else:
-				locus = 'unannotated'
+				locus_name = l_locus
+
+				if params['reanalyze']:
+					if locus_name not in locus_d:
+						locus_d[locus_name] = openLocusClass(locus_name)
+
+					locus_d[locus_name].add(read)
+
 		else:
 			strand = "*"
 			locus  = 'unaligned'
 
 
-		check_new_locus  = locus != last_locus
-		check_new_contig = read.reference_name != last_contig
-
-		# if check_new_contig:
-		# 	print()
 
 
-		if params['reanalyze']:
-
-			if check_new_contig or check_new_locus:
-
-				if last_locus not in ['unannotated', 'unaligned']:
-					coords = coord_d[last_locus]
-
-					chrom = coords.split(":")[0]
-					start = int(coords.split(":")[1].split("-")[0])
-					stop  = int(coords.split(":")[1].split("-")[1])
-					results_line, gff_line = assessClass().format((last_locus, chrom, start, stop), seq_c, strand_c, size_c, sum(chrom_depth_c.values()), 0)
-
-					print("\t".join(map(str,results_line)), file=outf)
-
-					seq_c    = Counter()
-					strand_c = Counter()
-					size_c   = sizeClass()
-
-
-			if locus not in ['unannotated', 'unaligned']:
-				seq_c[read.get_forward_sequence()] += 1
-				strand_c[strand] += 1
-				size_c.update([read.infer_read_length()])
-
-
-
-			last_contig = read.reference_name
-			last_locus  = locus
 
 
 		deep_c[(locus, read.get_tag("RG"), read.infer_read_length(), strand)] += 1
@@ -393,18 +413,20 @@ def count(** params):
 				info = locus
 			print(f"  {info}\t{read_i:,}  ", end='\r')
 
-	if params['reanalyze']:
-		outf.close()
+			for key in list(locus_d.keys()):
 
+				if locus_d[key].check_passed(read.reference_start):
+					locus_d[key].write_to_file()
 
+				del locus_d[key]
 
+	for key in list(locus_d.keys()):
 
+		if locus_d[key].check_passed(read.reference_start):
+			locus_d[key].write_to_file()
 
+		del locus_d[key]
 
-
-
-
-		# sam_strand, sam_length, sam_size, sam_pos, sam_chrom, sam_rg, sam_seq, sam_read_id = read
 
 
 
@@ -469,105 +491,6 @@ def count(** params):
 
 
 
-	# perc = percentageClass(1,len(loci))
-
-	# for i, locus in enumerate(loci):
-
-	# 	name, locus = locus
-
-	# 	c = Counter()
-	# 	deep_c = Counter()
-
-	# 	p_count = perc.get_percent(i)
-	# 	if p_count:
-	# 		print(f"   quantifying... {p_count}%", end='\r')
-
-	# 	chrom, start, stop = parse_locus(locus)
-
-	# 	for read in samtools_view(alignment_file, contig=chrom, start=start, stop=stop):
-	# 		sam_strand, sam_length, sam_size, sam_pos, sam_chrom, sam_rg, sam_seq, sam_read_id = read
-
-
-	# 		c[sam_rg] += 1
-	# 		deep_c[(sam_rg, sam_length, sam_strand)] += 1
-
-
-
-	# 	line = [name, locus]
-
-	# 	line += [c[rg] for rg in rgs]
-
-	# 	with open(counts_file, 'a') as outf:
-
-	# 		print("\t".join(map(str, line)), file=outf)
-
-	# 	with open(deep_counts_file, 'a') as outf:
-	# 		for rg in rgs:
-	# 			try:
-	# 				cond = rev_conditions[rg]
-	# 			except KeyError:
-	# 				cond = 'None'
-
-	# 			for length in range(15,31):
-	# 				for strand in {"+", "-"}:
-	# 					count = deep_c[(rg, length, strand)]
-
-	# 					if count > 0 or include_zeros:
-	# 						print(name, cond, rg, length, strand, count, sep='\t', file=outf)
-
-	# 						try:
-	# 							missed_strand.remove(strand)
-	# 						except KeyError:
-	# 							pass
-
-	# 						try:
-	# 							missed_rg.remove(rg)
-	# 						except KeyError:
-	# 							pass
-	
-	# 						try:
-	# 							missed_length.remove(length)
-	# 						except KeyError:
-	# 							pass
-						
-	# if params['ignore_unaligned']:
-	# 	print('skipping unaligned reads due to --ignore_unaligned')
-	# else:
-	# 	print("processing unaligned...")
-	# 	deep_c = Counter()
-	# 	for read in samtools_view(alignment_file, contig='*'):
-	# 		sam_strand, sam_length, sam_size, sam_pos, sam_chrom, sam_rg, sam_seq, sam_read_id = read
-
-	# 		deep_c[(sam_rg, sam_length, "*")] += 1
-
-
-	# 	with open(deep_counts_file, 'a') as outf:
-	# 		strand = '*'
-	# 		for rg in rgs:
-	# 			try:
-	# 				cond = rev_conditions[rg]
-	# 			except KeyError:
-	# 				cond = 'None'
-
-	# 			for length in range(15,31):
-					
-	# 				count = deep_c[(rg, length, strand)]
-
-	# 				if count > 0 or include_zeros:
-	# 					print('*', cond, rg, length, strand, count, sep='\t', file=outf)
-
-	# 					try:
-	# 						missed_rg.remove(rg)
-	# 					except KeyError:
-	# 						pass
-
-	# 					try:
-	# 						missed_length.remove(length)
-	# 					except KeyError:
-	# 						pass
-
-
-
 	with open(deep_counts_file, 'a') as outf:
 		for rg in missed_rg:
 			cond = rev_conditions[rg]
@@ -582,129 +505,14 @@ def count(** params):
 
 
 
+	counts_file.rename(Path(output_directory, 'counts', f'{name_str}counts.txt'))
+	deep_counts_file.rename(Path(output_directory, 'counts', f'{name_str}deepcounts.txt'))
+	analysis_file .rename(Path(output_directory, 'counts', f'{name_str}loci.txt')) 
+
+
+	rmtree(temp_dir)
 
 	print()
-
-	# print()
-	# print("processing alignments...")
-	# print(f"  {sum(depth_c.values()):,} total")
-
-	# pbar = tqdm(total = sum(depth_c.values()), ncols=90)
-
-	# sam_iter = samtools_view(alignment_file)
-
-	# for i,read in enumerate(sam_iter):
-
-	# 	# if i % 1000000 == 0:
-	# 	# 	print(read)
-	# 	# 	break
-
-	# 	sam_strand, sam_length, _, sam_pos, sam_chrom, sam_rg, sam_seq = read
-
-	# 	if 15 <= sam_length <= 30:
-	# 		pbar.update()
-
-
-	# 		try:
-	# 			start_loc = lookup[sam_chrom][sam_pos]
-	# 		except IndexError:
-	# 			start_loc = set([None])
-
-	# 		try:
-	# 			stop_loc  = lookup[sam_chrom][sam_pos + sam_length + 1]
-	# 		except IndexError:
-	# 			stop_loc = set([None])
-
-	# 		# print(start_loc, stop_loc)
-
-	# 		if start_loc and stop_loc:
-	# 			names = list(start_loc & stop_loc)
-	# 			names = [n for n in names if n]
-
-	# 			# if len(names) == 0:
-	# 			# 	names = ['NoLocus']
-
-	# 		else:
-	# 			# names = ['NoLocus']
-	# 			names = []
-
-	# 		for name in names:
-	# 			c.update([(name, sam_rg)])
-	# 			deep_c.update([(name, sam_rg, sam_length, sam_strand)])
-
-
-
-
-
-		# if sum(c.values()) > 1000000:
-		# 	pprint(c)
-		# 	sys.exit()
-
-	# pbar.close()
-
-	# pprint(deep_c)
-	# sys.exit()
-
-
-	# print()
-	# print('writing...')
-
-	# with open(counts_file, 'w') as outf:
-	# 	print('name','locus', "\t".join(rgs), sep='\t', file=outf)
-
-	# with open(deep_counts_file, 'w') as outf:
-	# 	print('name','rg','length','strand','count', sep='\t', file=outf)
-
-
-
-	# loci.append(("NoLocus", "NA"))
-
-
-
-	# pbar = tqdm(total = len(loci), ncols=90)
-	# for name, locus in loci:
-	# 	pbar.update()
-
-	# 	line = [name, locus]
-
-	# 	line += [c[(name, rg)] for rg in rgs]
-
-	# 	with open(counts_file, 'a') as outf:
-	# 		print("\t".join(map(str, line)), file=outf)
-
-
-	# 	for rg in rgs:
-
-	# 		for length in range(15,31):
-	# 			for strand in {"+", "-"}:
-	# 				count = deep_c[(name, rg, length, strand)]
-
-
-	# 				with open(deep_counts_file, 'a') as outf:
-	# 					print(name, rg, length, strand, count, sep='\t', file=outf)
-	# 				# if count > 0:
-	# 				# 	sys.exit()
-
-	# pbar.close()
-		# sys.exit()
-
-
-	# with open(output_file, 'w') as outf:
-	# 	header = "name\tlocus\ttotal"
-	# 	for r in rgs:
-	# 		header += f"\t{r}"
-	# 	print(header, file=outf)
-
-
-
-
-	# lock = Lock()
-
-	# with Pool(initializer=init, 
-	# 	initargs=(lock, rgs, alignment_file, output_file, ), 
-	# 	processes=threads) as p:
-
-	# 	r = list(tqdm(p.imap(call_count, loci), total=len(loci)))
 
 
 
