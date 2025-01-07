@@ -369,6 +369,7 @@ def count(** params):
 				print("\t".join(map(str,results_line)), file=outf)
 
 	locus_d = {}
+	max_info_length = 15
 
 
 	for read_i, read in enumerate(bamf.fetch(until_eof=True)):
@@ -397,21 +398,28 @@ def count(** params):
 
 		else:
 			strand = "*"
-			locus  = 'unaligned'
+			locus_name  = 'unaligned'
 
 
 
 
 
 
-		deep_c[(locus, read.get_tag("RG"), read.infer_read_length(), strand)] += 1
+		deep_c[(locus_name, read.get_tag("RG"), read.infer_read_length(), strand)] += 1
 
 		if read_i % 1000000 == 0:
+
 			if read.reference_name is not None:
 				info = read.reference_name
 			else:
-				info = locus
-			print(f"  {info}\t{read_i:,}  ", end='\r')
+				info = locus_name
+
+			if len(info) > max_info_length:
+				max_info_length = len(info)
+
+			whitespace = " " * (max_info_length - len(info) + 4)
+
+			print(f"  {info}{whitespace}{read_i:,}  ", end='\r')
 
 			for key in list(locus_d.keys()):
 
@@ -419,6 +427,7 @@ def count(** params):
 					locus_d[key].write_to_file()
 
 				del locus_d[key]
+
 
 	for key in list(locus_d.keys()):
 
@@ -443,9 +452,6 @@ def count(** params):
 	for name, locus in loci + [('unannotated', "*"), ("unaligned", "*")]:
 
 		count_line = [name, locus]
-
-
-
 
 		c = Counter()
 		with open(deep_counts_file, 'a') as deepf:
@@ -507,7 +513,8 @@ def count(** params):
 
 	counts_file.rename(Path(output_directory, 'counts', f'{name_str}counts.txt'))
 	deep_counts_file.rename(Path(output_directory, 'counts', f'{name_str}deepcounts.txt'))
-	analysis_file .rename(Path(output_directory, 'counts', f'{name_str}loci.txt')) 
+	if params['reanalyze']:
+		analysis_file.rename(Path(output_directory, 'counts', f'{name_str}loci.txt')) 
 
 
 	rmtree(temp_dir)
