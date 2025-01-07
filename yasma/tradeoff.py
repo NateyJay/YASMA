@@ -1425,17 +1425,18 @@ def tradeoff(**params):
 
 			else:
 
-				if expand:
-					## trimming doesnt consider fractop or size distributions (smaller windows make this challenging)
+				## temporarily removing these extra expansion rules
+				# if expand:
+				# 	## trimming doesnt consider fractop or size distributions (smaller windows make this challenging)
 
-					if not abs(self.frac_top - w_fractop) < 0.5:
-						# print('strand break')
-						expand_fails.append('strand')
+				# 	if not abs(self.frac_top - w_fractop) < 0.5:
+				# 		# print('strand break')
+				# 		expand_fails.append('strand')
 					
 
-					if not w_sizes == self.sizes:
-						# print('size break')
-						expand_fails.append('size')
+				# 	if not w_sizes == self.sizes:
+				# 		# print('size break')
+				# 		expand_fails.append('size')
 
 
 				# print(r_depth, region_size, w_depths, window_size)
