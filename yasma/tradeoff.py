@@ -564,7 +564,8 @@ def tradeoff(**params):
 
 
 	results_file = Path(output_directory, dir_name, 'loci.txt')
-	with open(results_file, 'w') as outf:T
+	with open(results_file, 'w') as outf:
+		print("\t".join(assessClass().header), file=outf)
 
 
 	reads_file = Path(output_directory, dir_name, 'reads.txt')
