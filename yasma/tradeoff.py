@@ -169,7 +169,7 @@ def get_bin_threshold(cdf_c, to_save=False, to_print=False):
 	help='This is the bandwidth for accumulating read alignments into coverage, which is used instead of the normal read length. By default, this is very large (250 nt), basically meaning that depth summed across 250 nt windows are used for region annotation.')
 
 @optgroup.option('--kernel_window',
-	default=250,
+	default=100,
 	help="This is a max filter for the coverage, which extends coverages by a default 250 nt. This is built-in padding for regions, which will then be revised to find boundaries.")
 
 
@@ -200,31 +200,38 @@ def get_bin_threshold(cdf_c, to_save=False, to_print=False):
 @optgroup.group('\n  Peak finding options',
 				help='')
 
-@optgroup.option("--genome_weight",
-	default=1,
-	help=f"along with --read_weight, these determine the weighted averages for considering the tradeoff proportion of reads and genome annotated. By default, this is weighted 2 for pReads and 1 for pGenome, meaning that the annotator tries do place more reads at the expense of more genome annotated. Default 1.")
 
-@optgroup.option("--read_weight",
-	default=2,
-	help=f"Default 2. See above.")
+@optgroup.option('-gsf', "--genome_scaling_factor",
+	default=0.4,
+	type=float,
+	help="")
+
+
+# @optgroup.option("--genome_weight",
+# 	default=1,
+# 	help=f"along with --read_weight, these determine the weighted averages for considering the tradeoff proportion of reads and genome annotated. By default, this is weighted 2 for pReads and 1 for pGenome, meaning that the annotator tries do place more reads at the expense of more genome annotated. Default 1.")
+
+# @optgroup.option("--read_weight",
+# 	default=2,
+# 	help=f"Default 2. See above.")
 
 # @optgroup.option("--tradeoff_weight",
 # 	default = 0.65,
 # 	help=f'Weighting factor applied to tradeoff averages. Higher specificity > 0.5 > higher sensitivity. Basically, the higher the value the more reads will be incorporated into annotations and resultingly more of the genome will be considered part of a locus. Default 0.65 (incorporating reads is 2x more important than being selective with the genome).')
 
-@optgroup.option('--target_genome_perc',
-	type=float,
-	default=False,
-	help='')
-@optgroup.option('--target_read_perc',
-	type=float,
-	default=False,
-	help='')
+# @optgroup.option('--target_genome_perc',
+# 	type=float,
+# 	default=False,
+# 	help='')
+# @optgroup.option('--target_read_perc',
+# 	type=float,
+# 	default=False,
+# 	help='')
 
 # @optgroup.option('--trim_regions', is_flag=True, default=False, help='Flag to include trimming of regions')
 
 
-@optgroup.option('--tradeoff_round', default=4, help='Significance rounding for tradeoff average. Defaults to 3 digits (e.g. 0.977 or 97.7%)')
+# @optgroup.option('--tradeoff_round', default=4, help='Significance rounding for tradeoff average. Defaults to 3 digits (e.g. 0.977 or 97.7%)')
 
 
 
@@ -263,31 +270,37 @@ def get_bin_threshold(cdf_c, to_save=False, to_print=False):
 @optgroup.group('\n  Locus options',
 				help='')
 
-
-@optgroup.option('--filter_skew/--no_filter_skew', default=False, help='filter highly skewed loci (default: False)')
+@optgroup.option('--filter_skew/--no_filter_skew', default=False, help='filter highly skewed loci (default: False).')
 
 @optgroup.option("--max_skew",
 	default=0.90,
 	type=float,
 	help="Filter value for loci which are skewed toward only one sequence in abundance. By default (0.95), if more than 1 in 20 reads for a locus are a single sequence, they are excluded from the annotation.")
 
-@optgroup.option('--filter_complexity/--no_filter_complexity', is_flag=True, default=False, help='filter low complexity loci (default: False)')
+@optgroup.option('--filter_complexity/--no_filter_complexity', is_flag=True, default=True, help='filter low complexity loci (default: True)')
 @optgroup.option("--min_complexity",
 	default=10,
 	type=int,
-	help="Filter value for locus complexity. This is defined as the number of unique-reads / 1000 nt (default: 10).")
+	help="Filter value for locus complexity. This is defined as the minimum number of unique-reads / 1000 nt (default: 10).")
 
 @optgroup.option('--filter_abundance/--no_filter_abundance', is_flag=True, default=True, help='filter low abundance loci (default: True). This is meant to remove loci which have not reached an absolute level of abundance.')
 @optgroup.option("--min_abundance",
 	default=50,
 	type=int,
-	help="Min reads in a locus")
+	help="Min reads in a locus (default 50)")
 
 @optgroup.option('--filter_abundance_density/--no_filter_abundance_density', is_flag=True, default=True, help='filter low abundance loci (default: True). This is meant to remove loci which have not reached an absolute level of abundance.')
 @optgroup.option("--min_abundance_density",
 	default=100,
 	type=int,
-	help="Min reads per 1000 nucleotides in a locus.")
+	help="Min of (default 100) reads per 1000 nucleotides in a locus.")
+
+
+# @optgroup.option('--filter_rpm/--no_filter_rpm', is_flag=True, default=False, help='filter loci with very low RPM values. Defalue: False. These may be real loci but are likely trivially low expression and only detectable with extreme sequencing depth.')
+# @optgroup.option("--min_rpm",
+# 	default=0.5,
+# 	type=int,
+# 	help="Min RPM in a locus. Default")
 
 
 @optgroup.group('\n Other options',
@@ -371,8 +384,8 @@ def tradeoff(**params):
 
 
 	### Processing basic options
-	if params['target_genome_perc'] and params['target_read_perc']:
-		sys.exit("ERROR: cannot specify target read AND genome percentages (one is dependent on the other)")
+	# if params['target_genome_perc'] and params['target_read_perc']:
+	# 	sys.exit("ERROR: cannot specify target read AND genome percentages (one is dependent on the other)")
 
 
 
@@ -428,14 +441,14 @@ def tradeoff(**params):
 	### getting basic metrics, including a test_mode chromosome filter
 
 	if params['test_mode']:
-		# chromosomes = chromosomes[3:5]
+		chromosomes = chromosomes[3:5]
 		# chromosomes = chromosomes[20:30]
 		# chromosomes = chromosomes[2:5]
 		# chromosomes = chromosomes[:2]
 		# chromosomes = chromosomes[:1]
 		# chromosomes = chromosomes[4:7]
 		# chromosomes = chromosomes[7:8]
-		chromosomes = chromosomes[9:]
+		# chromosomes = chromosomes[9:]
 
 
 
@@ -472,16 +485,20 @@ def tradeoff(**params):
 	conditions = {c: conditions[c] for c in annotation_conditions}
 
 
+	annotation_libraries = []
 	rev_conditions = {}
 	for cond, lib_set in conditions.items():
 		for lib in lib_set:
 			rev_conditions[lib] = cond
+			if cond in annotation_conditions:
+				annotation_libraries.append(lib)
 
 	libraries  = []
 	for lib_set in conditions.values():
 		for lib in lib_set:
 			libraries.append(lib)
-	lib_set = set(libraries)
+
+	annotation_libraries = set(annotation_libraries)
 
 
 
@@ -495,7 +512,7 @@ def tradeoff(**params):
 
 	keys = list(chrom_depth_c.keys())
 	for key in keys:
-		if key[0] in libraries:
+		if key[0] in annotation_libraries:
 			chrom_depth_c[key[1]] += chrom_depth_c[key]
 
 		del chrom_depth_c[key]
@@ -562,6 +579,8 @@ def tradeoff(**params):
 	region_file = Path(output_directory, dir_name, 'regions.gff3')
 	init_gff(region_file)
 
+	filter_gff_file = Path(output_directory, dir_name, 'filtered_loci.gff3')
+	init_gff(filter_gff_file)
 
 	results_file = Path(output_directory, dir_name, 'loci.txt')
 	with open(results_file, 'w') as outf:
@@ -683,7 +702,7 @@ def tradeoff(**params):
 		perc = percentageClass(1, sum(chrom_depth_c.values()))
 		perc.update()
 
-		ec = elapsedClass()
+		encoding_ec = elapsedClass()
 
 
 		aligned_read_count = 0
@@ -693,7 +712,7 @@ def tradeoff(**params):
 				continue
 
 			lib = read.get_tag("RG")
-			if lib not in lib_set:
+			if lib not in annotation_libraries:
 				continue
 
 			aligned_read_count+=1
@@ -842,7 +861,7 @@ def tradeoff(**params):
 
 				ec = elapsedClass()
 
-				summed = np.floor(np.sum(pos_d[chrom], axis=(1,2,3), dtype='uint32'))
+				summed = np.sum(pos_d[chrom], axis=(1,2,3), dtype='uint32')
 				kernel = np.round(kernel, 2)
 
 				gen_c.update(kernel)
@@ -875,7 +894,7 @@ def tradeoff(**params):
 
 
 			print()
-			print(ec)
+			print(encoding_ec)
 			print()
 
 			return(gen_c, read_c, ker_d)
@@ -923,23 +942,21 @@ def tradeoff(**params):
 			genp_thresholds  = []
 			readp_thresholds = []
 
-
 			for threshold in found_depths:
 
 				total_genomic_space -= gen_c[threshold]
-				total_read_space    -= read_c[threshold]
 
-				p_read = total_read_space / aligned_read_count
-				p_gen  = total_genomic_space / genome_length
-
+				p_read       = total_read_space / aligned_read_count
+				p_gen        = total_genomic_space / genome_length
+				scaled_p_gen = (p_gen * params['genome_scaling_factor'])
 
 				genp_thresholds.append((p_gen, threshold))
 				readp_thresholds.append((p_read, threshold))
 
-				average = sum([p_read, p_gen]) / 2
+				average = sum([p_read, scaled_p_gen]) / 2
 
-				vdist = p_read - p_gen
-				pdist = sqrt( (average - p_gen)**2 * 2 )
+				vdist = p_read - scaled_p_gen
+				pdist = sqrt( (average - scaled_p_gen)**2 * 2 )
 				kdiff = vdist - pdist
 
 
@@ -950,6 +967,8 @@ def tradeoff(**params):
 				p_reads.append(p_read)
 				averages.append(average)
 				kdiffs.append(kdiff)
+
+				total_read_space    -= read_c[threshold]
 
 
 			peak_i = max(range(len(kdiffs)), key=kdiffs.__getitem__)
@@ -1013,68 +1032,54 @@ def tradeoff(**params):
 	pos_d, pos_size_d, threshold_stats, readp_thresholds, genp_thresholds, ker_d = get_kernel_coverage()
 
 
-	def get_thresholds():
-		if params['target_genome_perc']:
-			for p, t in genp_thresholds:
-				if p < params['target_genome_perc']:
-					break
-
-			depth_threshold = t
-			gen_score       = p
-
-			for p, t in readp_thresholds:
-				if t == depth_threshold:
-					read_score = p
-					break
 
 
-			print(" annotation parameters...")
-			print(f"    depth threshold: ......... {depth_threshold} rpb")
-			print(f" -> set genome proportion: ... {gen_score}")
-			print(f"    exp. read proportion: .... {read_score}")
+	# rpbs = list(gen_c.keys())
+	# rpbs.sort()
+
+	# tg = genome_length
+	# tr = aligned_read_count
+
+	# for rpb in rpbs:
+	# 	g = int(gen_c[rpb])
+	# 	tg -= g
+	# 	r = int(read_c[rpb])
+	# 	tr -= r
+
+	# 	print(rpb, g, tg, r, tr, round(g/genome_length, 4), round(tg/genome_length,4), sep='\t')
+
+	# 	br = input()
+
+	# 	if br =='break':
+	# 		break
 
 
-		elif params['target_read_perc']:
-			for p, t in readp_thresholds:
-				if p < params['target_read_perc']:
-					break
+	depth_threshold = threshold_stats['threshold']
+	gen_score       = threshold_stats['p_gen']
+	# adj_gen_score   = threshold_stats['adj_gen_score']
+	read_score      = threshold_stats['p_read']
 
-			depth_threshold = t
-			read_score      = p
-
-			for p, t in genp_thresholds:
-				if t == depth_threshold:
-					gen_score = p
-					break
+	print(" annotation parameters...")
+	print(f"    genome_scaling_factor: ... {params['genome_scaling_factor']}")
+	print(f"    depth threshold: ......... {round(float(depth_threshold),2):,} rpb")
+	print(f"    exp. genome proportion: .. {gen_score}")
+	print(f"    exp. read proportion: .... {read_score}")
 
 
-			print(" annotation parameters...")
-			print(f"    depth threshold: ......... {depth_threshold} rpb")
-			print(f"    exp. genome proportion: .. {gen_score}")
-			print(f" -> set read proportion: ..... {read_score}")
+	if threshold_stats['threshold'] == 0.0:
+		print("""
+Warning: detected threshold for annotation is 0 reads per million (0 reads). This will try to annotate almost all reads, forming regions when a median coverage between replicates > 0. 
+This could be caused by a couple factors:
+• Low absolute alignment rates (do you have a big enough alignment to annotate this genome?).
+• Problems with the condition or annotation_conditions (have you correctly defined which conditions and libraries are used for the annotation?).
+• Large genome (low-density genomes can result in total annotation. Generally, filters will remove non-realistic loci).
+• A bug (please report on github if none of the other reasons seem to be causing this).
 
-		else:
-			print(f"Finding threshold through weighted tradeoff. Weight: [{params['read_weight']}] reads to [{params['genome_weight']}] genome")
-
-			depth_threshold = threshold_stats['threshold']
-			gen_score       = threshold_stats['p_gen']
-			# adj_gen_score   = threshold_stats['adj_gen_score']
-			read_score      = threshold_stats['p_read']
-
-			print(" annotation parameters...")
-			print(f"    depth threshold: ......... {round(depth_threshold,2):,} rpb")
-			print(f"    exp. genome proportion: .. {gen_score}")
-			print(f"    exp. read proportion: .... {read_score}")
+""")
 
 
-		if threshold_stats['threshold'] == 0.0:
-			print("Warning: detected threshold for annotation is 0 reads per million (0 reads).\nThis will annotate 100%% of reads, leading to a highly unrepresentative sample. This might be caused by problems with the alignment (possibly low absolute alignment), libraries (check file paths in inputs.json), or an internal problem with YASMA (please make an issue on github or report to Nate)\n")
 
-		return(depth_threshold, gen_score, read_score)
-
-	depth_threshold, gen_score, read_score = get_thresholds()
-
-
+	# depth_threshold = 0
 
 
 	def get_regions(depth_threshold, chromosomes):
@@ -1125,6 +1130,9 @@ def tradeoff(**params):
 					in_region = False
 
 
+
+			if in_region:
+				reg_i = check_and_cash_region(True, reg_i, chrom, reg_start, i+1, chrom_length)
 
 			# in_region = False
 
@@ -1202,7 +1210,7 @@ def tradeoff(**params):
 
 	def write_regions_to_file():
 		print()
-		print(" writing regions to gff file...")
+		print("    writing regions to gff file...")
 		with open(region_file, 'a') as outf:
 
 			for l in all_regions:
@@ -1378,7 +1386,17 @@ def tradeoff(**params):
 			w_sizes   = sizeClass(minmax=read_minmax)
 			w_depths  = 0
 
-			p = np.multiply(np.sum(pos_d[chrom][window_start:window_end+1, ...], axis=(0,3)), rpbs)
+			try:
+				p = np.multiply(np.sum(pos_d[chrom][window_start:window_end+1, ...], axis=(0,3)), rpbs)
+
+			except ValueError:
+				# print(window)
+				# print(rpbs)
+				# print(rpbs.shape)
+				# print(pos_d[chrom][window_start:window_end+1, ...].shape)
+
+				return(False, ['numpy shape error (cause unknown)'])
+
 			p = np.median(p, axis=1)
 			p = np.mean(p, axis=0)
 
@@ -1480,9 +1498,9 @@ def tradeoff(**params):
 
 				# print(" ", window, test, fail_list)
 
-				if 'outofbounds' in fail_list:
-					print(self.start, self.stop)
-					print("Warning: OOB")
+				# if 'outofbounds' in fail_list:
+				# 	print(self.start, self.stop)
+				# 	print("Warning: OOB")
 					# sys.exit("OOB error")
 
 				if test:
@@ -1493,7 +1511,7 @@ def tradeoff(**params):
 	## revising regions
 	
 	print()
-	sys.stdout.write(f' revising regions ... 0%  \r')
+	sys.stdout.terminal.write(f' revising regions ... 0%  \r')
 	sys.stdout.flush()
 
 	revised_genomic_space = 0
@@ -1550,13 +1568,14 @@ def tradeoff(**params):
 
 			perc_out = perc.update()
 			if perc_out:
-				sys.stdout.write(f' revising regions ... {perc_out}%  \r')
+				sys.stdout.terminal.write(f' revising regions ... {perc_out}%  \r')
 				sys.stdout.flush()
 
 		# if name == 'region_2':
 		# 	sys.exit()
 
 	print(f' revising regions ... {perc.last_percent}%   ', flush=True)
+	print()
 
 	clock['revising_regions'] += ec.seconds()
 
@@ -1678,6 +1697,7 @@ def tradeoff(**params):
 
 	total_region_space = 0
 	regions_name_i = 0
+	final_locus_count = 0
 	total_annotated_reads = 0
 
 	# Some filter counters
@@ -1685,6 +1705,7 @@ def tradeoff(**params):
 	skew_filter       = 0
 	abd_filter        = 0
 	abd_dens_filter   = 0
+	rpm_filter        = 0
 
 	annotated_space = 0
 	annotated_reads = 0
@@ -1936,7 +1957,7 @@ def tradeoff(**params):
 					continue
 
 				lib = read.get_tag("RG")
-				if lib not in lib_set:
+				if lib not in annotation_libraries:
 					continue
 
 				sam_seq = read.get_forward_sequence().replace("T","U")
@@ -1953,13 +1974,22 @@ def tradeoff(**params):
 			stat_d['locus_reads'] += abd
 
 			complexity = len(seq.keys()) / length * 1000
-			skew       = seq.most_common(1)[0][1] / sum(seq.values())
 
+			mas = seq.most_common(1)[0][0] 
+			skew = 0
+			for key, val in seq.items():
+				# print(key, mas)
+				if key in mas or mas in key:
+					skew += val
+			skew = skew / sum(seq.values())
+			abd_dens = sum(seq.values()) / (stop-start) * 1000
+			rpm      = sum(seq.values()) / aligned_read_count * 1000000
 
 			pass_complexity = complexity >= params['min_complexity']
 			pass_skew       = skew <= params['max_skew']
 			pass_abd        = sum(seq.values()) >= params['min_abundance']
-			pass_abd_dens   = sum(seq.values()) / (stop-start) * 1000 >= params['min_abundance_density']
+			pass_abd_dens   = abd_dens >= params['min_abundance_density']
+			# pass_rpm        = rpm >= params['min_rpm']
 
 
 			pass_all_filters = 0
@@ -1980,14 +2010,21 @@ def tradeoff(**params):
 				abd_dens_filter += 1
 				pass_all_filters += int(params['filter_abundance_density'])
 
+			# if not pass_rpm:
+			# 	rpm_filter += 1
+			# 	pass_all_filters += int(params['filter_rpm'])
+
 
 			if pass_all_filters > 0:
-				regions_name_i -= 1
+				# regions_name_i -= 1
 				with open(filter_file, 'a') as outf:
 					print(coords, length, abd, pass_abd, round(abd/length*1000,4), pass_abd_dens, round(complexity,4), pass_complexity, skew, pass_skew, sep='\t', file=outf)
+				with open(filter_gff_file, 'a') as outf:
+					print(chrom, 'yto', 'filtered_locus', start, stop, '.','.','.', 
+						f"ID={name};PassComplexity={pass_complexity};Complexity={complexity};PassSkew={pass_skew};Skew={skew};PassAbd={pass_abd};Abd={sum(seq.values())};PassAbdDens={pass_abd_dens};AbdDens={abd_dens}", sep='\t', file=outf) # ;PassRPM={pass_rpm};RPM={rpm}
 				continue
 
-			
+			final_locus_count += 1
 			annotated_space += length
 			annotated_reads += abd
 
@@ -1995,7 +2032,7 @@ def tradeoff(**params):
 			# print()
 
 			ec = elapsedClass()
-			results_line, gff_line = assessClass().format(locus, seq, strand, size, sum(chrom_depth_c.values()), last_stop)
+			results_line, gff_line = assessClass().format(locus, seq, strand, size, aligned_read_count, last_stop)
 
 
 			last_stop = stop
@@ -2026,12 +2063,13 @@ def tradeoff(**params):
 	print()
 	print()
 	print(f"locus filters:  (x = filter activated)")
-	print(f"  {bool_to_check(params['filter_skew'])} {skew_filter} loci are extremely skewed (> {params['max_skew']} prop. abundance is a single sequence)")
-	print(f"  {bool_to_check(params['filter_complexity'])} {complexity_filter} loci have low complexity (< {params['min_complexity']} unique reads per 1000 nt)")
-	print(f"  {bool_to_check(params['filter_abundance'])} {abd_filter} loci are below min abundance (< {params['min_abundance']} aligned reads)")
-	print(f"  {bool_to_check(params['filter_abundance_density'])} {abd_dens_filter} loci are below min abundance density (< {params['min_abundance_density']} aligned reads / 1000 nt)")
+	print(f"  {bool_to_check(params['filter_skew'])} {skew_filter:,} loci are extremely skewed (> {params['max_skew']} prop. abundance is a single sequence)")
+	print(f"  {bool_to_check(params['filter_complexity'])} {complexity_filter:,} loci have low complexity (< {params['min_complexity']} unique reads per 1000 nt)")
+	print(f"  {bool_to_check(params['filter_abundance'])} {abd_filter:,} loci are below min abundance (< {params['min_abundance']} aligned reads)")
+	print(f"  {bool_to_check(params['filter_abundance_density'])} {abd_dens_filter:,} loci are below min abundance density (< {params['min_abundance_density']} aligned reads / 1000 nt)")
+	# print(f"  {bool_to_check(params['filter_rpm'])} {rpm_filter:,} loci are below min RPM of aligned reads (< {params['min_rpm']} rpm)")
 	print()
-	print(f"  {locus_name_i:,} loci passing activated filter(s)")
+	print(f"  {final_locus_count:,} loci passing activated filter(s)")
 	print()
 	print(f"final annotation metrics:")
 	print(f"  {annotated_space:,} genomic nt ({round(annotated_space / genome_length * 100, 1)}%) in loci")
@@ -2043,7 +2081,7 @@ def tradeoff(**params):
 	stat_d['filtered_reads'] = annotated_reads
 
 
-	stat_d['filtered_loci'] = locus_name_i
+	stat_d['filtered_loci'] = final_locus_count
 
 
 	total_time = full_ec.seconds()
@@ -2064,7 +2102,7 @@ def tradeoff(**params):
 
 	stats_file = f"{output_directory}/{dir_name}/stats.txt"
 	with open(stats_file, 'a') as outf:
-		print('project\tchromosomes\tgenome_length\taligned_reads\tregions\tregion_space\tregion_reads\tloci\tlocus_space\tlocus_reads\tfiltered_loci\tfiltered_space\tfiltered_regions', file=outf)
+		# print('project\tchromosomes\tgenome_length\taligned_reads\tregions\tregion_space\tregion_reads\tloci\tlocus_space\tlocus_reads\tfiltered_loci\tfiltered_space\tfiltered_regions', file=outf)
 
 		print(project_name, file=outf, end='\t')
 		print(stat_d['chromosomes'], file=outf, end='\t')

@@ -827,6 +827,7 @@ def validate_library_paths(ctx, param, value):
 
 
 		if not line.startswith(first_char):
+			print(line)
 			sys.exit(f"FileTypeError: '{str(path)}' does not start with the expected character '{first_char}'. Are you sure this file is OK?")
 
 		f.close()
