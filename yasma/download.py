@@ -7,7 +7,7 @@ from shutil import rmtree
 from time import sleep
 
 
-@cli.command(group='Processing', help_priority=2)
+@cli.command(group='Processing', help_priority=1)
 
 
 @optgroup.group('\n  Basic options',
@@ -30,7 +30,7 @@ from time import sleep
 
 
 def download(**params):
-	'''Tool to check untrimmed-libraries for 3' adapter content.'''
+	'''Download libraries from the NCBI SRA using their SRR code'''
 
 	print(params)
 	rc = requirementClass()

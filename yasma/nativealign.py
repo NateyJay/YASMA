@@ -91,7 +91,7 @@ import time
 
 
 def align(**params):
-	'''Aligner based on shortstack3'''
+	'''Aligner based on shortstack3-style weighting'''
 
 	rc = requirementClass()
 	rc.add_bowtie()

@@ -35,7 +35,7 @@ from .generics import *
 
 
 def coverage(**params):
-	"""Produces bigwig coverage files for use in jbrowse."""
+	"""Produces combined bigwig coverage files"""
 
 	rc = requirementClass()
 	# rc.add_samtools()

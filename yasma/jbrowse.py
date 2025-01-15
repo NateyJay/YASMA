@@ -401,7 +401,7 @@ class configClass():
 
 
 def jbrowse(**params):
-	'''Tool to build coverage and config files for jbrowse2.'''
+	'''Build coverage and config files for jbrowse2'''
 
 	ic = inputClass(params)
 	ic.check(["alignment_file", "genome_file"])
