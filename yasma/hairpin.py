@@ -167,7 +167,7 @@ class foldClass():
 		out, err = p.communicate(f">{temp_name}\n{self.seq}")
 
 
-		self.fold_file = Path(self.output_directory, self.hairpin_dir, "folds", f"{self.name}_unannotated.eps")
+		self.fold_file = Path(self.hairpin_dir, "folds", f"{self.name}_unannotated.eps")
 
 		# print(self.fold_file)
 		Path(f"{temp_name}_ss.ps").rename(self.fold_file)
@@ -244,7 +244,7 @@ class foldClass():
 				sys.exit()
 
 	def write_txt(self):
-		outf = open(Path(self.output_directory, self.hairpin_dir, "folds", f"{self.name}.txt"), 'w')
+		outf = open(Path(self.hairpin_dir, "folds", f"{self.name}.txt"), 'w')
 
 		for a in self.aln_string:
 			print(a, file=outf)
@@ -254,7 +254,7 @@ class foldClass():
 
 	def write(self):
 
-		outf = open(Path(self.output_directory, self.hairpin_dir, "folds", f"{self.name}.eps"), 'w')
+		outf = open(Path(self.hairpin_dir, "folds", f"{self.name}.eps"), 'w')
 
 		for line in self.lines:
 
@@ -555,10 +555,18 @@ class hairpinClass():
 			self.status.append("hairpin not stranded")
 			return
 
+		locus_details = self.get_locus(locus, strand, input_mas, pos_d, unstranded_pos_d)
 
-		self.seq, self.fold, self.mfe, self.pairing, self.read_c, self.struc_c, self.aln_string, self.unstranded_count = self.get_locus(locus, strand, input_mas, pos_d, unstranded_pos_d)
+		if not locus_details:
+			self.status.append("undefined error in get_locus()")
+			return
+
+		self.seq, self.fold, self.mfe, self.pairing, self.read_c, self.struc_c, self.aln_string, self.unstranded_count = locus_details
 
 
+		if not self.read_c:
+			self.status.append("ZeroDivisionError in get_locus()")
+			return
 
 		if sum(self.read_c.values()) == 0:
 			self.status.append("locus depth is 0 reads")
@@ -699,6 +707,10 @@ class hairpinClass():
 		genome_file, alignment_file = self.genome_file, self.alignment_file
 
 		seq = samtools_faidx(locus, strand, genome_file)
+
+		if len(seq) == 0:
+			return False
+
 		fold, mfe, pairing = RNAfold(seq)
 
 		# print(seq)
@@ -780,7 +792,10 @@ class hairpinClass():
 
 				c = Counter(fold[i : i+length+1])
 
-				p_struc = (c["("] + c[')'] )  / sum(c.values())
+				try:
+					p_struc = (c["("] + c[')'] )  / sum(c.values())
+				except ZeroDivisionError:
+					return(seq, fold, mfe, pairing, False, struc_c, aln_string, unstranded_count)
 
 				if p_struc > 0.2:
 
@@ -1384,6 +1399,9 @@ def run_job(job):
 	sizecall     = job['sizecall']
 	hairpin_file = job['hairpin_file']
 
+	if params['silent']:
+		print(name, " "*30, end='\r')
+
 	contig = locus.split(":")[0]
 	start  = int(locus.split(":")[1].split("-")[0])
 	stop   = int(locus.split(":")[1].split("-")[1])
@@ -1394,7 +1412,8 @@ def run_job(job):
 	hpc.table()
 
 	# print(f'p{os.getpid()}\t' + hpc.status_line(sizecall))
-	print(hpc.status_line(sizecall))
+	if not params['silent']:
+		print(hpc.status_line(sizecall))
 
 	with open(hairpin_file, 'a') as outf:
 		print(hpc.table(), file=outf)
@@ -1416,7 +1435,9 @@ def run_job(job):
 
 
 		# print(f'pid{os.getpid()}\t' + trimmed_hpc.status_line(sizecall))
-		print(trimmed_hpc.status_line(sizecall))
+
+		if not params['silent']:
+			print(trimmed_hpc.status_line(sizecall))
 
 		if trimmed_hpc.valid:
 
@@ -1437,7 +1458,9 @@ def run_job(job):
 
 @cli.command(group="Calculation", help_priority=3)
 
-@click.option("-a", "--alignment_file", 
+@optgroup.group('\n  Basic options',
+				help='')
+@optgroup.option("-a", "--alignment_file", 
 	required=False, 
 	type=click.UNPROCESSED, callback=validate_path,
 	help='Alignment file input (bam or cram).')
@@ -1454,36 +1477,45 @@ def run_job(job):
 	type=click.UNPROCESSED, callback=validate_outdir,
 	help="Directory name for annotation output. Defaults to the current directory, with this directory name as the project name.")
 
-@click.option("-g", "--genome_file", 
+@optgroup.option("-g", "--genome_file", 
 	# default=f"Annotation_{round(time())}", 
 	required=False,
 	# type=click.Path(exists=True),
 	type=click.UNPROCESSED, callback=validate_path,
 	help='Genome or assembly which was used for the original alignment.')
 
-@click.option('-i', "--ignore_replication",
+@optgroup.group('\n  Other options',
+				help='')
+
+@optgroup.option('-i', "--ignore_replication",
 	is_flag=True,
 	help='Evaluate all readgroups together, ignoring if a miRNA is replicated')
 
-@click.option("-m", "--max_length",
+@optgroup.option("-m", "--max_length",
 	default=300,
 	help='Maximum hairpin size (default 300). Longer loci will not be considered for miRNA analysis.')
 
-@click.option("--cores",
+@optgroup.option("--cores",
 	default=50,
 	type=int,
 	help='Number of cores/processes used in analyzing hairpins. ')
 
-@click.option("--matures",
+@optgroup.option("--matures",
 	type=click.Path(),
 	help='location for a fasta of mature miRNAs which will be used to spot orthologs.')
 
-@click.option("--annotation_folder")
+@optgroup.option("--annotation_folder",
+	type=click.Path(),
+	help="location for the yasma annotation used in this analysis. Defaults to the project's tradeoff folder")
 
-@click.option("-n", "--name")
+@optgroup.option("-n", "--name",
+	type=str,
+	help="name for sub folder where hairpin analysis is deposited")
 
 
-@click.option('--ignore_subhairpins', is_flag=True, default=False, help='This prevents folding of sub-hairpins in long stranded loci')
+@optgroup.option('--ignore_subhairpins', is_flag=True, default=False, help='This prevents folding of sub-hairpins in long stranded loci')
+
+@optgroup.option('--silent', is_flag=True, default=False, help='Silences printing hairpin analysis to terminal. Useful when lots of loci are found.')
 
 # @click.option("--method", 
 # 	default="Poisson", 
@@ -1510,18 +1542,44 @@ def hairpin(**params):
 	proc_n               = params['cores']
 
 
+	# print(output_directory)
+	# sys.exit()
 
-	name = params['name']
+	if params['annotation_folder']:
+		annotation_dir = params['annotation_folder']
 
-	if name:
-		hairpin_dir = Path(output_directory, f'hairpin_{name}')
+		if annotation_dir != Path(output_directory, "tradeoff") and not params['name']:
+			sys.exit("Error: if supplying a different --annotation_folder, you must also provide a --name")
+		name = params['name']
+
 	else:
-		hairpin_dir = Path(output_directory, f'hairpin')
+		annotation_dir = Path(output_directory, "tradeoff")
+		if not params['name']:
+			name = 'tradeoff'
+		else:
+			name = params['name']
 
-	hairpin_dir.mkdir(parents=True, exist_ok=True)
+	hairpin_dir = Path(output_directory, f'hairpin', name)
+	Path(output_directory, f'hairpin', name, 'folds').mkdir(parents=True, exist_ok=True)
+
+	# print(f'{hairpin_dir}')
+	# sys.exit()
+
 
 	params['hairpin_dir'] = hairpin_dir
 	params['output_directory'] = output_directory
+
+	results_file   = Path(annotation_dir, "loci.txt")
+	tops_file      = Path(annotation_dir, "reads.txt")
+	other_mas_file = Path(annotation_dir, 'reads.txt')
+
+	hairpin_file   = Path(hairpin_dir, "hairpins.txt")
+
+
+	print()
+	print(f'output folder: {hairpin_dir}')
+	print()
+	# sys.exit()
 
 	if params['matures']:
 		mature_d = bowtie_matures(matures, genome_file)
@@ -1589,14 +1647,12 @@ def hairpin(**params):
 
 
 
-	results_file = Path(output_directory, 'tradeoff', "loci.txt")
 
 
 	assert results_file.is_file(), f"results_file {results_file} not found... (Have you run annotation with this directory?)"
 
 	input_mas_d = {}
 	# tops_file = f"{output_directory}/tradeoff/reads.txt"
-	tops_file = Path(output_directory, 'tradeoff', "reads.txt")
 	with open(tops_file, 'r') as f:
 		header = f.readline()
 		for line in f:
@@ -1614,7 +1670,6 @@ def hairpin(**params):
 
 	other_mas_d = {}
 
-	other_mas_file = Path(output_directory, 'tradeoff', 'reads.txt')
 	with open(other_mas_file, 'r') as f:
 		f.readline()
 
@@ -1634,8 +1689,7 @@ def hairpin(**params):
 
 	header_line = "name\tsub_name\tlocus\tcontig\tstart\tstop\tstrand\tstranded\tlength\tseq\tfold\tmfe\tmfe_per_nt\tmas\tstar\tduplex_mas\tduplex_fold\tduplex_star\tvalid_fold\truling\tstruc_count\tunstruc_count\tp_struc\tmpn_pass\tmismatches_asymm\tmismatches_total\tno_mas_structures\tno_star_structures\tprecision\tstar_found"
 
-	Path(output_directory, hairpin_dir, "folds").mkdir(parents=True, exist_ok=True)
-	hairpin_file = Path(output_directory, hairpin_dir, "hairpins.txt")
+	Path(hairpin_dir, "folds").mkdir(parents=True, exist_ok=True)
 	with open(hairpin_file, 'w') as outf:
 		print(header_line, file=outf)
 
@@ -1648,7 +1702,9 @@ def hairpin(**params):
 
 	jobs = []
 
-	print("making job list for hairpin analysis:")
+	print(f"  {len(entries):,} annotated loci")
+	print()
+	print(f"making job list for hairpin analysis:")
 
 	for entry_i, line in enumerate(entries):
 
@@ -1721,8 +1777,11 @@ def hairpin(**params):
 				for i, side in enumerate(locus_sides(locus, length=250)):
 
 					sub_locus, sub_length = side
-					sub_start  = int(sub_locus.split(":")[1].split("-")[0])
-					sub_stop   = int(sub_locus.split(":")[1].split("-")[1])
+					try:
+						sub_start  = int(sub_locus.split(":")[1].split("-")[0])
+						sub_stop   = int(sub_locus.split(":")[1].split("-")[1])
+					except ValueError:
+						break
 
 					seq = samtools_faidx(sub_locus, strand, genome_file)
 					seq = seq.upper()
@@ -1771,9 +1830,11 @@ def hairpin(**params):
 
 
 
-		if len(jobs) > 500:
-			break
+		# if len(jobs) > 500:
+		# 	break
 
+	print()
+	print()
 	print(f"analyzing hairpins over ({proc_n}) processes:")
 	print()
 
@@ -1781,7 +1842,8 @@ def hairpin(**params):
 
 
 
-	print("""
+	if not params['silent']:
+		print("""
 stranded
 ┋
 ┋ mfe_per_nt

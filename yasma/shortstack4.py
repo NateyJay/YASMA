@@ -43,6 +43,10 @@ from datetime import datetime
 	help="Optional name alignment. Useful if comparing annotations.")
 
 
+@optgroup.option('--no_mirna', is_flag=True, default=False, help='This prevents de novo miRNA finding, leaving out the --dn_mirna flag on the ss4 call.')
+
+
+
 # @optgroup.option('--subsample',
 # 	help="Allows the user to subsample alignments for the annotation to a defined depth. Accepts an integer number of reads, which can be modified with a 10^3 prefix (ex. 10M).")
 
@@ -196,7 +200,10 @@ def shortstack4(**params):
 		# ic.write()
 
 
-	args = ["ShortStack4", '--bamfile', alignment_file, "--genomefile", genome_file, "--outdir", temp_folder , '--threads', '4', '--dn_mirna']
+	args = ["ShortStack4", '--bamfile', alignment_file, "--genomefile", genome_file, "--outdir", temp_folder , '--threads', '4']
+
+	if not params['no_mirna']:
+		args.append('--dn_mirna')
 
 	# if params['subsample']:
 	# 	args += ['--mincov', target_rpm]
@@ -206,11 +213,20 @@ def shortstack4(**params):
 
 	print(" ".join(args))
 
-	p = Popen(args)#, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+	p = Popen(args, stdout=PIPE, encoding=ENCODING)
+
+	for line in p.stdout:
+		line = line.strip()
+		print(line)
+		sys.stdout.flush()
+
 	p.wait()
 
 	# os.rename(Path(temp_folder, 'log.txt'), Path(temp_folder, 'shortstack_log.txt'))
 
+	sv_folder = Path(annotation_folder, 'strucVis')
+	if sv_folder.is_dir():
+		shutil.rmtree(sv_folder)
 
 	for file in temp_folder.iterdir():
 		# print(file)
