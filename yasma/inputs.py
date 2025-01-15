@@ -128,7 +128,7 @@ from shutil import copyfile
 	help= 'Maxiumum allowed size for a trimmed read. (default 50)')
 
 def inputs(**params):
-	'''A tool to log inputs, which will be referenced by later tools.'''
+	'''Initialize a project and log inputs for later analyses'''
 
 
 	rc = requirementClass()
