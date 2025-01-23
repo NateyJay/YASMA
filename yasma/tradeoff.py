@@ -319,7 +319,7 @@ def get_bin_threshold(cdf_c, to_save=False, to_print=False):
 
 
 def tradeoff(**params):
-	'''Annotator using large coverage window and prec/sens tradeoff.'''
+	'''Annotator using focused capturing the most reads in the least genomic space'''
 
 	rc = requirementClass()
 	# rc.add_samtools()
