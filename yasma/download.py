@@ -25,7 +25,9 @@ from time import sleep
 	help="Directory name for annotation output. Defaults to the current directory, with this directory name as the project name.")
 
 
-@optgroup.option('--unzipped', is_flag=True, default=False, help='Do not compress downloaded files (default is to compress)')
+@optgroup.option('--include_quals', is_flag=True, default=False, help='Download libraries as .fastq format (default is only .fasta)')
+
+@optgroup.option('--zipped/--unzipped', is_flag=True, default=False, help='Do not compress downloaded files (default is uncompressed)')
 
 
 
@@ -122,6 +124,8 @@ def download(**params):
 
 
 		call = ['fasterq-dump'] + [str(Path(download_dir, srr)), '-O', str(untrimmed_dir)]
+		if not params['include_quals']:
+			call += ['--fasta']
 
 		print()
 		print()
