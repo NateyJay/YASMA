@@ -758,7 +758,7 @@ def reverse_conditions(c):
 
 def validate_outdir(ctx, param, od):
 
-	if od is None or od == '.':
+	if od is None:
 		od = Path().cwd()
 		if not Path(od, 'inputs.json').is_file():
 			sys.exit("Error: cannot run yasma in an uninitialized directiory (doesn't contain inputs.json) without specifying -o/--output_directory.\n\nTo initialize as a yasma directory, run the same command including the directory you want to use as the home directory of the analysis (-o ./path/to/my_directory) or the current directory with (-o .). This directory name will be used as the project name.")
