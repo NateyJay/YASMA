@@ -139,6 +139,10 @@ def align(**params):
 	sys.stdout = Logger(log_file)
 
 
+	for lib in trimmed_libraries:
+		if not lib.is_file():
+			sys.exit(f"Error: trimmed library {lib} not found!\nare you sure this is right? check -tl option or inputs.json")
+
 
 	bowtie_build_index = genome_file.with_suffix(".1.ebwt")
 
@@ -642,6 +646,7 @@ def align(**params):
 			a.set_tag("RG", rg, "Z")
 
 			map_c["H"] += 1
+			lib_c[(rg, "H")] += 1
 
 			bamfile.write(a)
 
@@ -666,21 +671,21 @@ def align(**params):
 
 
 	with open(project_table, 'w') as outf:
-		print("project\tumap\tmmap_wg\tmmap_nw\txmap_nw\txmap_ma\txmap_nv", file=outf)
+		print("project\tumap\tmmap_wg\tmmap_nw\txmap_nw\txmap_ma\txmap_nv\txmap_fr", file=outf)
 
 		to_print = [ic.inputs['project_name']]
-		to_print += [map_c[i] for i in ['U','P','R','Q','H','N']]
+		to_print += [map_c[i] for i in ['U','P','R','Q','H','N','F']]
 
 		print("\t".join(map(str, to_print)), file=outf)
 
 
 	with open(library_table, 'w') as outf:
-		print("project\tlibrary\tumap\tmmap_wg\tmmap_nw\txmap_nw\txmap_ma\txmap_nv", file=outf)
+		print("project\tlibrary\tumap\tmmap_wg\tmmap_nw\txmap_nw\txmap_ma\txmap_nv\txmap_fr", file=outf)
 
 		for lib in trimmed_libraries:
 			rg = get_rg(lib)
 			to_print = [ic.inputs['project_name'], rg]
-			to_print += [lib_c[(rg, i)] for i in ['U','P','R','Q','H','N']]
+			to_print += [lib_c[(rg, i)] for i in ['U','P','R','Q','H','N','F']]
 
 			print("\t".join(map(str, to_print)), file=outf)
 
