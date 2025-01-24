@@ -138,13 +138,13 @@ def download(**params):
 
 		print()
 		print()
-		print("zipping...")
 
 
 		if not params['zipped']:
 			untrimmed_libraries.append(unzipped_file)
 
 		else:
+			print("zipping...")
 			try:
 				Path(untrimmed_dir, f"{srr}_1.fastq").rename(Path(untrimmed_dir, f"{srr}.fastq"))
 			except:
