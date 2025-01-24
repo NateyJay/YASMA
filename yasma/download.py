@@ -27,14 +27,13 @@ from time import sleep
 
 @optgroup.option('--include_quals', is_flag=True, default=False, help='Download libraries as .fastq format (default is only .fasta)')
 
-@optgroup.option('--zipped/--unzipped', is_flag=True, default=False, help='Do not compress downloaded files (default is uncompressed)')
+@optgroup.option('--zipped/--unzipped', is_flag=True, default=False, help='Whether to compress downloaded files (default is uncompressed)')
 
 
 
 def download(**params):
 	'''Download libraries from the NCBI SRA using their SRR code'''
 
-	print(params)
 	rc = requirementClass()
 	rc.add_sratools()
 	rc.check()
@@ -76,12 +75,12 @@ def download(**params):
 
 		print(f"\n  downloading {i+1} of {len(srrs)}  ")
 
-		if not params['unzipped'] and zipped_file.is_file():
+		if params['zipped'] and zipped_file.is_file():
 			print(' ', zipped_file, 'found...')
 			untrimmed_libraries.append(zipped_file)
 			continue
 
-		elif params['unzipped'] and unzipped_file.is_file():
+		elif not params['zipped'] and unzipped_file.is_file():
 			print(' ', unzipped_file, 'found...')
 			untrimmed_libraries.append(unzipped_file)
 			continue
@@ -142,7 +141,7 @@ def download(**params):
 		print("zipping...")
 
 
-		if params['unzipped']:
+		if not params['zipped']:
 			untrimmed_libraries.append(unzipped_file)
 
 		else:
