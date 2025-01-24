@@ -48,6 +48,7 @@ git clone https://github.com/NateyJay/YASMA.git
 ## curl -L -O https://github.com/NateyJay/YASMA/archive/refs/tags/v0.1.0-beta.zip ## curl should work too.
 
 ## Yasma can be run from this directory simply with
+cd YASMA
 ./yasma.py
 
 ```
@@ -58,37 +59,33 @@ More permanent installation would likely include moving this directory to a more
 mv YASMA /usr/local/
 echo "export PATH="/usr/local/YASMA:$PATH" >> ~/.bash_profile
 source ~/.bash_profile
-
 ```
 
 ### Dependencies
-Yasma makes use of many tools through wrappers, as well as several non-standard python modules. Most of these should be easy enough to install.
-
-#### Python modules:
+Yasma makes use of many tools through wrappers, as well as several python modules available through pip. Most of these should be easy enough to install.
 
 
 ```
+## core modules
 python3 -m pip install numpy
-python3 -m pip install click
+python3 -m pip install click [`click`](https://click.palletsprojects.com/)
 python3 -m pip install click-option-group
 python3 -m pip install pysam
+
+## jbrowse, coverage, and tradeoff (with flag)
 python3 -m pip install pyBigWig
-python3 -m pip install GitPython
+
+## hairpin
 python3 -m pip install levenshtein
 ```
-Some of the less standard ones:  
-[`click`](https://click.palletsprojects.com/) is required, as it manages the cli interface for the tool.  
-[`pysam`](https://github.com/deeptools/pyBigWig) allows samtools stand-alone in python.  
-[`pyBigWig`](https://github.com/deeptools/pyBigWig) allows python-native functions with bigwig files.
 
 #### System modules:
 Most of these are required for basic functions - each module will inform you if you are missing something. Yasma expects each of these executable from the PATH.
 
-* ~~[`samtools`](https://www.htslib.org/)~~ this is now managed with pysam
-* align -> [`bowtie` (1)](https://bowtie-bio.sourceforge.net/index.shtml)
-* ~~[`ShortStack` (3 or 4)](https://github.com/MikeAxtell/ShortStack)~~ this is now only required for running ShortStack through yasma.
-* hairpin -> `rnafold` from the [ViennaRNA](https://www.tbi.univie.ac.at/RNA/) package.
 * trim -> [`cutadapt`](https://cutadapt.readthedocs.io/en/stable/)
+* align -> [`bowtie` (1)](https://bowtie-bio.sourceforge.net/index.shtml)
+* shortstack3/4 -> [`ShortStack` (3 or 4)](https://github.com/MikeAxtell/ShortStack) this is only required for running ShortStack through yasma.
+* hairpin -> `rnafold` from the [ViennaRNA](https://www.tbi.univie.ac.at/RNA/) package.
 
 
 # Yasma Modules
