@@ -68,7 +68,7 @@ Yasma makes use of many tools through wrappers, as well as several python module
 ```
 ## core modules
 python3 -m pip install numpy
-python3 -m pip install click [`click`](https://click.palletsprojects.com/)
+python3 -m pip install click
 python3 -m pip install click-option-group
 python3 -m pip install pysam
 
