@@ -316,7 +316,20 @@ class requirementClass():
 			found=False
 			version=''
 
-		self.reqs.append(('sratools', found, version))
+		self.reqs.append(('prefetch', found, version))
+
+		try:
+			p = Popen(['fasterq-dump', '-V'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+			out,err = p.communicate()
+			out = out.split("\n")
+			found=True
+			version = out[1].split()[-1]
+
+		except FileNotFoundError:
+			found=False
+			version=''
+
+		self.reqs.append(('fasterq-dump', found, version))
 
 	def check(self):
 
