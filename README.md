@@ -68,7 +68,7 @@ Yasma makes use of many tools through wrappers, as well as several python module
 ```
 ## core modules
 python3 -m pip install numpy
-python3 -m pip install click [`click`](https://click.palletsprojects.com/)
+python3 -m pip install click
 python3 -m pip install click-option-group
 python3 -m pip install pysam
 
@@ -96,51 +96,42 @@ Yasma is organized into several modules, made with the CLI-module [click](https:
 Commands:
 
   Preliminary:
-    inputs                    A tool to log inputs, which will be...
+    inputs        Initialize a project and log inputs for later analyses
 
   Processing:
-    adapter                   Tool to check untrimmed-libraries for 3'...
-    download                  Tool to check untrimmed-libraries for 3'...
-    trim                      Wrapper for trimming using cutadapt.
-    align                     Aligner based on shortstack3
-    shortstack-align          Wrapper for alignment using ShortStack/bowtie.
-
-  Utilites:
-    merge                     Tool for merging multiple alignments with...
+    download      Download libraries from the NCBI SRA using their SRR code
+    adapter       Tool to check untrimmed-libraries for 3' adapter content.
+    trim          Wrapper for trimming using cutadapt.
+    align         Aligner based on shortstack3-style weighting
 
   Annotation:
-    tradeoff                  Annotator using large coverage window and...
+    tradeoff      Annotator using focused capturing the most reads in the...
 
   Calculation:
-    context                   Compares annotations to identify cluster...
-    count                     Gets counts for all readgroups, loci, strand,...
-    hairpin                   Evaluates annotated loci for hairpin or miRNA...
-    jbrowse                   Tool to build coverage and config files for...
-    coverage                  Produces bigwig coverage files for use in...
-
-  Utilities:
-    subsample                 Utility to subsample libraries to a specific...
-    cram-to-bam               Changes crams to bam alignments.
-    normalize-alignment-name  Fixes old alignment file names.
-    size-profile              Convenience function for calculating aligned...
-    readgroups                Convenience function to list readgroups in an...
+    context       Compares annotations to identify cluster genomic context.
+    count         Gets counts for all readgroups, loci, strand, and sizes.
+    hairpin       Evaluates annotated loci for hairpin or miRNA structures.
+    jbrowse       Build coverage and config files for jbrowse2
+    coverage      Produces combined bigwig coverage files
 
   Ann. wrappers:
-    shortstack3               Wrapper for annotation using ShortStack3.
-    shortstack4               Wrapper for annotation using ShortStack4.
+    shortstack3   Wrapper for annotation using ShortStack3.
+    shortstack4   Wrapper for annotation using ShortStack4.
+
+  Utilities:
+    size-profile  Convenience function for calculating aligned size profile.
 ```
 
 
 ### Directory oriented analysis
 
-To help with ease of use, Yasma orients all of its analyses around a directory. Files produced and referenced by yasma are all stored in the `config.json` file, using relative paths. Analyses that produce outputs will automatically update this file, meaning you need not manually transmit information from one module to the next (for example: finding an adapter sequence, then trimming the libraries with it). 
+To help with ease of use, Yasma orients all of its analyses around a directory. Files produced and referenced by yasma are all stored in the `inputs.json` file, using relative paths. Analyses that produce outputs will automatically update this file, meaning you need not manually transmit information from one module to the next (for example: finding an adapter sequence, then trimming the libraries with it). 
 
 `inputs.json` is human-readable and can be pretty easily modified manually, though not normally advisable.
 
-All modules will automatically produce `config.json` if it is not found, and use lazy evaluation looking for included values. This makes it easy to jump in at a later step if you have done prior analyses separately.
+This means that you need to initialize a directory, by specifiying an `--output_directory`/`-o`. Once this is done, you can run yasma from this directory without a problem. Any Yasma module can initialize (making an `inputs.json`), so you can skip to tradeoff if you have an alignment ready. You can even specify the current directory with `.`, which will import this directory's name as the project name.
 
-
-Modules can be run simply with `yasma.py [module] -o output_directory_path [...]`. The only required option for all modules is `-o, --output_directory`, and yasma will automatically tell you if you are missing any other inputs.
+Modules can be run simply with `yasma.py [module] [...]`, and modules should tell you what inputs or requirements you are lacking.
 
 
 ### Preliminary step - *inputs*
@@ -217,16 +208,16 @@ yasma.py inputs -o full_analysis \
 -c lib_1:hyphae lib_2:hyphae lib_3:conidia lib_4:conidia lib_5:conidia
 
 ## basic call
-yasma.py adapter -o .
-yasma.py trim -o .
-yasma.py align -o .
-yasma.py tradeoff -o . ## this will annotate with all conditions
-yasma.py count -o .
+yasma.py adapter
+yasma.py trim
+yasma.py align
+yasma.py tradeoff ## this will annotate with all conditions
+yasma.py count
 
 
 
 ## to perform the annotation with a specific condition(s)
-yasma.py tradeoff -o . -ac hyphae
+yasma.py tradeoff -ac hyphae
 
 
 ## using pre-trimmed libraries
@@ -235,9 +226,9 @@ yasma.py inputs -o full_analysis \
 -g path_to_your_genome.fa \
 -c lib_1:hyphae lib_2:hyphae lib_3:conidia lib_4:conidia lib_5:conidia
 
-yasma.py align -o .
-yasma.py tradeoff -o .
-yasma.py count -o .
+yasma.py align
+yasma.py tradeoff
+yasma.py count
 
 
 ## using an alignment as input (note, this must contain the @RG flag to indicate source libraries.
@@ -245,8 +236,8 @@ yasma.py inputs -o full_analysis \
 -a path_to_alignment.bam \ 
 -c lib_1:hyphae lib_2:hyphae lib_3:conidia lib_4:conidia lib_5:conidia
 
-yasma.py tradeoff -o .
-yasma.py count -o .
+yasma.py tradeoff
+yasma.py count
 ```
 
 
