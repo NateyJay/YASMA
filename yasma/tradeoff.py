@@ -1076,10 +1076,10 @@ def tradeoff(**params):
 		print("""
 Warning: detected threshold for annotation is 0 reads per million (0 reads). This will try to annotate almost all reads, forming regions when a median coverage between replicates > 0. 
 This could be caused by a couple factors:
-• Low absolute alignment rates (do you have a big enough alignment to annotate this genome?).
-• Problems with the condition or annotation_conditions (have you correctly defined which conditions and libraries are used for the annotation?).
-• Large genome (low-density genomes can result in total annotation. Generally, filters will remove non-realistic loci).
-• A bug (please report on github if none of the other reasons seem to be causing this).
+- Low absolute alignment rates (do you have a big enough alignment to annotate this genome?).
+- Problems with the condition or annotation_conditions (have you correctly defined which conditions and libraries are used for the annotation?).
+- Large genome (low-density genomes can result in total annotation. Generally, filters will remove non-realistic loci).
+- A bug (please report on github if none of the other reasons seem to be causing this).
 
 """)
 
