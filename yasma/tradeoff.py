@@ -420,6 +420,12 @@ def tradeoff(**params):
 	# median_depth
 
 
+	## loading in track libraries
+
+	if params['bigwig']:
+		from .track_generics import trackClass
+
+
 	### Writing annotation parameters to folder
 
 	params['tool'] = 'tradeoff'
@@ -1104,7 +1110,6 @@ This could be caused by a couple factors:
 		reg_start = -1
 		reg_stop  = -1
 
-		# bw = pyBigWig.open(str(Path(output_directory, dir_name, "kernel.bw")))
 
 
 		for chrom, chrom_length in chromosomes:
