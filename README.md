@@ -2,22 +2,20 @@
 <p align="center"><img src="images/logo2.png" alt="main logo" width="300" /></p>
 
 ## YASMA - *<ins>Y</ins>et <ins>a</ins>nother <ins>sm</ins>all RNA <ins>a</ins>nnotator*
- 
-**warning**: this project is in active development and the readme may be out of date. 
 
 ### What is yasma?
 This pipeline adds to a wide field of tools which have been used to assess ***small-RNA-sequencing*** data. Yasma is a **genome-based *de novo* approach** which is focused on **the whole sRNA population**, not just a few classes like miRNAs.
 
-There are other approaches that follow a similar strategy, namely [ShortStack](https://github.com/MikeAxtell/ShortStack). Yasma tries to solve some persistent issues with these approaches, which appear to be exacerbated in challenging systems, such as sRNAs in Fungi.
+There are other approaches that follow a similar strategy, namely [ShortStack](https://github.com/MikeAxtell/ShortStack). Yasma was born out of solving some persistent issues with ShortStack3, which appear to be exacerbated in challenging systems, such as sRNAs in Fungi (ShortStack4 has resolved some of these).
 
 ### Is this published?
-There is a manuscript in preparation detailing the value of the approache presented here. This will be updated with a bioRxiv when submitted to a journal *(hopefully very soon)*.
+This work is currently in submission, with a completed manuscript available on bioRxiv (within days).
 
 ### Problems with current approaches
-* **Over-merging** of distinct, but closely oriented loci.
-* **Creeping annotations** which don't don't represent the shape of a expressed region.
+* **Creeping annotations** which don't don't represent the shape of a expressed region, sometimes leading to very large loci.
 * **Under-merging** where numerous similar loci are annotated separately due to sequencing gaps.
-* **Sensitivity to the depth** of a sRNA library relative to it's assembly size. *This seems to be particularly problematic in fungi*.
+* **Weak identifications** of sRNA locus classes in non-canonically sized loci and organisms where we know relatively little (fungi, for example).
+
 
 
 ### General annotation strategy
@@ -27,46 +25,40 @@ Yasma relies on sRNA alignments to form genomic annotations. Alignments are perf
 
 
 Annotation based on these alignments follows a multi step approach:
-1. Building a ***sRNA coverage profile***.
+1. Building an average ***sRNA coverage profile*** from replicate libraries.
 2. Calculating the RPM threshold which best balances annotating the most reads in the smallest genomic space.
 3. Building a profile of genomic-regions which are sufficiently deep based on this threshold.
 4. Merging of peaks which have ***similar sRNA profiles***.
+5. Filtering loci to remove those which might be real, but don't have sufficient depth, density, or complexity to assess them.
 
 This results in contiguous loci which are more homogenous in profile. It also tends to avoid over-annotation of background sequences.
 
 # Installation
 
-Yasma is written in `python 3.x`. It is not yet in any package managers, but it is fairly easy to install directly with github. This should work in linux/unix systems, though I'm sure bugs will crop up (make a issue request please!!).
+Yasma is written in `python 3.x`. It is not yet in any package managers, but it is fairly easy to install directly with github. This should work in linux/unix systems (please make a issue request if you find a system-related problem!).
 
-### Installing with `git`
+### Installing from github with a native python installation
+
+This simply downloads and installs the tool to your system PATH. Extra python modules are required for Yasma modules, which you must install manually. These are lazy-loaded and some may not be necessary if you don't need that analysis.
+
 ```
 ## cloning the repo with git
 git clone https://github.com/NateyJay/YASMA.git
+## this could also be done using the github desktop app or downloading the repository directly from this page.
+## curl -L -O https://github.com/NateyJay/YASMA/archive/refs/tags/v0.1.0-beta.zip ## curl should work too.
 
-## moving it somewhere permanent.
-mv ./YASMA /usr/local/
+## Yasma can be run from this directory simply with
+./yasma.py
 
-## adding this to $PATH - you will want to add the following line to your ~/.bash_rc (linux) or ~/.bash_profile (mac). You can open it using: nano ~/.bash_profile
-## export PATH="/usr/local/YASMA:$PATH"
+```
 
-## sourcing the new ~/.bash_profile file
+More permanent installation would likely include moving this directory to a more permanent place and adding it to your path.
+
+```
+mv YASMA /usr/local/
+echo "export PATH="/usr/local/YASMA:$PATH" >> ~/.bash_profile
 source ~/.bash_profile
-```
 
-### Installing with github desktop
-This is a useful tool for managing github repos you use. Great for those that like command-line and github, but find the `git` and `gh` cli tools cumbersome. 
-
-With this, you can download repo directly from `NateyJay/YASMA`. You will also need to add the folder to your path, but probably don't want to move it.
-
-
-### Installing with `curl`
-If you don't want to use git for some reason, you can download the latest release with curl. This may have a different directory name so you need to adjust accordingly.
-
-```
-curl -L -O https://github.com/NateyJay/YASMA/archive/refs/tags/v0.1.0-beta.zip
-unzip v0.1.0-beta
-
-## move and add to path as above.
 ```
 
 ### Dependencies
