@@ -120,7 +120,6 @@ Commands:
 
   Utilities:
     size-profile  Convenience function for calculating aligned size profile.
-
 ```
 
 
@@ -209,16 +208,16 @@ yasma.py inputs -o full_analysis \
 -c lib_1:hyphae lib_2:hyphae lib_3:conidia lib_4:conidia lib_5:conidia
 
 ## basic call
-yasma.py adapter -o .
-yasma.py trim -o .
-yasma.py align -o .
-yasma.py tradeoff -o . ## this will annotate with all conditions
-yasma.py count -o .
+yasma.py adapter
+yasma.py trim
+yasma.py align
+yasma.py tradeoff ## this will annotate with all conditions
+yasma.py count
 
 
 
 ## to perform the annotation with a specific condition(s)
-yasma.py tradeoff -o . -ac hyphae
+yasma.py tradeoff -ac hyphae
 
 
 ## using pre-trimmed libraries
@@ -227,9 +226,9 @@ yasma.py inputs -o full_analysis \
 -g path_to_your_genome.fa \
 -c lib_1:hyphae lib_2:hyphae lib_3:conidia lib_4:conidia lib_5:conidia
 
-yasma.py align -o .
-yasma.py tradeoff -o .
-yasma.py count -o .
+yasma.py align
+yasma.py tradeoff
+yasma.py count
 
 
 ## using an alignment as input (note, this must contain the @RG flag to indicate source libraries.
@@ -237,8 +236,8 @@ yasma.py inputs -o full_analysis \
 -a path_to_alignment.bam \ 
 -c lib_1:hyphae lib_2:hyphae lib_3:conidia lib_4:conidia lib_5:conidia
 
-yasma.py tradeoff -o .
-yasma.py count -o .
+yasma.py tradeoff
+yasma.py count
 ```
 
 
