@@ -38,6 +38,8 @@ def download(**params):
 	rc.add_sratools()
 	rc.check()
 
+	sratools_version = int([v[2][0] for v in rc.reqs if v[0] == 'fasterq-dump'][0])
+
 	ic = inputClass(params)
 	ic.check(['srrs'])
 
@@ -124,7 +126,11 @@ def download(**params):
 
 		call = ['fasterq-dump'] + [str(Path(download_dir, srr)), '-O', str(untrimmed_dir)]
 		if not params['include_quals']:
-			call += ['--fasta']
+
+			if sratools_version < 3:
+				print('warning: fasterq-dump version is older than 3.x.x, and will only output as fastq')
+			else:
+				call += ['--fasta']
 
 		print()
 		print()
