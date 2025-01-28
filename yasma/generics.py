@@ -762,17 +762,23 @@ def samtools_faidx(locus=None, strand=None, genome_file=None):
 		p.wait()
 		return
 
-	call = ['samtools', 'faidx', genome_file, locus]
-	# print(" ".join(call))
-	p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
 
-	out, err = p.communicate()
+	genf = pysam.FastaFile(genome_file)
 
-	if err != "":
-		print(f"WARNING: {err}")
-		# sys.exit(err)
+	out = genf.fetch(region=locus)
 
-	out = "".join(out.split("\n")[1:]).strip().upper()
+
+	# call = ['samtools', 'faidx', genome_file, locus]
+	# # print(" ".join(call))
+	# p = Popen(call, stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+
+	# out, err = p.communicate()
+
+	# if err != "":
+	# 	print(f"WARNING: {err}")
+	# 	# sys.exit(err)
+
+	# out = "".join(out.split("\n")[1:]).strip().upper()
 
 	out = out.replace("T","U")
 	# print(out)
