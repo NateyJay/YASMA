@@ -220,17 +220,22 @@ def align(**params):
 
 		header['SQ'] = []
 
-		faidx_file = genome_file.with_suffix(genome_file.suffix + ".fai")
+		genf = pysam.FastaFile(genome_file)
+		# faidx_file = genome_file.with_suffix(genome_file.suffix + ".fai")
 
-		if not faidx_file.is_file():
-			samtools_faidx(genome_file=genome_file)
+		# if not faidx_file.is_file():
+		# 	refs = genf.references
+		# 	lens = genf.
+		# 	sys.exit()
+		# 	genf.fetch()
+		# 	# pysam.index(str(genome_file))
+		# 	sys.exit()
 
-		with open(faidx_file, 'r') as f:
-			for line in f:
+		for ref in genf.references:
+			length = genf.get_reference_length(ref)
+			header['SQ'].append({'LN': int(length), 'SN': ref})
 
-				ref, length, _, _, _ = line.strip().split()
-
-				header['SQ'].append({'LN': int(length), 'SN': ref})
+		genf.close()
 
 
 		header['RG'] = []
