@@ -57,7 +57,12 @@ More permanent installation would likely include moving this directory to a more
 
 ```
 mv YASMA /usr/local/
+## adding the following line to ~/.bash_profile -> export PATH="/usr/local/YASMA:$PATH
+## this can be done with
+nano ~/.bash_profile
+# or
 echo "export PATH="/usr/local/YASMA:$PATH" >> ~/.bash_profile
+
 source ~/.bash_profile
 ```
 
@@ -82,6 +87,7 @@ python3 -m pip install levenshtein
 #### System modules:
 Most of these are required for basic functions - each module will inform you if you are missing something. Yasma expects each of these executable from the PATH.
 
+* download -> SRAtools
 * trim -> [`cutadapt`](https://cutadapt.readthedocs.io/en/stable/)
 * align -> [`bowtie` (1)](https://bowtie-bio.sourceforge.net/index.shtml)
 * shortstack3/4 -> [`ShortStack` (3 or 4)](https://github.com/MikeAxtell/ShortStack) this is only required for running ShortStack through yasma.
