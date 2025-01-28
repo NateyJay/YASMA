@@ -67,8 +67,31 @@ source ~/.bash_profile
 ```
 
 ### Dependencies
-Yasma makes use of many tools through wrappers, as well as several python modules available through pip. Most of these should be easy enough to install.
+Yasma makes use of many tools through wrappers as well as some non-preinstalled python modules:
 
+Python modules/programs:
+* numpy
+* click
+* click-option-group
+* pysam
+* pyBigWig
+* cutadapt
+* levenshtein
+
+Other programs
+* sratool-kit
+* cutadapt
+* ViennaRNA
+
+#### Ubuntu/Debian systems
+Nearly all dependencies are available through apt
+
+```
+sudo apt install python3-numpy python3-click python3-click-option-group python3-pysam python3-pyBigWig python3-cutadapt python3-levenshtein
+```
+
+#### Other systems
+Other systems like MacOS might need to rely on pip to download packages. Note, you may need to use --break-system-packages if you don't use a virtual environment.
 
 ```
 ## core modules
@@ -77,18 +100,16 @@ python3 -m pip install click
 python3 -m pip install click-option-group
 python3 -m pip install pysam
 
+## trim
+python3 -m pip install cutadapt
 ## jbrowse, coverage, and tradeoff (with flag)
 python3 -m pip install pyBigWig
 
 ## hairpin
 python3 -m pip install levenshtein
 ```
-
-#### System modules:
-Most of these are required for basic functions - each module will inform you if you are missing something. Yasma expects each of these executable from the PATH.
-
-* download -> SRAtools
-* trim -> [`cutadapt`](https://cutadapt.readthedocs.io/en/stable/)
+For other systems you will need to install the other programs on their own or through another package manager (try homebrew).
+* download -> sra-toolkit
 * align -> [`bowtie` (1)](https://bowtie-bio.sourceforge.net/index.shtml)
 * shortstack3/4 -> [`ShortStack` (3 or 4)](https://github.com/MikeAxtell/ShortStack) this is only required for running ShortStack through yasma.
 * hairpin -> `rnafold` from the [ViennaRNA](https://www.tbi.univie.ac.at/RNA/) package.
