@@ -72,7 +72,15 @@ def download(**params):
 
 	for i, srr in enumerate(srrs):
 
-		unzipped_file = Path(untrimmed_dir, f"{srr}.fastq")
+		suffix = 'fastq'
+		if not params['include_quals']:
+
+			if sratools_version < 3:
+				print('warning: fasterq-dump version is older than 3.x.x, and will only output as fastq')
+			else:
+				suffix = 'fasta'
+
+		unzipped_file = Path(untrimmed_dir, f"{srr}.{suffix}")
 		zipped_file   = Path(untrimmed_dir, f"{srr}.fq.gz")
 
 		print(f"\n  downloading {i+1} of {len(srrs)}  ")
@@ -125,12 +133,9 @@ def download(**params):
 
 
 		call = ['fasterq-dump'] + [str(Path(download_dir, srr)), '-O', str(untrimmed_dir)]
-		if not params['include_quals']:
+		if suffix == 'fasta':
+			call += ['--fasta']
 
-			if sratools_version < 3:
-				print('warning: fasterq-dump version is older than 3.x.x, and will only output as fastq')
-			else:
-				call += ['--fasta']
 
 		print()
 		print()
@@ -152,17 +157,17 @@ def download(**params):
 		else:
 			print("zipping...")
 			try:
-				Path(untrimmed_dir, f"{srr}_1.fastq").rename(Path(untrimmed_dir, f"{srr}.fastq"))
+				Path(untrimmed_dir, f"{srr}_1.{suffix}").rename(Path(untrimmed_dir, f"{srr}.{suffix}"))
 			except:
 				pass
 
 			try:
-				Path(untrimmed_dir, f"{srr}_2.fastq").unlink()
+				Path(untrimmed_dir, f"{srr}_2.{suffix}").unlink()
 			except:
 				pass
 
 			try:
-				Path(untrimmed_dir, f"{srr}_3.fastq").unlink()
+				Path(untrimmed_dir, f"{srr}_3.{suffix}").unlink()
 			except:
 				pass
 
