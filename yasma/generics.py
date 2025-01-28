@@ -141,7 +141,7 @@ class requirementClass():
 			out,err = p.communicate()
 			out = out.split("\n")
 			found=True
-			version = out[1].split()[-1]
+			version = out[1].split()[2]
 
 		except FileNotFoundError:
 			found=False
@@ -154,7 +154,7 @@ class requirementClass():
 			out,err = p.communicate()
 			out = out.split("\n")
 			found=True
-			version = out[1].split()[-1]
+			version = out[1].split()[2]
 
 		except FileNotFoundError:
 			found=False
@@ -1322,7 +1322,7 @@ class Logger(object):
 
 
 	def write(self, message):
-		
+
 		self.terminal.write(message)
 		self.log.write(message)
 
