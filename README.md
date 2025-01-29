@@ -9,7 +9,7 @@ This pipeline adds to a wide field of tools which have been used to assess ***sm
 There are other approaches that follow a similar strategy, namely [ShortStack](https://github.com/MikeAxtell/ShortStack). Yasma was born out of solving some persistent issues with ShortStack3, which appear to be exacerbated in challenging systems, such as sRNAs in Fungi (ShortStack4 has resolved some of these).
 
 ### Is this published?
-This work is currently in submission, with a completed manuscript available on bioRxiv (within days).
+This work is currently in submission, with a completed manuscript available on [bioRxiv](https://www.biorxiv.org/content/10.1101/2025.01.25.634868v1).
 
 ### Problems with current approaches
 * **Creeping annotations** which don't don't represent the shape of a expressed region, sometimes leading to very large loci.
