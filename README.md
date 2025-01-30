@@ -136,10 +136,6 @@ Commands:
     jbrowse       Build coverage and config files for jbrowse2
     coverage      Produces combined bigwig coverage files
 
-  Ann. wrappers:
-    shortstack3   Wrapper for annotation using ShortStack3.
-    shortstack4   Wrapper for annotation using ShortStack4.
-
   Utilities:
     size-profile  Convenience function for calculating aligned size profile.
 ```
