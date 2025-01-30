@@ -45,6 +45,21 @@ class requirementClass():
 
 		self.reqs.append(('cutadapt', found, version))
 
+	def add_hmmer(self):
+		try:
+			p = Popen(['nhmmer', '-h'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+			out,err = p.communicate()
+			out = out.split("\n")
+			# print(err)
+			found=True
+			version = out[1].split()[2]
+
+		except FileNotFoundError:
+			found=False
+			version=''
+
+		self.reqs.append(('hmmsearch', found, version))
+
 	def add_samtools(self):
 		try:
 			p = Popen(['samtools'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
@@ -1395,9 +1410,13 @@ def RNAfold(seq):
 
 
 
-def complement(s):
+def complement(s, dna=False):
 	d = {"U":"A", 
 	"A":"U", "G":"C", "C":"G", "N":"N"}
+
+	if dna:
+		d['T'] = 'A'
+		d['A'] = 'T'
 
 	s = "".join([d[letter] for letter in s])
 	return(s)
