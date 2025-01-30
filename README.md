@@ -1,6 +1,14 @@
 
 <p align="center"><img src="images/logo2.png" alt="main logo" width="300" /></p>
 
+## Overview
+
+[Installation](doc/installation.md)  
+[YASMA basics](#basics) 
+[Modules](#modules) 
+[Cookbook](#cookbook)
+
+
 ### What is yasma?
 This pipeline adds to a wide field of tools which have been used to assess ***small-RNA-sequencing*** data. Yasma is a **genome-based *de novo* approach** which is focused on **the whole sRNA population**, not just a few classes like miRNAs.
 
@@ -31,10 +39,7 @@ Annotation based on these alignments follows a multi step approach:
 This results in contiguous loci which are more homogenous in profile. It also tends to avoid over-annotation of background sequences.
 
 
-## Documentation
 
-[Installation](doc/installation.md)
-[Pipeline](#pipeline)
 
 
 # Yasma Modules
@@ -67,9 +72,9 @@ Commands:
     size-profile  Convenience function for calculating aligned size profile.
 ```
 
-<a name="pipeline"/>
+<a name="basics"/>
 
-## Pipeline
+## YASMA basics
 ### Directory oriented analysis
 
 To help with ease of use, Yasma orients all of its analyses around a directory. Files produced and referenced by yasma are all stored in the `inputs.json` file, using relative paths. Analyses that produce outputs will automatically update this file, meaning you need not manually transmit information from one module to the next (for example: finding an adapter sequence, then trimming the libraries with it). 
@@ -89,7 +94,11 @@ This also lets you know if there are incongruities in your data. For example, it
 
 
 
+</a>
 
+<a name="modules"/>
+
+## Modules
 ### Processing
 
 Using these modules, yasma can look for adapter sequences, trim libraries (using cutadapt), and align them to a genome (using shortstack3/4 x bowtie1).
@@ -139,6 +148,7 @@ We love [shortstack](https://github.com/MikeAxtell/ShortStack) here. Consdering 
 
 </a>
 
+<a name="pipeline"/>
 ## YASMA cookbook
 ```
 ## Using the following hypothetical libraries from the corresponding conditions
@@ -188,6 +198,7 @@ yasma.py count
 ```
 
 
+</a>
 
 
 
