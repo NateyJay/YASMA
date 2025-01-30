@@ -4,9 +4,9 @@
 ## Overview
 
 [Installation](doc/installation.md)  
-[YASMA basics](#basics) 
-[Modules](#modules) 
-[Cookbook](#cookbook)
+[YASMA basics](#basics)  
+[Modules](#modules)  
+[Cookbook](#cookbook)  
 
 
 ### What is yasma?
@@ -149,7 +149,9 @@ We love [shortstack](https://github.com/MikeAxtell/ShortStack) here. Consdering 
 </a>
 
 <a name="pipeline"/>
+
 ## YASMA cookbook
+
 ```
 ## Using the following hypothetical libraries from the corresponding conditions
 # lib_1.fa -> hyphae
