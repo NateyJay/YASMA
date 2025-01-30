@@ -18,7 +18,7 @@ This work is currently in submission, with a completed manuscript available on [
 
 
 
-### YASMA-tradeoff - balancing sensitivity and specificity
+# *YASMA-tradeoff* - balancing sensitivity and specificity
 This is the small RNA annotation tool for this suite. While YASMA has helper wrappers and functions for this pipeline, this is where the magic happens.
 
 Annotation based on these alignments follows a multi step approach:
