@@ -4,6 +4,8 @@
 ### What is yasma?
 This pipeline adds to a wide field of tools which have been used to assess ***small-RNA-sequencing*** data. Yasma is a **genome-based *de novo* approach** which is focused on **the whole sRNA population**, not just a few classes like miRNAs.
 
+**YASMA-tradeoff** is the annotator tool, while other modules are just helper functions and wrappers for consistent analysis of sRNAs.
+
 There are other approaches that follow a similar strategy, namely [ShortStack](https://github.com/MikeAxtell/ShortStack). Yasma was born out of solving some persistent issues with ShortStack3, which appear to be exacerbated in challenging systems, such as sRNAs in Fungi (ShortStack4 has resolved some of these).
 
 ### Is this published?
@@ -16,8 +18,8 @@ This work is currently in submission, with a completed manuscript available on [
 
 
 
-# *YASMA-tradeoff* - balancing sensitivity and specificity
-This is the small RNA annotation tool for this suite. While YASMA has helper wrappers and functions for this pipeline, this is where the magic happens.
+## *YASMA-tradeoff* - balancing sensitivity and specificity
+This is the small RNA annotation tool for this suite. This is where the magic happens.
 
 Annotation based on these alignments follows a multi step approach:
 1. Building an average ***sRNA coverage profile*** from replicate libraries.
