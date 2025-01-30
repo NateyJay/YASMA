@@ -63,8 +63,6 @@ echo "export PATH="/usr/local/YASMA:$PATH" >> ~/.bash_profile
 source ~/.bash_profile
 ```
 
-### Virtual environment
-
 ### Dependencies
 Yasma makes use of many tools through wrappers as well as some non-preinstalled python modules. 
 
