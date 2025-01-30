@@ -2,14 +2,14 @@
 <p align="center"><img src="images/logo2.png" alt="main logo" width="300" /></p>
 
 
-YASMA is a sRNA annotation suite based around the tool **YASMA-tradeoff**. This tool performs **genome-based** *de novo* annotations which is focused on the total small RNA population, not just a few classes like miRNAs.
+YASMA is a sRNA annotation suite based around the tool **YASMA-tradeoff**. This tool performs **genome-based** *de novo* annotations which is focused on the ***total small RNA population***, not just a few classes like miRNAs.
 
 In addition to the annotator, YASMA has many helper functions to facilitate reproducible analysis of sRNAs. These support the annotator, but are not required, as YASMA-tradeoff can produce annotations from any small RNA alignment (.bam).
 
 
 ## Overview
 
-[Background](#background) 
+[Background](#background)  
 [Installation](doc/installation.md)  
 [CLI](#cli)  
 [YASMA basics](#basics)  
@@ -19,20 +19,22 @@ In addition to the annotator, YASMA has many helper functions to facilitate repr
 
 <a name="background"/>
 
-### Other tools for this?
+## Background
+
+#### Other tools for this?
 
 There are other approaches that follow a similar strategy, namely [ShortStack](https://github.com/MikeAxtell/ShortStack). Yasma was born out of solving some persistent issues with ShortStack3, which appear to be exacerbated in challenging systems, such as sRNAs in Fungi (ShortStack4 has resolved some of these).
 
 
 
-### Problems with current approaches
+#### Problems with current approaches
 * **Creeping annotations** which don't don't represent the shape of a expressed region, sometimes leading to very large loci.
 * **Under-merging** where numerous similar loci are annotated separately due to sequencing gaps.
 * **Weak identifications** of sRNA locus classes in non-canonically sized loci and organisms where we know relatively little (fungi, for example).
 
 
 
-### Balancing sensitivity and specificity
+#### Balancing sensitivity and specificity
 
 
 Annotation based on these alignments follows a multi step approach:
@@ -44,7 +46,7 @@ Annotation based on these alignments follows a multi step approach:
 
 This results in contiguous loci which are more homogenous in profile. It also tends to avoid over-annotation of background sequences.
 
-### Is this published?
+#### Is this published?
 This work is currently in submission, with a completed manuscript available on [bioRxiv](https://www.biorxiv.org/content/10.1101/2025.01.25.634868v1).
 
 </a>
