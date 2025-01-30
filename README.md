@@ -1,8 +1,6 @@
 
 <p align="center"><img src="images/logo2.png" alt="main logo" width="300" /></p>
 
-## YASMA - *<ins>Y</ins>et <ins>a</ins>nother <ins>sm</ins>all RNA <ins>a</ins>nnotator*
-
 ### What is yasma?
 This pipeline adds to a wide field of tools which have been used to assess ***small-RNA-sequencing*** data. Yasma is a **genome-based *de novo* approach** which is focused on **the whole sRNA population**, not just a few classes like miRNAs.
 
