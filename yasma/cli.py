@@ -118,7 +118,7 @@ class customClickClass(click.Group):
 def cli():
 	"""YASMA (Yet Another small RNA Annotator)
 
-	version: 1.0"""
+	version: 1.0.1"""
 
 
 

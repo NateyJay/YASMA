@@ -104,20 +104,20 @@ class requirementClass():
 
 	# 	self.reqs.append(('RNAfold', found, version))
 
-	def add_RNAfold(self):
+	# def add_RNAfold(self):
 
-		try:
-			p = Popen(['RNAfold', '--version'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
-			out,err = p.communicate()
-			out = out.split("\n")
-			found=True
-			version = out[0].split()[-1]
+	# 	try:
+	# 		p = Popen(['RNAfold', '--version'], stdout=PIPE, stderr=PIPE, encoding=ENCODING)
+	# 		out,err = p.communicate()
+	# 		out = out.split("\n")
+	# 		found=True
+	# 		version = out[0].split()[-1]
 
-		except FileNotFoundError:
-			found=False
-			version=''
+	# 	except FileNotFoundError:
+	# 		found=False
+	# 		version=''
 
-		self.reqs.append(('RNAfold', found, version))
+	# 	self.reqs.append(('RNAfold', found, version))
 
 	def add_bedtools(self):
 
@@ -766,6 +766,7 @@ def samtools_faidx(locus=None, strand=None, genome_file=None):
 	genf = pysam.FastaFile(genome_file)
 
 	out = genf.fetch(region=locus)
+	out = out.upper()
 
 
 	# call = ['samtools', 'faidx', genome_file, locus]
@@ -1349,20 +1350,25 @@ class Logger(object):
 
 
 def RNAfold(seq):
-	assert len(seq) > 0, f"hairpin is length 0\n{seq}"
+	import RNA
 
-	call = ['RNAfold', '--noPS']
+	# assert len(seq) > 0, f"hairpin is length 0\n{seq}"
 
-	p = Popen(call,
-				  stdout=PIPE,
-				stderr=PIPE,
-				stdin=PIPE,
-				encoding=ENCODING)
-	out, err = p.communicate(f">{time()}\n{seq}")
+	# call = ['RNAfold', '--noPS']
+
+	# p = Popen(call,
+	# 			  stdout=PIPE,
+	# 			stderr=PIPE,
+	# 			stdin=PIPE,
+	# 			encoding=ENCODING)
+	# out, err = p.communicate(f">{time()}\n{seq}")
 
 
-	mfe = float(out.strip().split()[-1].strip(")").strip("("))
-	fold = out.strip().split("\n")[2].split()[0]
+	# mfe = float(out.strip().split()[-1].strip(")").strip("("))
+	# fold = out.strip().split("\n")[2].split()[0]
+
+	fc  = RNA.fold_compound(seq)
+	fold, mfe = fc.mfe()
 
 
 	pairing = []

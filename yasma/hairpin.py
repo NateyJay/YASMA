@@ -9,7 +9,7 @@ from Levenshtein import distance
 from collections import deque
 
 import multiprocessing
-
+import RNA
 
 def abundance_to_rgb(abd):
 
@@ -157,20 +157,27 @@ class foldClass():
 
 		temp_name = time()
 
-		call = ['RNAfold']
+		# call = ['RNAfold']
 
-		p = Popen(call,
-					  stdout=PIPE,
-					stderr=PIPE,
-					stdin=PIPE,
-					encoding=ENCODING)
-		out, err = p.communicate(f">{temp_name}\n{self.seq}")
+		# p = Popen(call,
+		# 			  stdout=PIPE,
+		# 			stderr=PIPE,
+		# 			stdin=PIPE,
+		# 			encoding=ENCODING)
+		# out, err = p.communicate(f">{temp_name}\n{self.seq}")
 
 
 		self.fold_file = Path(self.hairpin_dir, "folds", f"{self.name}_unannotated.eps")
 
+
+		fc  = RNA.fold_compound(self.seq)
+		fold, mfe = fc.mfe()
+
+		RNA.file_PS_rnaplot(self.seq, fold, f"{temp_name}.ps")
+
+
 		# print(self.fold_file)
-		Path(f"{temp_name}_ss.ps").rename(self.fold_file)
+		Path(f"{temp_name}.ps").rename(self.fold_file)
 
 		# sys.exit()
 
@@ -1526,7 +1533,7 @@ def hairpin(**params):
 
 	rc = requirementClass()
 	rc.add_samtools()
-	rc.add_RNAfold()
+	# rc.add_RNAfold()
 	rc.check()
 
 	ic = inputClass(params)

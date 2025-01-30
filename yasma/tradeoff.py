@@ -717,9 +717,12 @@ def tradeoff(**params):
 			if read.is_unmapped:
 				continue
 
-			lib = read.get_tag("RG")
-			if lib not in annotation_libraries:
-				continue
+			try:
+				lib = read.get_tag("RG")
+				if lib not in annotation_libraries:
+					continue
+			except:
+				lib = 'unidentified'
 
 			aligned_read_count+=1
 
