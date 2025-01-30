@@ -18,11 +18,8 @@ This work is currently in submission, with a completed manuscript available on [
 
 
 
-### General annotation strategy
-
-Yasma relies on sRNA alignments to form genomic annotations. Alignments are performed using ShortStack3/4's alignment protocol (based on bowtie1), which is well supported by [Johnson et al 2016](https://doi.org/10.1534/g3.116.030452).
-
-
+### YASMA-tradeoff - balancing sensitivity and specificity
+This is the small RNA annotation tool for this suite. While YASMA has helper wrappers and functions for this pipeline, this is where the magic happens.
 
 Annotation based on these alignments follows a multi step approach:
 1. Building an average ***sRNA coverage profile*** from replicate libraries.
