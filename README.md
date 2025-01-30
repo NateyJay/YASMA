@@ -11,7 +11,7 @@ In addition to the annotator, YASMA has many helper functions to facilitate repr
 
 [Background](#background)  
 [Installation](doc/installation.md)  
-[CLI](#cli)  
+[Quick start](#quickstart)  
 [YASMA basics](#basics)  
 [Modules](#modules)  
 [Cookbook](#cookbook)  
@@ -51,10 +51,33 @@ This work is currently in submission, with a completed manuscript available on [
 
 </a>
 
-<a name="cli"/>
+<a name="quickstart"/>
 
 
-## CLI
+## Quick start
+
+Installing yasma in a virtual environment can get you going very quickly. This was written for MacOS, but there are more explicit instructions in the [installion doc](docs/installation.md).
+
+```
+python3 -m venv yasma
+source yasma/bin/activate
+
+# getting the YASMA git
+git clone https://github.com/NateyJay/YASMA.git
+
+# installing pip modules
+python3 -m pip install numpy click click-option-group pysam cutadapt pyBigWig levenshtein viennarna
+
+
+# installing homebrew modules
+brew install brewsci/bio/bowtie
+brew install sratoolkit
+
+# showing the help
+./YASMA/yasma.py
+
+```
+
 
 Yasma is organized into several modules, made with the CLI-module [click](https://click.palletsprojects.com/). These modules are organized into several major sections which are generally ordered by processing step:
 
@@ -83,6 +106,8 @@ Commands:
   Utilities:
     size-profile  Convenience function for calculating aligned size profile.
 ```
+
+
 </a>
 
 <a name="basics"/>
