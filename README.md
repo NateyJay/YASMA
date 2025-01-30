@@ -56,7 +56,7 @@ This work is currently in submission, with a completed manuscript available on [
 
 ## Quick start
 
-Installing yasma in a virtual environment can get you going very quickly. This was written for MacOS, but there are more explicit instructions in the [installion doc](docs/installation.md).
+Installing yasma in a virtual environment can get you going very quickly. This was written for MacOS, but there are more explicit instructions in the [installation doc](docs/installation.md).
 
 ```
 python3 -m venv yasma
@@ -68,20 +68,21 @@ git clone https://github.com/NateyJay/YASMA.git
 # installing pip modules
 python3 -m pip install numpy click click-option-group pysam cutadapt pyBigWig levenshtein viennarna
 
-
 # installing homebrew modules
 brew install brewsci/bio/bowtie
 brew install sratoolkit
 
 # showing the help
 ./YASMA/yasma.py
-
 ```
 
 
 Yasma is organized into several modules, made with the CLI-module [click](https://click.palletsprojects.com/). These modules are organized into several major sections which are generally ordered by processing step:
 
 ```
+Options:
+  -h, --help  Show this message and exit.
+
 Commands:
 
   Preliminary:
@@ -107,6 +108,29 @@ Commands:
     size-profile  Convenience function for calculating aligned size profile.
 ```
 
+An absolutely simple description of how to run this analysis is like follows, using hypothetical libraries in the SRA. *This assumes you have added `yasma.py` to your PATH variable*
+
+```
+yasma.py inputs -o my_analysis -s SRR1111111 SRR2222222 -g /path/to/my/genome.fa
+
+cd ./my_analysis
+
+# preprocessing
+yasma.py download
+yasma.py adapter
+yasma.py trim
+
+# alignment
+yasma.py align
+
+# annotation
+yasma.py tradeoff
+
+# reporting on annotation
+yasma.py count
+yasma.py hairpin
+yasma.py jbrowse -j /path/to/jbrowse2/directory/
+```
 
 </a>
 
