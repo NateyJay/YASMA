@@ -4,6 +4,7 @@
 ## Overview
 
 [Installation](doc/installation.md)  
+[CLI](#cli)  
 [YASMA basics](#basics)  
 [Modules](#modules)  
 [Cookbook](#cookbook)  
@@ -40,9 +41,10 @@ This results in contiguous loci which are more homogenous in profile. It also te
 
 
 
+<a name="cli"/>
 
 
-# Yasma Modules
+## CLI
 
 Yasma is organized into several modules, made with the CLI-module [click](https://click.palletsprojects.com/). These modules are organized into several major sections which are generally ordered by processing step:
 
@@ -71,6 +73,7 @@ Commands:
   Utilities:
     size-profile  Convenience function for calculating aligned size profile.
 ```
+</a>
 
 <a name="basics"/>
 
