@@ -56,7 +56,7 @@ This work is currently in submission, with a completed manuscript available on [
 
 ## Quick start
 
-Installing yasma in a virtual environment can get you going very quickly. This was written for MacOS, but there are more explicit instructions in the [installation doc](docs/installation.md).
+Installing yasma in a virtual environment can get you going very quickly. This was written for MacOS, but there are more explicit instructions in the [installation doc](doc/installation.md).
 
 ```
 python3 -m venv yasma
