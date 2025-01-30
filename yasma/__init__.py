@@ -10,8 +10,10 @@ from .trim import *
 # from .align import *
 # from .other import *
 from .size_profile import *
-from .shortstack3 import *
-from .shortstack4 import *
+
+# from .shortstack3 import *
+# from .shortstack4 import *
+
 # from .subsample import *
 from .nativealign import *
 from .download import *
