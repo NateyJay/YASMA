@@ -27,7 +27,7 @@ from .track_generics import *
 				help='')
 
 @optgroup.option("-p", "--peaks", 
-	required=True,
+	required=False,
 	type=str,
 	multiple=True,
 	help='Entry of size limits for a peak. Encoded as two integers separated by a dash (`-`), for example: 21-22 is an appropriate entry for plant miRNAS. Also accepts single-size peaks without dash. Multiple peaks may be identified, separated with spaces or by calling the option again.')
@@ -76,16 +76,22 @@ def coverage(**params):
 	cov_dir.mkdir(parents=True, exist_ok=True)
 
 
-	peak_lookup = {}
-	for i,peak in enumerate(peaks):
-		peak = peak.split("-")
-		peak = [int(p) for p in peak]
+	if peaks:
+		peak_lookup = {}
+		for i,peak in enumerate(peaks):
+			peak = peak.split("-")
+			peak = [int(p) for p in peak]
 
-		if len(peak) == 1:
-			peak_lookup[peak[0]] = i
-		else:
-			for p in range(min(peak), max(peak)+1):
-				peak_lookup[p] = i
+			if len(peak) == 1:
+				peak_lookup[peak[0]] = i
+			else:
+				for p in range(min(peak), max(peak)+1):
+					peak_lookup[p] = i
+
+		peak_list = ['all', 'other'] + peaks
+	else:
+		peak_list = ['all']
+
 
 
 
@@ -94,7 +100,7 @@ def coverage(**params):
 	bw_d['all'] = bigwigClass(Path(cov_dir, 'all.bw'), aligned_depth, chromosomes, strand= "+", name='all')
 
 	strands = ['+','-']
-	for peak in ['all', 'other'] + peaks:
+	for peak in peak_list:
 		for strand in strands:
 			name = f"{peak}{strand}"
 			bw_d[name] = bigwigClass(Path(cov_dir, f'{name}.bw'), aligned_depth, chromosomes, strand= strand, name=name)
@@ -138,16 +144,18 @@ def coverage(**params):
 			position = read.reference_start
 
 
+			if peaks:
+				try:
+					peak_name = f"{peaks[peak_lookup[length]]}{strand}"
+				except KeyError:
+					peak_name = f'other{strand}'
 
-			try:
-				peak_name = f"{peaks[peak_lookup[length]]}{strand}"
-			except KeyError:
-				peak_name = f'other{strand}'
+
+				bw_d[peak_name].add(position, length)
 
 
 			bw_d['all'].add(position, length)
 			bw_d[f'all{strand}'].add(position, length)
-			bw_d[peak_name].add(position, length)
 
 
 		print()
