@@ -9,7 +9,6 @@ from Levenshtein import distance
 from collections import deque
 
 import multiprocessing
-import RNA
 
 def abundance_to_rgb(abd):
 
@@ -495,6 +494,8 @@ setfont
 class hairpinClass():
 	def __init__(self, params, inputs, #stranded, short_enough, 
 		name, sub_name, locus, strand, length, input_mas, pos_d, unstranded_pos_d):#, genome_file, alignment_file, output_directory, hairpin_dir):
+	
+		import RNA
 
 
 		self.valid   = False
