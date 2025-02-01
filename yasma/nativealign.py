@@ -132,6 +132,8 @@ def align(**params):
 	align_folder = Path(output_directory, 'align')
 	align_folder.mkdir(parents=True, exist_ok=True)
 
+	Path(align_folder, 'bowtie_errors').mkdir(parents=True, exist_ok=True)
+
 	unsorted_bam = Path(align_folder, "alignment.unsorted.bam")
 	sorted_bam = Path(align_folder, "alignment.bam")
 
@@ -211,6 +213,12 @@ def align(**params):
 	print(f"  total_reads: {total_reads:,}", flush=True)
 	print()
 
+	for lib in trimmed_libraries:
+
+		errf = open(Path(align_folder, 'bowtie_errors', get_rg(lib), 'w'))
+		errf.write("")
+		errf.close()
+
 
 	if total_reads == 0:
 		print("input error: no reads found in library files:")
@@ -268,7 +276,7 @@ def align(**params):
 		bowtie_call = ['bowtie']
 
 		suff = get_library_format(lib)
-		
+
 		if suff == ".fa":
 			bowtie_call.append('-f')
 
@@ -311,20 +319,25 @@ def align(**params):
 
 
 
+		errf = open(Path(align_folder, 'bowtie_errors', get_rg(lib), 'a'))
+
+		print(f"stage: {mmap}", file=errf)
+
 		if ".gz" in lib.suffixes:
 
 			call = ['gzip', '-cd', str(lib)]
 			gzip = Popen(call, stdout=PIPE, encoding=ENCODING)
 
 			bowtie_call.append("-")
-			p = Popen(bowtie_call, encoding=ENCODING, stdout=PIPE, stderr=DEVNULL, stdin=gzip.stdout)
+			p = Popen(bowtie_call, encoding=ENCODING, stdout=PIPE, stderr=errf, stdin=gzip.stdout)
 
 			# print(" ".join(call), "|", " ".join(bowtie_call))
 
 		else:
 			bowtie_call.append(str(lib))
-			p = Popen(bowtie_call, encoding=ENCODING, bufsize=1, stdout=PIPE, stderr=DEVNULL)
+			p = Popen(bowtie_call, encoding=ENCODING, bufsize=1, stdout=PIPE, stderr=errf)
 
+		errf.close()
 
 
 		if mmap == 'over':
