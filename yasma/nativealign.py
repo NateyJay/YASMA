@@ -162,14 +162,6 @@ def align(**params):
 		p.wait()
 
 
-	def get_rg(lib):
-		lib = Path(lib)
-		extensions = "".join(lib.suffixes)
-
-		while lib.suffix in {'.gz', '.zip', '.t', '.fastq', '.fq', '.fasta', '.fq', '.fna'}:
-			lib = lib.with_suffix("")
-
-		return str(lib.name)
 
 
 	start = time.time()
@@ -215,7 +207,9 @@ def align(**params):
 
 	for lib in trimmed_libraries:
 
-		errf = open(Path(align_folder, 'bowtie_errors', get_rg(lib), 'w'))
+		error_file = Path(align_folder, 'bowtie_errors', f"{get_rg(lib)}.txt")
+
+		errf = open(error_file, 'w')
 		errf.write("")
 		errf.close()
 
@@ -319,7 +313,9 @@ def align(**params):
 
 
 
-		errf = open(Path(align_folder, 'bowtie_errors', get_rg(lib), 'a'))
+		error_file = Path(align_folder, 'bowtie_errors', f"{get_rg(lib)}.txt")
+
+		errf = open(error_file, 'a')
 
 		print(f"stage: {mmap}", file=errf)
 

@@ -1426,12 +1426,23 @@ def check_rgs(annotation_readgroups, bam_rgs):
 	# def get(self):
 
 
+
+def get_rg(lib):
+	lib = Path(lib)
+	extensions = "".join(lib.suffixes)
+
+	while lib.suffix in {'.gz', '.zip', '.t', '.fastq', '.fq', '.fasta', '.fa', '.fna'}:
+		lib = lib.with_suffix("")
+
+	return str(lib.name)
+
+
 def get_library_format(file):
 
 	if file.suffix == ".gz":
 		import gzip
 		with gzip.open(file, 'rb') as f:
-			first_line = f.readline()
+			first_line = f.readline().decode(ENCODING)
 
 
 	else:
