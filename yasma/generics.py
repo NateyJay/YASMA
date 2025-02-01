@@ -1426,6 +1426,27 @@ def check_rgs(annotation_readgroups, bam_rgs):
 	# def get(self):
 
 
+def get_library_format(file):
+
+	if file.suffix == ".gz":
+		import gzip
+		with gzip.open(file, 'rb') as f:
+			first_line = f.readline()
+
+
+	else:
+		with open(file, 'r') as f:
+			first_line = f.readline()
+
+	if first_line.startswith(">"):
+		return ".fa"
+	elif first_line.startswith("@"):
+		return ".fq"
+	else:
+		print(f"Error: file ({str(file)}) does not look like a fasta or fastq (or gzipped version) file...")
+		sys.exit()
+
+
 
 # def subsample(total_aligned_reads, base_alignment_file, params, inputs):
 
@@ -1588,6 +1609,8 @@ def check_rgs(annotation_readgroups, bam_rgs):
 # 	print()
 
 # 	return subsample_files[params['subsample_n']]
+
+
 
 
 

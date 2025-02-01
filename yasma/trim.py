@@ -112,16 +112,17 @@ def trim(**params):
 
 		path = Path(file)
 
+		library_format = get_library_format(file)
+
 
 
 		suffixes = file.suffixes
 		for i,s in enumerate(suffixes):
-			if s.endswith(('.fastq', '.fq')):
-				suffixes[i] = '.t.fq'
-			elif s.endswith(('.fasta', '.fa')):
-				suffixes[i] = '.t.fa'
+			if s.endswith(('.fastq', '.fq', '.fasta', '.fa')):
+				suffixes[i] = '.t' + library_format
 
-		out_file = Path(output_directory, 'trim', file.stem.split('.')[0] + ".t.fq.gz")
+
+		out_file = Path(output_directory, 'trim', file.stem.split('.')[0] + suffixes[i] + ".gz")
 
 		# cutadapt -a [adapter] --minimum-length 15--maximum-length 50-O 4 --max-n 0 --trimmed-only -o [out_file] [file]
 

@@ -176,9 +176,9 @@ def align(**params):
 	def get_lib_sizes():
 		lib_sizes = []
 
-		lib_format = None
-
 		for lib in trimmed_libraries:
+
+
 			if lib.suffix == ".gz":
 				call = ['gzip', '-cd', lib]
 				p0 = Popen(call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
@@ -192,9 +192,11 @@ def align(**params):
 
 			line = p.stdout.readline()
 
-			if ".fq" in lib.suffixes or ".fastq" in lib.suffixes:
+			library_format = get_library_format(lib)
+
+			if library_format == ".fq":
 				lib_sizes.append(round(int(line.strip().split()[0])/4))
-			elif ".fa" in lib.suffixes or ".fasta" in lib.suffixes:
+			elif library_format == ".fa":
 				lib_sizes.append(round(int(line.strip().split()[0])/2))
 
 			p.wait()
@@ -265,16 +267,25 @@ def align(**params):
 
 		bowtie_call = ['bowtie']
 
-		if ".fa" in lib.suffixes or ".fasta" in lib.suffixes:
+		suff = get_library_format(lib)
+		
+		if suff == ".fa":
 			bowtie_call.append('-f')
-			suff = '.fa'
 
-		elif ".fq" in lib.suffixes or ".fastq" in lib.suffixes:
-			bowtie_call.append("-q")
-			suff = '.fq'
+		elif suff == '.fq':
+			bowtie_call.append('-f')
 
-		else:
-			sys.exit(f'unknown library suffixes: {lib.suffixes}. Are you sure this is a library?')
+
+		# if ".fa" in lib.suffixes or ".fasta" in lib.suffixes:
+		# 	bowtie_call.append('-f')
+		# 	suff = '.fa'
+
+		# elif ".fq" in lib.suffixes or ".fastq" in lib.suffixes:
+		# 	bowtie_call.append("-q")
+		# 	suff = '.fq'
+
+		# else:
+		# 	sys.exit(f'unknown library suffixes: {lib.suffixes}. Are you sure this is a library?')
 
 		stem = lib.stem.rstrip(''.join(lib.suffixes))
 		max1_file = Path(align_folder, get_rg(lib) + '.max1' + suff)
