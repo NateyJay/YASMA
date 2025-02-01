@@ -972,7 +972,7 @@ class assessClass():
 
 
 
-	def format(self, locus, seq_c, strand_c, sizecall, aligned_depth, last_stop):
+	def format(self, locus, seq_c, strand_c, sizecall, aligned_depth, last_stop, project):
 
 		name, chrom, start, stop = locus
 
@@ -1044,7 +1044,7 @@ class assessClass():
 			start = 1
 		gff_line = [
 			chrom, 'yasma_locus',feature_type, start, stop, '.', strand, '.',
-			f'ID={name};sizecall={sizecall};depth={depth};rpm={rpm};fracTop={frac_top};complexity={complexity};skew={skew};majorRNA={major_rna}'
+			f'ID={name};project={project};sizecall={sizecall};depth={depth};rpm={rpm};fracTop={frac_top};complexity={complexity};skew={skew};majorRNA={major_rna}'
 		]
 
 

@@ -121,6 +121,7 @@ def count(** params):
 	alignment_file       = ic.inputs['alignment_file']
 	conditions           = ic.inputs['conditions']
 	annotation_file      = ic.inputs['annotation_file']
+	project_name         = ic.inputs['project_name']
 
 	include_zeros        = params['include_zeros']
 	name                 = params['name']
@@ -363,7 +364,7 @@ def count(** params):
 
 		def write_to_file(self):
 			locus_tuple = (self.name, self.contig, self.start, self.stop)
-			results_line, gff_line = assessClass().format(locus_tuple, self.seq_c, self.strand_c, self.size_c, total_aligned_depth, 0)
+			results_line, gff_line = assessClass().format(locus_tuple, self.seq_c, self.strand_c, self.size_c, total_aligned_depth, 0, project_name)
 					
 			with open(analysis_file, 'a') as outf:
 				print("\t".join(map(str,results_line)), file=outf)

@@ -2040,7 +2040,7 @@ This could be caused by a couple factors:
 			# print()
 
 			ec = elapsedClass()
-			results_line, gff_line = assessClass().format(locus, seq, strand, size, aligned_read_count, last_stop)
+			results_line, gff_line = assessClass().format(locus, seq, strand, size, aligned_read_count, last_stop, project_name)
 
 
 			last_stop = stop
