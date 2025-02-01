@@ -121,7 +121,10 @@ def align(**params):
 
 	for tool, _, version in rc.reqs:
 		if tool == 'bowtie':
-			bowtie_version = float(version.replace(".",""))/100
+			try:
+				bowtie_version = float(version.replace(".",""))/100
+			except:
+				bowtie_version = 0
 
 
 
@@ -172,6 +175,8 @@ def align(**params):
 
 	def get_lib_sizes():
 		lib_sizes = []
+
+		lib_format = None
 
 		for lib in trimmed_libraries:
 			if lib.suffix == ".gz":
