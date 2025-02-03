@@ -40,7 +40,6 @@ from .cli import cli
 	type=click.UNPROCESSED, callback=validate_outdir,
 	help="Directory name for annotation output. Defaults to the current directory, with this directory name as the project name.")
 
-
 @optgroup.group('\n  Optional settings',
 				help='')
 
@@ -304,8 +303,10 @@ def adapter(**params):
 		return(c.most_common()[0][0])
 
 
-	adapters = []
-	for read_file in untrimmed_libraries:
+	adapters          = {}
+	trimmed_libraries = []
+
+	for file_i, read_file in enumerate(untrimmed_libraries):
 
 		print()
 		print()
@@ -436,23 +437,28 @@ def adapter(**params):
 
 		if best == "None" and pretrim:
 			print("PRE-TRIMMED")
-			adapters.append('PRE-TRIMMED')
+			adapters[read_file.name] = 'PRE-TRIMMED'
+
 		else:
 			print(best)
-			adapters.append(best)
+			adapters[read_file.name] = best
 
 
-	print(untrimmed_libraries)
+	# print(untrimmed_libraries)
 
-	if "PRE-TRIMMED" in adapters:
-		ic.inputs['trimmed_libraries'] = untrimmed_libraries.copy()
+	# if "PRE-TRIMMED" in adapters:
+	# 	ic.inputs['trimmed_libraries'] = untrimmed_libraries.copy()
 
 
-	pprint(adapters)
+	print()
+	print("adapters found:")
+	for file in untrimmed_libraries:
+		print(f"{file.name}  ->  {adapters[file.name]}")
+	# pprint(adapters)
 
-	print(f"writing {adapters[0]} to inputs.json")
+	# print(f"writing {adapters[0]} to inputs.json")
 
-	ic.inputs['adapter'] = adapters[0]
+	ic.inputs['adapters'] = adapters
 	ic.write()
 
 

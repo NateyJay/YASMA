@@ -83,7 +83,7 @@ def trim(**params):
 
 	output_directory        = ic.output_directory
 	untrimmed_libraries     = ic.inputs['untrimmed_libraries']
-	adapter                 = ic.inputs['adapter']
+	adapters                = ic.inputs['adapters']
 	max_length              = ic.inputs['max_length']
 	min_length              = ic.inputs['min_length']
 
@@ -95,13 +95,18 @@ def trim(**params):
 
 
 
-	if adapter == "PRE-TRIMMED":
-		ic.inputs['trimmed_libraries'] = untrimmed_libraries.copy()
-		ic.write()
-		print('trimming complete')
-		sys.exit("Libraries PRE-TRIMMED... Skipping trim.")
-	elif adapter == 'None':
-		sys.exit("Adapter identification failed. Trimming not possible. Are you sure this is sRNA-seq?")
+	# if adapter == "PRE-TRIMMED":
+	# 	ic.inputs['trimmed_libraries'] = untrimmed_libraries.copy()
+	# 	ic.write()
+	# 	print('trimming complete')
+	# 	sys.exit("Libraries PRE-TRIMMED... Skipping trim.")
+	# elif adapter == 'None':
+	# 	sys.exit("Adapter identification failed. Trimming not possible. Are you sure this is sRNA-seq?")
+
+
+
+
+
 
 
 	trimmed_libraries = []
@@ -110,7 +115,21 @@ def trim(**params):
 		print(f"trimming: {file}", flush=True)
 
 
-		path = Path(file)
+		adapter = adapters[file.name]
+
+
+		if adapter == 'PRE-TRIMMED':
+			print(f"  {file} -> PRE-TRIMMED")
+			trimmed_libraries.append(file)
+			continue
+
+		elif adapter == "None":
+			print(f"  {file} -> No adapter identified, skipping...")
+			continue
+
+		
+
+
 
 
 
@@ -152,11 +171,12 @@ def trim(**params):
 				pass
 
 		for file in ic.inputs['untrimmed_libraries']:
+			if file not in trimmed_libraries:
 
-			try:
-				Path(file).unlink()
-			except FileNotFoundError:
-				pass
+				try:
+					Path(file).unlink()
+				except FileNotFoundError:
+					pass
 
 		print("  -> deletion successful. Scrubbing inputs.json")
 
