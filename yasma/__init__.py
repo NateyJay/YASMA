@@ -16,7 +16,7 @@ from .shortstack4 import *
 from .nativealign import *
 from .download import *
 from .coverage import *
-# from .conservation import *
+from .conservation import *
 # from .merge import *
 
 
