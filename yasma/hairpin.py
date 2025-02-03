@@ -276,7 +276,7 @@ class foldClass():
 				text_x = 200
 				text_y = self.bounding_box[3] + 120
 
-				print(f'''
+				print(fr'''
 0.4 0.4 1 setrgbcolor
 {leg_x} {leg_y} 4 0 360 arc closepath fill stroke
 0 0.5 1 setrgbcolor

@@ -1135,6 +1135,7 @@ class percentageClass():
 
 def make_depth_file(alignment_file, verbose=True):
 
+
 	header = ['rg','chrom','length','abundance']
 	depth_file = alignment_file.with_suffix(".depth.txt")
 	try:
@@ -1146,6 +1147,12 @@ def make_depth_file(alignment_file, verbose=True):
 		alignment_file.with_suffix(alignment_file.suffix + ".csi").unlink()
 	except FileNotFoundError:
 		pass
+
+
+	try:
+		pysam.index(alignment_file)
+	except AttributeError:
+		sys.exit(f"Error: the alignment file failed basic indexing checks. Are you sure this is a complete bamfile?\n{alignment_file}\n")
 
 	c = Counter()
 
