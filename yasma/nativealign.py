@@ -333,7 +333,6 @@ def align(**params):
 			bowtie_call.append(str(lib))
 			p = Popen(bowtie_call, encoding=ENCODING, bufsize=1, stdout=PIPE, stderr=errf)
 
-		errf.close()
 
 
 		if mmap == 'over':
@@ -368,7 +367,7 @@ def align(**params):
 
 
 
-		else:
+		elif mmap == 'unique':
 
 			for line in iter(p.stdout.readline, ''):
 				line = line.strip()
@@ -392,10 +391,48 @@ def align(**params):
 				yield a
 
 
-			if mmap == 'multi':
-				max1_file.unlink()
+
+		elif mmap == 'multi':
+
+			for line in p.stdout:
+				line = line.strip()
+
+				if line.startswith("@"):
+					continue
+
+				if line == '':
+					break
 
 
+				a = pysam.AlignedSegment()
+				try:
+					a = a.fromstring(line, bamfile.header)
+				except ValueError as err:
+					print(err)
+					print(f'call: {bowtie_call}')
+					print(f'line: {line}')
+					raise 
+
+				try:
+					if a.query_name != last_qname:
+						yield alns
+						alns = [a]
+						last_qname = a.query_name
+					else:
+						alns.append(a)
+
+				except NameError:
+					alns = [a]
+					last_qname = a.query_name
+
+			yield alns
+
+			max1_file.unlink()
+
+
+		if mmap != 'over':
+			p.wait()
+		errf.close()
 	
 	unique_d = dict()
 	with open(genome_file.with_suffix(genome_file.suffix + ".fai"), 'r') as f:
@@ -534,6 +571,8 @@ def align(**params):
 
 	# pprint(map_c)
 
+	danger_count = 0
+
 	for lib in trimmed_libraries:
 
 		rg = get_rg(lib)
@@ -541,14 +580,21 @@ def align(**params):
 
 		gen = bowtie_generator(lib, mmap='multi')
 
-		for a in gen:
+		for alns in gen:
+			# print()
+			# for aln in alns:
+			# 	print(aln)
+			# input()
 
 			read_i += 1
 
-			qname = a.query_name
+			a = alns[0]
+			alignment_count = len(alns)
 
-			alignment_count = a.get_tag("XM")-1 ## Bowtie reports XM as +1 over the number of reported alignments
-
+			expected_alignments = a.get_tag("XM")
+			if expected_alignments != alignment_count:
+				danger_count += 1
+				# print(f"warning: {qname} has ({alignment_count}) alignments when ({expected_alignments}) are expected.")
 
 			read_length = a.infer_read_length()
 			if not ic.inputs['min_length'] <= a.query_length <= ic.inputs['max_length'] or "N" in a.query_sequence:
@@ -561,9 +607,6 @@ def align(**params):
 				a.reference_start = -1
 				a.is_mapped = False
 
-				## Clearing the other alignments for this read
-				for r in range(alignment_count-1):
-					next(gen)
 
 			elif alignment_count > max_multi:
 
@@ -575,44 +618,13 @@ def align(**params):
 				a.reference_start = -1
 				a.is_mapped = False
 
-				## Clearing the other alignments for this read
-				for r in range(alignment_count-1):
-					next(gen)
 		
 			else:
+				weights = []
+				for a in alns:
 
-				weight  = max([unique_d[a.reference_name][a.query_alignment_start], unique_d[a.reference_name][a.query_alignment_end]])
-				weights = [weight]
-
-				alns    = [a]
-
-				# print("", read_count, a.query_name, f"{a.reference_name}:{a.query_alignment_start}", weight, sep='\t')
-				
-
-
-				for r in range(alignment_count-1):
-
-					a = next(gen)
-
-					# read_count += 1
 					weight  = max([unique_d[a.reference_name][a.query_alignment_start], unique_d[a.reference_name][a.query_alignment_end]])
 					weights.append(weight)
-
-					# print("  ", read_count, a.query_name, f"{a.reference_name}:{a.query_alignment_start}", weight, sep='\t')
-					alns.append(a)	
-
-
-					if a.query_name != qname:
-						# break
-						print("qname mismatch!")
-						print(f"expected: {qname}")
-						print(f"found:    {a.query_name}")
-						print(r+2, "<- alignment number")
-						print(alignment_count, "<- total expected alignments")
-						for a in alns:
-							print("  ", a)
-						print("WEIRD ERROR 1 - please report to nate!")
-						sys.exit()
 
 
 
@@ -693,6 +705,8 @@ def align(**params):
 	print_progress(read_i, map_c, (rg, 'over'), done_rgs, status_message='done', terminal_only=False)
 
 	bamfile.close()
+
+	print(danger_count)
 
 
 

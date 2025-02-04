@@ -1150,8 +1150,10 @@ def make_depth_file(alignment_file, verbose=True):
 
 
 	try:
-		pysam.index(alignment_file)
-	except AttributeError:
+		pysam.index(str(alignment_file))
+	except AttributeError as err:
+		print(err)
+		print()
 		sys.exit(f"Error: the alignment file failed basic indexing checks. Are you sure this is a complete bamfile?\n{alignment_file}\n")
 
 	c = Counter()
