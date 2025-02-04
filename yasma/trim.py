@@ -88,6 +88,9 @@ def trim(**params):
 	min_length              = ic.inputs['min_length']
 
 
+	if isinstance(adapters, list):
+		sys.exit("Error: inputs.json used an older version of YASMA to calculate the adapter sequences. Please re-run `yasma.py adapter` to produce a compatible entry.")
+
 	Path(output_directory, "trim").mkdir(parents=True, exist_ok=True)
 
 	log_file = Path(output_directory,"trim/log.txt")
