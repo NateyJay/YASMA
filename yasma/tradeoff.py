@@ -1741,6 +1741,14 @@ This could be caused by a couple factors:
 		return(size, strand)
 
 
+	merf     = open(merge_file, 'a')
+	bamf     = pysam.AlignmentFile(alignment_file,'rb')
+	gfff     = open(gff_file, 'a')
+	resf     = open(results_file, 'a')
+	filterf  = open(filter_file, 'a')
+	filtergf = open(filter_gff_file, 'a')
+
+
 	
 	for chrom_count, chrom_and_length in enumerate(chromosomes):
 		chrom, chrom_length = chrom_and_length
@@ -1794,23 +1802,21 @@ This could be caused by a couple factors:
 
 		def check_merge(curr_name, next_name, curr_stop, next_start):
 
-			with open(merge_file,'a') as merf:
+			print("", file=merf)
+			print(f"testing: {curr_name} <<< {next_name}", file=merf)
+			dist_test = next_start - curr_stop <= params['merge_dist']
+			print(f'   {curr_stop} ~ {next_start} -> {dist_test}', file=merf)
 
-				print("", file=merf)
-				print(f"testing: {curr_name} <<< {next_name}", file=merf)
-				dist_test = next_start - curr_stop <= params['merge_dist']
-				print(f'   {curr_stop} ~ {next_start} -> {dist_test}', file=merf)
-
-				size_test = sizecall_d[curr_name] == sizecall_d[next_name]
-				print(f'   {sizecall_d[curr_name]} -> {sizecall_d[next_name]} ? {size_test}', file=merf)
+			size_test = sizecall_d[curr_name] == sizecall_d[next_name]
+			print(f'   {sizecall_d[curr_name]} -> {sizecall_d[next_name]} ? {size_test}', file=merf)
 
 
-				curr_ft = strand_d[curr_name]
-				next_ft = strand_d[next_name]
+			curr_ft = strand_d[curr_name]
+			next_ft = strand_d[next_name]
 
 
-				frac_test = abs(get_ft(curr_ft) - get_ft(next_ft)) < clump_strand_similarity
-				print(f'   {round(get_ft(curr_ft),3)} -> {round(get_ft(next_ft),3)} ? {frac_test}', file=merf)
+			frac_test = abs(get_ft(curr_ft) - get_ft(next_ft)) < clump_strand_similarity
+			print(f'   {round(get_ft(curr_ft),3)} -> {round(get_ft(next_ft),3)} ? {frac_test}', file=merf)
 
 			return size_test and frac_test and dist_test
 
@@ -1860,8 +1866,7 @@ This could be caused by a couple factors:
 					del sizecall_d[betw_name]
 					del sizecall_d[next_name]
 
-					with open(merge_file, 'a') as outf:
-						print(f"\nmerging: {curr_name} <<< {betw_name}, {next_name}", file=outf)
+					print(f"\nmerging: {curr_name} <<< {betw_name}, {next_name}", file=merf)
 					locus_count -= 1
 
 					loc_stop  = regions[i+1][3]
@@ -1876,8 +1881,7 @@ This could be caused by a couple factors:
 					sizecall_d[locus_name] = sizecall_d.pop(curr_name)
 
 
-					with open(merge_file, 'a') as outf:
-						print(f"\nassigning: {locus_name} <<< {curr_name}", file=outf)
+					print(f"\nassigning: {locus_name} <<< {curr_name}", file=merf)
 
 					curr_name = next_name
 					loc_start = regions[i+1][2]
@@ -1917,9 +1921,6 @@ This could be caused by a couple factors:
 
 
 		## Assessing locus dimensions and making annotations
-
-
-		bamf = pysam.AlignmentFile(alignment_file,'rb')
 
 		stat_d['loci'] += len(loci)
 
@@ -2025,11 +2026,9 @@ This could be caused by a couple factors:
 
 			if pass_all_filters > 0:
 				# regions_name_i -= 1
-				with open(filter_file, 'a') as outf:
-					print(coords, length, abd, pass_abd, round(abd/length*1000,4), pass_abd_dens, round(complexity,4), pass_complexity, skew, pass_skew, sep='\t', file=outf)
-				with open(filter_gff_file, 'a') as outf:
-					print(chrom, 'yto', 'filtered_locus', start, stop, '.','.','.', 
-						f"ID={name};PassComplexity={pass_complexity};Complexity={complexity};PassSkew={pass_skew};Skew={skew};PassAbd={pass_abd};Abd={sum(seq.values())};PassAbdDens={pass_abd_dens};AbdDens={abd_dens}", sep='\t', file=outf) # ;PassRPM={pass_rpm};RPM={rpm}
+				print(coords, length, abd, pass_abd, round(abd/length*1000,4), pass_abd_dens, round(complexity,4), pass_complexity, skew, pass_skew, sep='\t', file=filterf)
+				print(chrom, 'yto', 'filtered_locus', start, stop, '.','.','.', 
+					f"ID={name};PassComplexity={pass_complexity};Complexity={complexity};PassSkew={pass_skew};Skew={skew};PassAbd={pass_abd};Abd={sum(seq.values())};PassAbdDens={pass_abd_dens};AbdDens={abd_dens}", sep='\t', file=filtergf) # ;PassRPM={pass_rpm};RPM={rpm}
 				continue
 
 			final_locus_count += 1
@@ -2042,14 +2041,10 @@ This could be caused by a couple factors:
 			ec = elapsedClass()
 			results_line, gff_line = assessClass().format(locus, seq, strand, size, aligned_read_count, last_stop, project_name)
 
-
 			last_stop = stop
 
-			with open(results_file, 'a') as outf:
-				print("\t".join(map(str, results_line)), file=outf)
-
-			with open(gff_file, 'a') as outf:
-				print("\t".join(map(str, gff_line)), file=outf)
+			print("\t".join(map(str, results_line)), file=resf)
+			print("\t".join(map(str, gff_line)), file=gfff)
 
 			top_reads_save(seq, reads_file, abd, name)
 
@@ -2058,7 +2053,12 @@ This could be caused by a couple factors:
 
 		pc.show(write_to_log=True)
 
-		bamf.close()
+	merf.close()
+	resf.close()
+	gfff.close()
+	bamf.close()
+	filterf.close()
+	filtergf.close()
 
 
 
