@@ -1395,6 +1395,7 @@ def read_locus(alignment_file, contig, start, stop, strand):
 
 
 def run_job(job):
+	import RNA
 
 	params       = job['params']
 	inputs       = job['inputs']
