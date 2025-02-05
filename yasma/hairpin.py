@@ -9,6 +9,7 @@ from Levenshtein import distance
 from collections import deque
 
 import multiprocessing
+import RNA
 
 def abundance_to_rgb(abd):
 
