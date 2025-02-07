@@ -76,7 +76,7 @@ def trim(**params):
 	rc.check()
 
 	ic = inputClass(params)
-	ic.check(['untrimmed_libraries', 'adapter'])
+	ic.check(['untrimmed_libraries', 'adapters'])
 
 	ic.inputs['trimmed_libraries'] = []
 
