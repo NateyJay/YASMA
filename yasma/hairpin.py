@@ -494,7 +494,7 @@ setfont
 
 class hairpinClass():
 	def __init__(self, params, inputs, #stranded, short_enough, 
-		name, sub_name, locus, strand, length, input_mas, pos_d, unstranded_pos_d):#, genome_file, alignment_file, output_directory, hairpin_dir):
+		name, sub_name, locus, strand, sizecall, length, input_mas, pos_d, unstranded_pos_d):#, genome_file, alignment_file, output_directory, hairpin_dir):
 	
 		import RNA
 
@@ -521,6 +521,7 @@ class hairpinClass():
 		self.alignment_file   = inputs['alignment_file']
 		self.output_directory = params['output_directory']
 		self.hairpin_dir      = params['hairpin_dir']
+		self.sizecall         = sizecall
 
 		self.chrom = self.locus.split(":")[0]
 		self.contig = self.chrom
@@ -534,8 +535,23 @@ class hairpinClass():
 		self.mfe = '-'
 		self.pairing = '-'
 		self.pos_d = '-'
+
 		self.input_mas_coords = '-'
 		self.mfe_per_nt = '-'
+		self.offset_left = '-'
+		self.offset_right = '-'
+
+
+
+		# self.pos_d = {}
+		# for s in range(self.start, self.stop+1):
+		# 	try:
+		# 		self.pos_d[s-self.start] = pos_d[s]
+		# 	except KeyError:
+		# 		pass
+
+
+		# print(self.pos_d)
 
 
 		self.mas = input_mas
@@ -571,6 +587,32 @@ class hairpinClass():
 			return
 
 		self.seq, self.fold, self.mfe, self.pairing, self.read_c, self.struc_c, self.aln_string, self.unstranded_count = locus_details
+
+
+
+
+		class viennaClass():
+			def __init__(self, seq, structure):
+
+				pt = RNA.ptable(structure)
+				li = RNA.loopidx_from_ptable(pt)
+
+				## ptable generates an unknown pairing at position 0... not sure what that is.
+				pt = RNA.ptable(structure)
+				pt = [p-1 for p in pt]
+				del pt[0]
+				li = [l for l in li]
+				del li[0]
+
+				paired   = [l if pt[i] != -1 else "x" for i,l in enumerate(li)]
+				unpaired = [l if pt[i] == -1 else "x" for i,l in enumerate(li)]
+
+				self.index    = pt
+				self.paired   = paired
+				self.unpaired = unpaired
+
+		self.vc = viennaClass(self.seq, self.fold)
+
 
 
 		if not self.read_c:
@@ -610,7 +652,16 @@ class hairpinClass():
 
 
 		if self.star_found:
-			star_i = self.seq.index(self.star)
+			try:
+				star_i = self.seq.index(self.star)
+			except ValueError:
+				for star_i in range(len(self.seq)):
+
+					candidate = self.seq[star_i : star_i+len(self.star)]
+
+					if distance(candidate, self.star) <= 1:
+						break
+
 			self.aln_string.insert(3, "-"*star_i + self.mas + "-" * (len(self.seq) - star_i - len(self.star)) + f"  {self.read_c[self.star]} STAR")
 
 
@@ -734,8 +785,9 @@ class hairpinClass():
 		start = int(locus.split(":")[-1].split("-")[0])
 		stop  = int(locus.split(":")[-1].split("-")[1])
 
-		read_c = Counter()
-		struc_c = Counter()
+		read_c   = Counter()
+		struc_c  = Counter()
+		self.hp_pos_d = {}
 
 		unstranded_count = 0
 
@@ -768,6 +820,16 @@ class hairpinClass():
 					read_lengths[len(read)] += 1
 
 
+					if strand == '+':
+						relative_start = pos - start
+					else:
+						relative_start = len(seq) - (len(read) + pos - start)
+
+
+					try:
+						self.hp_pos_d[relative_start].add(read)
+					except:
+						self.hp_pos_d[relative_start] = set([read])
 
 
 			for read, count in loop_c.items():
@@ -879,76 +941,221 @@ class hairpinClass():
 
 
 		# print(self.star_positions)
-		star = "".join([self.seq[p] for p in self.star_positions])
-		star_fold = "".join([self.fold[p] for p in self.star_positions])
-		# print(star_fold[::-1])
-		# print(star[::-1])
+		self.canon_star      = "".join([self.seq[p] for p in self.star_positions])
+		self.canon_star_fold = "".join([self.fold[p] for p in self.star_positions])
+		star = self.canon_star
 
-		# print(self.mas_positions)
+
+		for read, depth in self.read_c.most_common():
+			self.canon_star_distance = distance(self.canon_star, read)
+			if self.canon_star_distance < 6:
+				# print(self.canon_star, "->", read, depth)
+
+				star       = read
+				star_depth = depth
+
+				try:
+					star_left_pos = self.seq.index(star)
+				except ValueError:
+					for star_left_pos in range(len(self.seq)):
+
+						candidate = self.seq[star_left_pos : star_left_pos+len(star)]
+
+						if distance(candidate, star) <= 1:
+							break
+
+
+
+				star_right_pos = star_left_pos + len(star)
+
+				self.canon_star_error = (star_left_pos - min(self.star_positions)+1, star_right_pos - max(self.star_positions)+1)
+
+				break
+
+
+		if star == self.canon_star:
+			self.star = star
+			self.status.append("star calculated, but no similar reads found")
+			return True
+
+
+
+		# print("".join(self.canon_star), "<- canonical_star")
+		# print(self.canon_star_error)
+
+		self.star_positions = list(range(star_left_pos, star_right_pos+1))
+
+		def count_end_repeats(ls, dir=1, val= -1):
+
+			for i,l in enumerate(ls[::dir]):
+
+				if l != val:
+					return(i)
+
+
+
+
+
+
+		def infer_duplex_edge(a, b):
+
+			# print(a)
+			b_pair     = [self.vc.index[i] for i in b]
+			b_pair     = [b for b in b_pair if b >=0]
+			# print(b_pair)
+
+			b_leading = count_end_repeats(b_pair)
+			left = min(min(b_pair) - b_leading, min(a))
+
+			b_trailing = count_end_repeats(b_pair, -1)
+			right = max(max(b_pair) + b_trailing, max(a))
+
+
+			b_offset_left  = (min(b_pair) - b_leading)  - min(a) 
+			b_offset_right = (max(b_pair) + b_trailing) - max(a) 
+
+			# print(b_leading, b_trailing)
+
+			return(left, right, b_offset_left, b_offset_right)
+
+
+
+
+		mas_left,  mas_right, self.offset_left, self.offset_right  = infer_duplex_edge(self.mas_positions, self.star_positions)
+		star_left, star_right, _, _                                = infer_duplex_edge(self.star_positions, self.mas_positions)
+
+
+		duplex_positions = [mas_left,  mas_right, star_left, star_right]
+
+		duplex_positions = sorted(duplex_positions)
+		# print(duplex_positions)
+
+
+		# print(self.seq[duplex_positions[0]:duplex_positions[1]+1])
+		# print(self.fold[duplex_positions[0]:duplex_positions[1]+1])
+		# print(self.seq[duplex_positions[3]:duplex_positions[2]-1:-1])
+
+		self.star = star
+
+		self.duplex_mas  = self.seq[mas_left : mas_right + 1]
+		self.duplex_fold = self.fold[mas_left : mas_right + 1]
+		self.duplex_star = self.seq[star_left : star_right + 1]
+
+		# sys.exit()
+
+		# all_positions = self.mas_positions + self.star_positions
+		# all_positions = [self.vc.index[i] for i in all_positions]
+		# all_positions = [a for a in all_positions if a >= 0]
+
+
+		# left_positions = self.mas_positions
+		# right_positions = self.star_positions
+
+		# if max(self.mas_positions) < min(self.star_positions):
+		# 	self.adjacency = '5p'
+
+		# else:
+		# 	self.adjacency = '3p'
+		# 	left_positions, right_positions = right_positions, left_positions
+
+
+		# left_leading_error = 
+
+
+
+
+		# print(self.hp_pos_d)
+
+
 		# print(self.star_positions)
+		# for s in range(min(self.star_positions)-4, max(self.star_positions)+5):
+		# 	# print(self.pos_d[s])
 
-		# print(star_left_pos, star_right_pos)
-
-
-		m_seq  = deque([self.seq[p] for p in self.mas_positions])
-		m_fold = deque([self.fold[p] for p in self.mas_positions])
-		s_seq  = deque([self.seq[p] for p in self.star_positions[::-1]])
-		s_fold = deque([self.fold[p] for p in self.star_positions[::-1]])
-
-		m_out = ' ' * offset
-		s_out = s_seq.popleft() + s_seq.popleft()
-		f_out = ' ' * offset
-
-		s_fold.popleft()
-		s_fold.popleft()
-
-		while len(m_seq) > 0:
-
-			m_f = m_fold.popleft()
-			m_s = m_seq.popleft()
+		# 	reads = None
+		# 	try:
+		# 		reads = self.hp_pos_d[s]
+		# 	except KeyError:
+		# 		pass
 
 
-			try:
-				s_f = s_fold.popleft()
-				s_s = s_seq.popleft()
-			except IndexError:
-				s_f = " "
-				s_s = " "
+		# 	print(reads)
 
-			if s_s == ' ':
-				f_out += " "
-				s_out += s_s
-				m_out += m_s
+		# 	if reads:
 
-			elif m_f == "." and s_f == ".":
-				f_out += "."
-				s_out += s_s
-				m_out += m_s
-
-			elif m_f == ".":
-				f_out += "."
-				s_out += "-"
-				m_out += m_s
-
-				s_seq.appendleft(s_s)
-				s_fold.appendleft(s_f)
+		# 		for read in reads:
+		# 			print(read, self.read_c[read])
 
 
-			elif s_f == ".":
-				f_out += "."
-				s_out += s_s
-				m_out += "-"
-
-				m_seq.appendleft(m_s)
-				m_fold.appendleft(m_f)
+		# print()
+		# print(star, self.read_c[star], "<- star")
 
 
-			else:
-				f_out += ":"
-				s_out += s_s
-				m_out += m_s
 
-			# input()
+
+		# m_seq  = deque([self.seq[p] for p in self.mas_positions])
+		# m_fold = deque([self.fold[p] for p in self.mas_positions])
+		# s_seq  = deque([self.seq[p] for p in self.star_positions[::-1]])
+		# s_fold = deque([self.fold[p] for p in self.star_positions[::-1]])
+
+		# m_out = ' ' * (offset - self.canon_star_error[0])
+		# s_out = s_seq.popleft() + s_seq.popleft()
+		# f_out = ' ' * (offset - self.canon_star_error[0])
+
+		# s_fold.popleft()
+		# s_fold.popleft()
+
+		# while len(m_seq) > 0:
+
+		# 	m_f = m_fold.popleft()
+		# 	m_s = m_seq.popleft()
+
+
+		# 	try:
+		# 		s_f = s_fold.popleft()
+		# 		s_s = s_seq.popleft()
+		# 	except IndexError:
+		# 		s_f = " "
+		# 		s_s = " "
+
+		# 	if s_s == ' ':
+		# 		f_out += " "
+		# 		s_out += s_s
+		# 		m_out += m_s
+
+		# 	elif m_f == "." and s_f == ".":
+		# 		f_out += "."
+		# 		s_out += s_s
+		# 		m_out += m_s
+
+		# 	elif m_f == ".":
+		# 		f_out += "."
+		# 		s_out += "-"
+		# 		m_out += m_s
+
+		# 		s_seq.appendleft(s_s)
+		# 		s_fold.appendleft(s_f)
+
+
+		# 	elif s_f == ".":
+		# 		f_out += "."
+		# 		s_out += s_s
+		# 		m_out += "-"
+
+		# 		m_seq.appendleft(m_s)
+		# 		m_fold.appendleft(m_f)
+
+
+		# 	else:
+		# 		f_out += ":"
+		# 		s_out += s_s
+		# 		m_out += m_s
+
+
+
+		# 	# input()
+
+
+
 
 
 
@@ -956,11 +1163,11 @@ class hairpinClass():
 		# print(f_out)
 		# print(s_out)
 
-		self.star = star
+		# self.star = star
 
-		self.duplex_mas  = m_out
-		self.duplex_fold = f_out
-		self.duplex_star = s_out
+		# self.duplex_mas  = m_out
+		# self.duplex_fold = f_out
+		# self.duplex_star = s_out
 
 
 		return(True)
@@ -1000,9 +1207,12 @@ class hairpinClass():
 
 			for i in range(len(self.duplex_mas)):
 
-				m = self.duplex_mas[i]
-				f = self.duplex_fold[i]
-				s = self.duplex_star[i]
+				try:
+					m = self.duplex_mas[i]
+					f = self.duplex_fold[i]
+					s = self.duplex_star[i]
+				except IndexError:
+					break
 
 				if f == ".":
 					if m != "-":
@@ -1084,14 +1294,14 @@ class hairpinClass():
 			self.ruling_d['star_found'] = False
 
 
-			for key, val in self.read_c.items():
-				if distance(key, self.star) <= 1:
+			# for key, val in self.read_c.items():
+				# if distance(key, self.star) <= 1:
 
-					self.ruling_d['star_found'] = True
-					return('x')
+					# self.ruling_d['star_found'] = True
+					# return('x')
 
-			# if self.read_c[self.star] > 0:
-			# 	return('x')
+			if self.read_c[self.star] > 0:
+				return('x')
 			else:
 				return("-")
 
@@ -1104,6 +1314,8 @@ class hairpinClass():
 
 		self.ruling = test_str
 
+
+
 	def table(self):
 
 		try:
@@ -1111,10 +1323,10 @@ class hairpinClass():
 		except ZeroDivisionError:
 			p_struc = 'NA'
 
-		line = [self.name, self.sub_name, self.locus, self.chrom, self.start, self.stop, self.strand]
+		line = [self.name, self.sub_name, self.sizecall, self.locus, self.chrom, self.start, self.stop, self.strand]
 		line += [self.stranded, self.length]
 		line += [self.seq, self.fold, self.mfe, self.mfe_per_nt, self.mas, self.star] 
-		line += [self.duplex_mas, self.duplex_fold, self.duplex_star]
+		line += [self.duplex_mas, self.duplex_fold, self.duplex_star, self.offset_left, self.offset_right]
 		line += [self.valid]
 
 
@@ -1418,7 +1630,7 @@ def run_job(job):
 
 	pos_d, unstranded_pos_d = read_locus(inputs['alignment_file'], contig, start, stop, strand)
 
-	hpc = hairpinClass(params, inputs, name, sub_name, locus, strand, length, input_mas, pos_d, unstranded_pos_d)
+	hpc = hairpinClass(params, inputs, name, sub_name, locus, strand, sizecall, length, input_mas, pos_d, unstranded_pos_d)
 	hpc.table()
 
 	# print(f'p{os.getpid()}\t' + hpc.status_line(sizecall))
@@ -1427,6 +1639,7 @@ def run_job(job):
 
 	with open(hairpin_file, 'a') as outf:
 		print(hpc.table(), file=outf)
+
 
 	if hpc.valid:
 
@@ -1440,7 +1653,7 @@ def run_job(job):
 			trim_name = 't'
 		else:
 			trim_name = sub_name + "-t"
-		trimmed_hpc = hairpinClass(params, inputs, name, trim_name, trimmed_locus, strand, length, input_mas, pos_d, unstranded_pos_d)
+		trimmed_hpc = hairpinClass(params, inputs, name, trim_name, trimmed_locus, strand, sizecall, length, input_mas, pos_d, unstranded_pos_d)
 
 
 
@@ -1697,7 +1910,7 @@ def hairpin(**params):
 
 
 
-	header_line = "name\tsub_name\tlocus\tcontig\tstart\tstop\tstrand\tstranded\tlength\tseq\tfold\tmfe\tmfe_per_nt\tmas\tstar\tduplex_mas\tduplex_fold\tduplex_star\tvalid_fold\truling\tstruc_count\tunstruc_count\tp_struc\tmpn_pass\tmismatches_asymm\tmismatches_total\tno_mas_structures\tno_star_structures\tprecision\tstar_found"
+	header_line = "name\tsub_name\tsizecall\tlocus\tcontig\tstart\tstop\tstrand\tstranded\tlength\tseq\tfold\tmfe\tmfe_per_nt\tmas\tstar\tduplex_mas\tduplex_fold\tduplex_star\tstar_offset_left\tstar_offset_right\tvalid_fold\truling\tmpn_pass\tmismatches_asymm\tmismatches_total\tno_mas_structures\tno_star_structures\tprecision\tstar_found\tstruc_count\tunstruc_count\tp_struc"
 
 	Path(hairpin_dir, "folds").mkdir(parents=True, exist_ok=True)
 	with open(hairpin_file, 'w') as outf:
@@ -1720,6 +1933,7 @@ def hairpin(**params):
 
 
 		entry = dict(zip(header, line.strip().split('\t')))
+
 
 
 		name     = entry['name']
@@ -1774,6 +1988,9 @@ def hairpin(**params):
 		job_params['params']       = params
 		job_params['sizecall']     = sizecall
 
+
+		if sizecall == 'N':
+			continue
 
 
 
@@ -1840,6 +2057,8 @@ def hairpin(**params):
 
 
 
+
+
 		# if len(jobs) > 500:
 		# 	break
 
@@ -1847,7 +2066,6 @@ def hairpin(**params):
 	print()
 	print(f"analyzing hairpins over ({proc_n}) processes:")
 	print()
-
 
 
 
