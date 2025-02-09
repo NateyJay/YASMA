@@ -662,7 +662,7 @@ class hairpinClass():
 					if distance(candidate, self.star) <= 1:
 						break
 
-			self.aln_string.insert(3, "-"*star_i + self.mas + "-" * (len(self.seq) - star_i - len(self.star)) + f"  {self.read_c[self.star]} STAR")
+			self.aln_string.insert(3, "-"*star_i + self.star + "-" * (len(self.seq) - star_i - len(self.star)) + f"  {self.read_c[self.star]} STAR")
 
 
 
