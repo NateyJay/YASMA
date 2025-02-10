@@ -1272,32 +1272,32 @@ class hairpinClass():
 
 
 
-		def infer_duplex_edge(a, b):
+		# def infer_duplex_edge(a, b):
 
-			# print(a)
-			b_pair     = [self.vc.index[i] for i in b]
-			b_pair     = [b for b in b_pair if b >=0]
-			# print(b_pair)
+		# 	# print(a)
+		# 	b_pair     = [self.vc.index[i] for i in b]
+		# 	b_pair     = [b for b in b_pair if b >=0]
+		# 	# print(b_pair)
 
-			b_leading = count_end_repeats(b_pair)
-			left = min(min(b_pair) - b_leading, min(a))
+		# 	b_leading = count_end_repeats(b_pair)
+		# 	left = min(min(b_pair) - b_leading, min(a))
 
-			b_trailing = count_end_repeats(b_pair, -1)
-			right = max(max(b_pair) + b_trailing, max(a))
-
-
-			b_offset_left  = (min(b_pair) - b_leading)  - min(a) 
-			b_offset_right = (max(b_pair) + b_trailing) - max(a) 
-
-			# print(b_leading, b_trailing)
-
-			return(left, right, b_offset_left, b_offset_right)
+		# 	b_trailing = count_end_repeats(b_pair, -1)
+		# 	right = max(max(b_pair) + b_trailing, max(a))
 
 
+		# 	b_offset_left  = (min(b_pair) - b_leading)  - min(a) 
+		# 	b_offset_right = (max(b_pair) + b_trailing) - max(a) 
+
+		# 	# print(b_leading, b_trailing)
+
+		# 	return(left, right, b_offset_left, b_offset_right)
 
 
-		mas_left,  mas_right, _,_   = infer_duplex_edge(self.mas_positions, self.star_positions)
-		star_left, star_right, _, _  = infer_duplex_edge(self.star_positions, self.mas_positions)
+
+
+		# mas_left,  mas_right, _,_   = infer_duplex_edge(self.mas_positions, self.star_positions)
+		# star_left, star_right, _, _  = infer_duplex_edge(self.star_positions, self.mas_positions)
 
 
 		duplex = self.vc.get_duplex(self.mas_positions, self.star_positions)
