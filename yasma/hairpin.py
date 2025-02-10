@@ -538,8 +538,10 @@ class hairpinClass():
 
 		self.input_mas_coords = '-'
 		self.mfe_per_nt = '-'
-		self.offset_left = '-'
-		self.offset_right = '-'
+		self.offset_left = 'NA'
+		self.offset_right = 'NA'
+		self.p_constellation = 'NA'
+		self.p_star = 'NA'
 
 
 
@@ -630,7 +632,7 @@ class hairpinClass():
 
 			def get_duplex(self, mas_positions, star_positions):
 
-				mas_range = range(min(mas_positions)-5, max(mas_positions)+5)
+				mas_range  = range(min(mas_positions)-5,  max(mas_positions)+5)
 				star_range = range(min(star_positions)-5, max(star_positions)+5)
 
 				mas_range  = [m for m in mas_range if m >=0 and m < len(self.seq)]
@@ -832,15 +834,15 @@ class hairpinClass():
 
 		self.mas_positions = [r + self.seq.index(self.mas) for r in range(len(self.mas))]
 
-		self.mas_structures = self.find_secondary_structures("".join([self.fold[p] for p in self.mas_positions]))
+		self.mas_structures = self.find_secondary_structures(self.mas_positions)
 
 		if self.mas_structures:
 			self.status.append("secondary structure found in MAS")
 			self.ruling = self.ruling[:7] + "-" + self.ruling[8:]
 			return
 
-		self.star_found = self.find_star()
 
+		self.star_found = self.find_star()
 
 		mas_i = self.seq.index(self.mas)
 		self.aln_string.insert(1, "Most abundant sequence (MAS) and proposed STAR:")
@@ -863,12 +865,65 @@ class hairpinClass():
 
 
 
+
+
 			# print(self.star, self.star_depth)
 			# print(self.duplex_mas)
 			# print(self.duplex_fold)
 			# print(self.duplex_star)
 
-			self.star_structures = self.find_secondary_structures("".join([self.fold[p] for p in self.star_positions]))
+			self.star_structures = self.find_secondary_structures(self.star_positions)
+
+
+
+			self.mas_constellation_depth = 0
+			self.star_constellation_depth = 0
+
+			locus_depth = sum(self.read_c.values())
+
+			for read, depth in self.read_c.items():
+				if distance(self.mas, read) <= 5:
+					self.mas_constellation_depth += depth
+
+				if distance(self.star, read) <= 5:
+					self.star_constellation_depth += depth
+
+
+			self.p_constellation = (self.mas_constellation_depth + self.star_constellation_depth) / locus_depth
+			self.p_star = self.star_constellation_depth / self.mas_constellation_depth
+
+
+			def find_star_offsets():
+				'''these are relative to the mas orientation in the duplex'''
+
+				def count_lower(seq, d):
+					for i,s in enumerate(seq[::d]):
+						if s.isupper():
+							return(i)
+
+				mas_left   = count_lower(self.duplex_mas, 1)
+				mas_right  = count_lower(self.duplex_mas, -1)
+				star_left  = count_lower(self.duplex_star, -1)
+				star_right = count_lower(self.duplex_star, 1)
+
+
+				if mas_left > 0:
+					self.offset_left = mas_left
+				else:
+					self.offset_left = star_right * -1
+
+
+
+				if mas_right > 0:
+					self.offset_right = mas_right
+				else:
+					self.offset_right = star_left * -1
+
+			find_star_offsets()
+
+			# print(self.offset_left, self.offset_right)
+
+
 
 			if self.star_structures:
 				self.status.append("secondary structure found in STAR")
@@ -1081,13 +1136,26 @@ class hairpinClass():
 
 		return(seq, fold, mfe, pairing, read_c, struc_c, aln_string, unstranded_count)
 
-	def find_secondary_structures(self, fold):
+	def find_secondary_structures(self, positions):
 		# print(fold)
 
-		if "(" in fold and ")" in fold:
-			return(True)
-		else:
-			return(False)
+		for p in positions:
+			pair = self.vc.index[p]
+
+			if pair in positions:
+				return(True)
+
+		return(False)
+
+		# mas_pairs  = [self.vc.index[i] for i in self.mas_positions if self.vc.index[i] >= 0]
+		# star_pairs = [self.vc.index[i] for i in self.star_positions if self.vc.index[i] >= 0]
+
+
+
+		# if "(" in fold and ")" in fold:
+		# 	return(True)
+		# else:
+		# 	return(False)
 		# sys.exit()
 
 
@@ -1178,8 +1246,7 @@ class hairpinClass():
 		if star == self.canon_star:
 			self.star = star
 			self.status.append("star calculated, but no similar reads found")
-			return True
-
+			# return True
 
 
 		# print("".join(self.canon_star), "<- canonical_star")
@@ -1223,14 +1290,15 @@ class hairpinClass():
 
 
 
-		mas_left,  mas_right, self.offset_left, self.offset_right  = infer_duplex_edge(self.mas_positions, self.star_positions)
-		star_left, star_right, star_offset_left, star_offset_right = infer_duplex_edge(self.star_positions, self.mas_positions)
+		mas_left,  mas_right, _,_   = infer_duplex_edge(self.mas_positions, self.star_positions)
+		star_left, star_right, _, _  = infer_duplex_edge(self.star_positions, self.mas_positions)
 
 
 		duplex = self.vc.get_duplex(self.mas_positions, self.star_positions)
 
 		if len(duplex) > 3 :
 			self.status.append(duplex)
+
 			return False
 
 		# print(duplex)
@@ -1380,49 +1448,42 @@ class hairpinClass():
 
 		def test_duplex_mismatch():
 
-			total_mismatches = 0
-			asymetric_mismatches = 0
+			# total_mismatches = 0
+			# asymetric_mismatches = 0
 
-			m_length = 0
-			s_length = 0
+			# m_length = 0
+			# s_length = 0
 
 
 			# print(self.duplex_mas)
 			# print(self.duplex_fold)
 			# print(self.duplex_star)
 
+			if self.duplex_mas == '-':
+				return("  ")
+
+
+
+			asymetric_mismatches = 0
+			total_mismatches = 0
+
 			for i in range(len(self.duplex_mas)):
 
-				try:
-					m = self.duplex_mas[i]
-					f = self.duplex_fold[i]
-					s = self.duplex_star[i]
-				except IndexError:
-					break
+				m = self.duplex_mas[i]
+				f = self.duplex_fold[i]
+				s = self.duplex_star[i]
 
-				if f == ".":
-					if m != "-":
-						m_length += 1
+				# print(f)
+				if f == '.':
+					if m == "-" or s == '-':
+						asymetric_mismatches += 1
 
-					if s != "-":
-						s_length += 1
+					total_mismatches += 1
 
-				else:
-
-					if m_length + s_length > 0:
-
-						total_mismatches += max([m_length, s_length])
-						asymetric_mismatches += abs(m_length - s_length)
+			# print(asymetric_mismatches, "<- asymetric mismatches")
+			# print(total_mismatches, "<- total mismatches")
 
 
-
-					m_length = 0
-					s_length = 0
-
-			# print(total_mismatches)
-			# print(asymetric_mismatches)
-
-			# print()
 
 			out = ''
 
@@ -1454,6 +1515,15 @@ class hairpinClass():
 			self.ruling_d['no_star_structures'] =  not self.star_structures
 
 			return(out)
+
+		def test_constellation():
+			if self.p_constellation > 0.9:
+				return("x")
+
+			else:
+				return("-")
+
+
 
 		def test_precision():
 
@@ -1490,8 +1560,13 @@ class hairpinClass():
 					# self.ruling_d['star_found'] = True
 					# return('x')
 
+			# print(self.star)
+			# print(self.read_c[self.star])
+
 			if self.read_c[self.star] > 0:
+				self.ruling_d['star_found'] = True				
 				return('x')
+
 			else:
 				return("-")
 
@@ -1499,7 +1574,7 @@ class hairpinClass():
 		test_str += " " + test_mfe()
 		test_str += " " + test_duplex_mismatch()
 		test_str += " " + test_secondary_structure()
-		test_str += " " + test_precision()
+		test_str += " " + test_constellation() + test_precision()
 		test_str += " " + test_star_found()
 
 		self.ruling = test_str
@@ -1516,7 +1591,7 @@ class hairpinClass():
 		line = [self.name, self.sub_name, self.sizecall, self.locus, self.chrom, self.start, self.stop, self.strand]
 		line += [self.stranded, self.length]
 		line += [self.seq, self.fold, self.mfe, self.mfe_per_nt, self.mas, self.star] 
-		line += [self.duplex_mas, self.duplex_fold, self.duplex_star, self.offset_left, self.offset_right]
+		line += [self.duplex_mas, self.duplex_fold, self.duplex_star, self.offset_left, self.offset_right, self.p_constellation, self.p_star]
 		line += [self.valid]
 
 
@@ -2100,7 +2175,7 @@ def hairpin(**params):
 
 
 
-	header_line = "name\tsub_name\tsizecall\tlocus\tcontig\tstart\tstop\tstrand\tstranded\tlength\tseq\tfold\tmfe\tmfe_per_nt\tmas\tstar\tduplex_mas\tduplex_fold\tduplex_star\tstar_offset_left\tstar_offset_right\tvalid_fold\truling\tmpn_pass\tmismatches_asymm\tmismatches_total\tno_mas_structures\tno_star_structures\tprecision\tstar_found\tstruc_count\tunstruc_count\tp_struc"
+	header_line = "name\tsub_name\tsizecall\tlocus\tcontig\tstart\tstop\tstrand\tstranded\tlength\tseq\tfold\tmfe\tmfe_per_nt\tmas\tstar\tduplex_mas\tduplex_fold\tduplex_star\tstar_offset_left\tstar_offset_right\tp_constellation\tp_star\tvalid_fold\truling\tmpn_pass\tmismatches_asymm\tmismatches_total\tno_mas_structures\tno_star_structures\tprecision\tstar_found\tstruc_count\tunstruc_count\tp_struc"
 
 	Path(hairpin_dir, "folds").mkdir(parents=True, exist_ok=True)
 	with open(hairpin_file, 'w') as outf:
@@ -2274,16 +2349,18 @@ stranded
 ┋ ┋ ┋┋ ┋
 ┋ ┋ ┋┋ ┋star_duplex_structure
 ┋ ┋ ┋┋ ┋┋
-┋ ┋ ┋┋ ┋┋ precision
+┋ ┋ ┋┋ ┋┋ costellation precision
 ┋ ┋ ┋┋ ┋┋ ┋
-┋ ┋ ┋┋ ┋┋ ┋ star_found
-┋ ┋ ┋┋ ┋┋ ┋ ┋
-v v vv vv v v""")
+┋ ┋ ┋┋ ┋┋ ┋tight precision
+┋ ┋ ┋┋ ┋┋ ┋┋
+┋ ┋ ┋┋ ┋┋ ┋┋ star_found
+┋ ┋ ┋┋ ┋┋ ┋┋ ┋
+v v vv vv vv v""")
 
 	# for job in jobs:
 
 	# # 	if job['name'] == "locus_1868":locus_1767
-	# 	if job['name'] == "locus_1767":
+	# 	if job['name'] == "locus_537": 
 	# 		run_job(job)
 
 	# sys.exit()
