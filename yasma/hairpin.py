@@ -1912,7 +1912,7 @@ def run_job(job):
 		print(hpc.table(), file=outf)
 
 
-	if hpc.valid:
+	if hpc.valid and params['trim_hairpins']:
 
 		trimmed_locus = full_trim_hairpin(hpc)
 
@@ -2007,9 +2007,14 @@ def run_job(job):
 	help="name for sub folder where hairpin analysis is deposited")
 
 
-@optgroup.option('--ignore_subhairpins', is_flag=True, default=False, help='This prevents folding of sub-hairpins in long stranded loci')
-
 @optgroup.option('--silent', is_flag=True, default=False, help='Silences printing hairpin analysis to terminal. Useful when lots of loci are found.')
+
+
+@optgroup.group('\n  Advance options',
+				help='')
+@optgroup.option('--ignore_subhairpins', is_flag=True, default=False, help='This prevents folding of sub-hairpins in long stranded loci')
+@optgroup.option('--trim_hairpins', is_flag=True, default=False, help='With this flag, candidate hairpins are retrimmed. This is useful for loci which may be arbitrarily sized. Warning, this is very likely to produce false positives for miRNAs, as it artificially enhances precision.')
+
 
 # @click.option("--method", 
 # 	default="Poisson", 
@@ -2181,7 +2186,7 @@ def hairpin(**params):
 
 
 
-	header_line = "name\tsub_name\tsizecall\tlocus\tcontig\tstart\tstop\tstrand\tstranded\tlength\tseq\tfold\tmfe\tmfe_per_nt\tmas\tstar\tduplex_mas\tduplex_fold\tduplex_star\tstar_offset_left\tstar_offset_right\tp_constellation\tp_star\tvalid_fold\truling\tmpn_pass\tmismatches_asymm\tmismatches_total\tno_mas_structures\tno_star_structures\tprecision\tstar_found\tstruc_count\tunstruc_count\tp_struc"
+	header_line = "name\tsub_name\tsizecall\tlocus\tcontig\tstart\tstop\tstrand\tstranded\tlength\tseq\tfold\tmfe\tmfe_per_nt\tmas\tstar\tduplex_mas\tduplex_fold\tduplex_star\tstar_offset_left\tstar_offset_right\tp_constellation\tp_star\tvalid_fold\truling\tmpn_pass\tmismatches_total\tmismatches_asymm\tno_mas_structures\tno_star_structures\tprecision\tstar_found\tstruc_count\tunstruc_count\tp_struc"
 
 	Path(hairpin_dir, "folds").mkdir(parents=True, exist_ok=True)
 	with open(hairpin_file, 'w') as outf:
@@ -2363,13 +2368,13 @@ stranded
 ┋ ┋ ┋┋ ┋┋ ┋┋ ┋
 v v vv vv vv v""")
 
-	# for job in jobs:
+	for job in jobs:
 
-	# # 	if job['name'] == "locus_1868":locus_1767
-	# 	if job['name'] == "locus_537": 
-	# 		run_job(job)
+	# 	if job['name'] == "locus_1868":locus_1767
+		if job['name'] == "locus_495": 
+			run_job(job)
 
-	# sys.exit()
+	sys.exit()
 
 	# with multiprocessing.get_context('spawn').Pool(100) as pool:
 	with multiprocessing.Pool(proc_n) as pool:
