@@ -890,7 +890,13 @@ class hairpinClass():
 
 
 			self.p_constellation = (self.mas_constellation_depth + self.star_constellation_depth) / locus_depth
-			self.p_star = self.star_constellation_depth / self.mas_constellation_depth
+
+			try:
+				self.p_star = self.star_constellation_depth / self.mas_constellation_depth
+			except:
+				print(self.status.append("constellation depth shows zero"))
+				self.p_star = "NA"
+
 
 
 			def find_star_offsets():
