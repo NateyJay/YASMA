@@ -604,12 +604,209 @@ class hairpinClass():
 				li = [l for l in li]
 				del li[0]
 
-				paired   = [l if pt[i] != -1 else "x" for i,l in enumerate(li)]
-				unpaired = [l if pt[i] == -1 else "x" for i,l in enumerate(li)]
+				paired   = [l if pt[i] != -1 else "-" for i,l in enumerate(li)]
+				unpaired = [l if pt[i] == -1 else "-" for i,l in enumerate(li)]
+
+				self.seq = seq
+				self.structure = structure
 
 				self.index    = pt
 				self.paired   = paired
 				self.unpaired = unpaired
+
+
+			# def get_read_idx(self, read):
+			# 	try:
+			# 		left_pos = self.seq.index(read)
+			# 		return(left_pos)
+			# 	except ValueError:
+			# 		for left_pos in range(len(self.seq)):
+
+			# 			candidate = self.seq[left_pos : left_pos+len(read)]
+
+			# 			if distance(candidate, read) <= 1:
+			# 				return(left_pos)
+
+
+			def get_duplex(self, mas_positions, star_positions):
+
+				mas_range = range(min(mas_positions)-5, max(mas_positions)+5)
+				star_range = range(min(star_positions)-5, max(star_positions)+5)
+
+				mas_range  = [m for m in mas_range if m >=0 and m < len(self.seq)]
+				star_range = [m for m in star_range if m >=0 and m < len(self.seq)]
+				star_range = star_range[::-1]
+
+
+				for mi,m in enumerate(mas_range):
+					try:
+						si = star_range.index(self.index[m])
+						break
+					except ValueError:
+						pass
+					except IndexError:
+						pass
+
+					if m in mas_positions:
+						return ('unpaired directly 5p to MAS')
+
+
+				mas_seq  = "".join([self.seq[i] for i in mas_positions])
+				star_seq = "".join([self.seq[i] for i in star_positions[::-1]])
+
+
+				# print()
+				# print(len(star_positions))
+				# print(len(star_seq))
+				# print(star_seq, "<- star seq")
+
+
+				mas_seq  = "".join([self.seq[i] if i in mas_positions else self.seq[i].lower() for i in mas_range])
+				star_seq = "".join([self.seq[i] if i in star_positions else self.seq[i].lower() for i in star_range])
+
+				mas_struc  = "".join([self.structure[i] if self.paired[i] != "-" else "."  for i  in mas_range])
+				star_struc = "".join([self.structure[i] if self.paired[i] != "-" else "."  for i  in star_range])
+
+				unique_mas  = set([self.structure[i] for i in mas_positions if self.paired[i] != "-" ])
+				unique_star = set([self.structure[i] for i in star_positions if self.paired[i] != "-"])
+
+
+				if len(unique_mas) > 1:
+					return ('secondary structure found in mas')
+
+				if len(unique_star) > 1:
+					return ('secondary structure found in star')
+
+
+				leading_unpaired_mas  = len(mas_seq) - len(mas_seq.lstrip("."))
+				leading_unpaired_star = len(star_seq) - len(star_seq.lstrip("."))
+
+
+				# print(mas_positions, "<- mas_positions")
+				# print(mas_seq)
+				# print(mas_struc)
+
+				# print(star_positions, "<- star_positions")
+				# print(star_seq)
+				# print(star_struc)
+				# print()
+
+
+				mas_struc  = mas_struc.replace("(", "|").replace(")","|")
+				star_struc = star_struc.replace("(", "|").replace(")","|")
+
+
+
+				# for i,p in enumerate(mas_positions):
+				# 	pair = self.index[p]
+				# 	if pair != -1:
+
+				# 		star_offset = max(star_range) - pair
+
+				# 		offset = i - star_offset
+
+				# 		break
+
+				# print(offset)
+
+
+
+				duplex_mas  = ''
+				duplex_fold = ''
+				duplex_star = ''
+
+				# mi = 0
+				# si = 0
+				while True:
+
+					try:
+						mf = mas_struc[mi]
+						ms = mas_seq[mi]
+					except IndexError:
+						mf = None
+						ms = None
+
+					try:
+						sf = star_struc[si]
+						ss = star_seq[si]
+					except IndexError:
+						sf = None
+						ss = None
+
+					if mf is None and sf is None:
+						break
+
+
+
+					if mf is None:
+						# duplex_mas  += "x"
+						# duplex_fold += "x"
+						# duplex_star += "x"
+						# duplex_mas  += " "
+						# duplex_fold += "."
+						# duplex_star += ss
+
+						si += 1
+
+					elif sf is None:
+						# duplex_mas  += "x"
+						# duplex_fold += "x"
+						# duplex_star += "x"
+						# duplex_mas  += ms
+						# duplex_fold += "."
+						# duplex_star += " "
+
+						mi += 1
+
+					elif (ms == '-' or ms.islower()) and (ss == '-' or ss.islower()):
+						si += 1
+						mi += 1
+
+
+					elif mf == sf:
+						# if (ss == "G" and ms == "U") or (ss == "U" and ms == "G"):
+						# 	mf = ":"
+
+						if mf is None:
+							mf = "."
+
+						duplex_mas  += ms
+						duplex_fold += mf
+						duplex_star += ss
+
+						mi += 1
+						si += 1
+
+					elif mf == '.':
+						duplex_mas  += ms
+						duplex_fold += '.'
+						duplex_star += "-"
+
+						mi += 1
+
+					elif sf == '.':
+						duplex_mas  += "-"
+						duplex_fold += '.'
+						duplex_star += ss
+
+						si += 1
+
+				# print(duplex_mas)
+				# print(duplex_fold)
+				# print(duplex_star)
+
+				# sys.exit()
+
+				return(duplex_mas, duplex_fold, duplex_star)
+
+
+
+
+
+
+
+
+
 
 		self.vc = viennaClass(self.seq, self.fold)
 
@@ -665,6 +862,11 @@ class hairpinClass():
 			self.aln_string.insert(3, "-"*star_i + self.star + "-" * (len(self.seq) - star_i - len(self.star)) + f"  {self.read_c[self.star]} STAR")
 
 
+
+			# print(self.star, self.star_depth)
+			# print(self.duplex_mas)
+			# print(self.duplex_fold)
+			# print(self.duplex_star)
 
 			self.star_structures = self.find_secondary_structures("".join([self.fold[p] for p in self.star_positions]))
 
@@ -948,11 +1150,11 @@ class hairpinClass():
 
 		for read, depth in self.read_c.most_common():
 			self.canon_star_distance = distance(self.canon_star, read)
-			if self.canon_star_distance < 6:
+			if self.canon_star_distance < 8:
 				# print(self.canon_star, "->", read, depth)
 
 				star       = read
-				star_depth = depth
+				self.star_depth = depth
 
 				try:
 					star_left_pos = self.seq.index(star)
@@ -983,7 +1185,7 @@ class hairpinClass():
 		# print("".join(self.canon_star), "<- canonical_star")
 		# print(self.canon_star_error)
 
-		self.star_positions = list(range(star_left_pos, star_right_pos+1))
+		self.star_positions = list(range(star_left_pos, star_right_pos))
 
 		def count_end_repeats(ls, dir=1, val= -1):
 
@@ -1022,12 +1224,24 @@ class hairpinClass():
 
 
 		mas_left,  mas_right, self.offset_left, self.offset_right  = infer_duplex_edge(self.mas_positions, self.star_positions)
-		star_left, star_right, _, _                                = infer_duplex_edge(self.star_positions, self.mas_positions)
+		star_left, star_right, star_offset_left, star_offset_right = infer_duplex_edge(self.star_positions, self.mas_positions)
 
 
-		duplex_positions = [mas_left,  mas_right, star_left, star_right]
+		duplex = self.vc.get_duplex(self.mas_positions, self.star_positions)
 
-		duplex_positions = sorted(duplex_positions)
+		if len(duplex) > 3 :
+			self.status.append(duplex)
+			return False
+
+		# print(duplex)
+
+		self.duplex_mas, self.duplex_fold, self.duplex_star = duplex
+
+
+
+		# duplex_positions = [mas_left,  mas_right, star_left, star_right]
+
+		# duplex_positions = sorted(duplex_positions)
 		# print(duplex_positions)
 
 
@@ -1037,57 +1251,24 @@ class hairpinClass():
 
 		self.star = star
 
-		self.duplex_mas  = self.seq[mas_left : mas_right + 1]
-		self.duplex_fold = self.fold[mas_left : mas_right + 1]
-		self.duplex_star = self.seq[star_left : star_right + 1]
+		# self.duplex_mas  = self.seq[mas_left : mas_right + 1]
+		# self.duplex_fold = self.fold[mas_left : mas_right + 1]
+		# self.duplex_star = self.seq[star_left : star_right + 1]
 
-		# sys.exit()
-
-		# all_positions = self.mas_positions + self.star_positions
-		# all_positions = [self.vc.index[i] for i in all_positions]
-		# all_positions = [a for a in all_positions if a >= 0]
-
-
-		# left_positions = self.mas_positions
-		# right_positions = self.star_positions
-
-		# if max(self.mas_positions) < min(self.star_positions):
-		# 	self.adjacency = '5p'
-
-		# else:
-		# 	self.adjacency = '3p'
-		# 	left_positions, right_positions = right_positions, left_positions
-
-
-		# left_leading_error = 
+		# seq = self.seq
+		# fold = self.fold
 
 
 
 
-		# print(self.hp_pos_d)
+
+			
 
 
-		# print(self.star_positions)
-		# for s in range(min(self.star_positions)-4, max(self.star_positions)+5):
-		# 	# print(self.pos_d[s])
-
-		# 	reads = None
-		# 	try:
-		# 		reads = self.hp_pos_d[s]
-		# 	except KeyError:
-		# 		pass
 
 
-		# 	print(reads)
-
-		# 	if reads:
-
-		# 		for read in reads:
-		# 			print(read, self.read_c[read])
 
 
-		# print()
-		# print(star, self.read_c[star], "<- star")
 
 
 
@@ -1097,9 +1278,9 @@ class hairpinClass():
 		# s_seq  = deque([self.seq[p] for p in self.star_positions[::-1]])
 		# s_fold = deque([self.fold[p] for p in self.star_positions[::-1]])
 
-		# m_out = ' ' * (offset - self.canon_star_error[0])
+		# m_out = ' ' * (self.offset_left*-1)
 		# s_out = s_seq.popleft() + s_seq.popleft()
-		# f_out = ' ' * (offset - self.canon_star_error[0])
+		# f_out = ' ' * (self.offset_left*-1)
 
 		# s_fold.popleft()
 		# s_fold.popleft()
@@ -1163,7 +1344,7 @@ class hairpinClass():
 		# print(f_out)
 		# print(s_out)
 
-		# self.star = star
+		# # self.star = star
 
 		# self.duplex_mas  = m_out
 		# self.duplex_fold = f_out
@@ -1205,6 +1386,11 @@ class hairpinClass():
 			m_length = 0
 			s_length = 0
 
+
+			# print(self.duplex_mas)
+			# print(self.duplex_fold)
+			# print(self.duplex_star)
+
 			for i in range(len(self.duplex_mas)):
 
 				try:
@@ -1233,6 +1419,10 @@ class hairpinClass():
 					m_length = 0
 					s_length = 0
 
+			# print(total_mismatches)
+			# print(asymetric_mismatches)
+
+			# print()
 
 			out = ''
 
@@ -2089,6 +2279,14 @@ stranded
 ┋ ┋ ┋┋ ┋┋ ┋ star_found
 ┋ ┋ ┋┋ ┋┋ ┋ ┋
 v v vv vv v v""")
+
+	# for job in jobs:
+
+	# # 	if job['name'] == "locus_1868":locus_1767
+	# 	if job['name'] == "locus_1767":
+	# 		run_job(job)
+
+	# sys.exit()
 
 	# with multiprocessing.get_context('spawn').Pool(100) as pool:
 	with multiprocessing.Pool(proc_n) as pool:
