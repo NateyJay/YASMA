@@ -2368,13 +2368,13 @@ stranded
 ┋ ┋ ┋┋ ┋┋ ┋┋ ┋
 v v vv vv vv v""")
 
-	for job in jobs:
+	# for job in jobs:
 
-	# 	if job['name'] == "locus_1868":locus_1767
-		if job['name'] == "locus_495": 
-			run_job(job)
+	# # 	if job['name'] == "locus_1868":locus_1767
+	# 	if job['name'] == "locus_495": 
+	# 		run_job(job)
 
-	sys.exit()
+	# sys.exit()
 
 	# with multiprocessing.get_context('spawn').Pool(100) as pool:
 	with multiprocessing.Pool(proc_n) as pool:
