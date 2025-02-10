@@ -569,13 +569,14 @@ class hairpinClass():
 		'mfe_per_nt'         : ' ',
 		'mismatches_total'   : ' ',
 		'mismatches_asymm'   : ' ',
+		'largest_loop'       : ' ',
 		'no_mas_structures'  : ' ',
 		'no_star_structures' : ' ',
 		'precision'          : ' ',
 		'star_found'         : ' '
 		}
 
-		self.ruling = '-            '
+		self.ruling = '-              '
 
 
 		if not stranded:
@@ -838,7 +839,7 @@ class hairpinClass():
 
 		if self.mas_structures:
 			self.status.append("secondary structure found in MAS")
-			self.ruling = self.ruling[:7] + "-" + self.ruling[8:]
+			# self.ruling = self.ruling[:7] + "-" + self.ruling[8:]
 			return
 
 
@@ -1466,12 +1467,15 @@ class hairpinClass():
 			# print(self.duplex_star)
 
 			if self.duplex_mas == '-':
-				return("  ")
+				return(" ")
 
 
 
 			asymetric_mismatches = 0
 			total_mismatches = 0
+
+			largest_loop = 0
+			loop = 0
 
 			for i in range(len(self.duplex_mas)):
 
@@ -1484,7 +1488,14 @@ class hairpinClass():
 					if m == "-" or s == '-':
 						asymetric_mismatches += 1
 
+					loop += 1
+					if loop > largest_loop:
+						largest_loop = loop
+
 					total_mismatches += 1
+
+				else:
+					loop = 0
 
 			# print(asymetric_mismatches, "<- asymetric mismatches")
 			# print(total_mismatches, "<- total mismatches")
@@ -1495,6 +1506,7 @@ class hairpinClass():
 
 			self.ruling_d['mismatches_total'] = total_mismatches
 			self.ruling_d['mismatches_asymm'] = asymetric_mismatches
+			self.ruling_d['largest_loop']     = largest_loop
 
 			if total_mismatches <= 5:
 				out += "x"
@@ -1505,6 +1517,12 @@ class hairpinClass():
 				out += 'x'
 			else:
 				out += '-'
+
+			if largest_loop <= 3:
+				out += 'x'
+			else:
+				out += '-'
+
 
 			return(out)
 
@@ -2356,17 +2374,19 @@ stranded
 ┋ ┋ ┋
 ┋ ┋ ┋mismatches_asymm
 ┋ ┋ ┋┋
-┋ ┋ ┋┋ mas_duplex_structure
-┋ ┋ ┋┋ ┋
-┋ ┋ ┋┋ ┋star_duplex_structure
-┋ ┋ ┋┋ ┋┋
-┋ ┋ ┋┋ ┋┋ costellation precision
-┋ ┋ ┋┋ ┋┋ ┋
-┋ ┋ ┋┋ ┋┋ ┋tight precision
-┋ ┋ ┋┋ ┋┋ ┋┋
-┋ ┋ ┋┋ ┋┋ ┋┋ star_found
-┋ ┋ ┋┋ ┋┋ ┋┋ ┋
-v v vv vv vv v""")
+┋ ┋ ┋┋largest_loop
+┋ ┋ ┋┋┋
+┋ ┋ ┋┋┋ mas_duplex_structure
+┋ ┋ ┋┋┋ ┋
+┋ ┋ ┋┋┋ ┋star_duplex_structure
+┋ ┋ ┋┋┋ ┋┋
+┋ ┋ ┋┋┋ ┋┋ costellation precision
+┋ ┋ ┋┋┋ ┋┋ ┋
+┋ ┋ ┋┋┋ ┋┋ ┋tight precision
+┋ ┋ ┋┋┋ ┋┋ ┋┋
+┋ ┋ ┋┋┋ ┋┋ ┋┋ star_found
+┋ ┋ ┋┋┋ ┋┋ ┋┋ ┋
+v v vvv vv vv v""")
 
 	# for job in jobs:
 
