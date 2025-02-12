@@ -542,6 +542,7 @@ class hairpinClass():
 		self.offset_right = 'NA'
 		self.p_constellation = 'NA'
 		self.p_star = 'NA'
+		self.primary_hairpin_length = 'NA'
 
 
 
@@ -609,6 +610,9 @@ class hairpinClass():
 
 				paired   = [l if pt[i] != -1 else "-" for i,l in enumerate(li)]
 				unpaired = [l if pt[i] == -1 else "-" for i,l in enumerate(li)]
+
+				self.loop_sizes = Counter(unpaired)
+				self.loop_sizes['-'] = 0
 
 				self.seq = seq
 				self.structure = structure
@@ -804,9 +808,36 @@ class hairpinClass():
 
 
 
+			def measure_primary_hairpin(self, mas_positions, star_positions):
+
+				all_positions = set(mas_positions + star_positions)
+
+				left  = min(all_positions)
+				right = max(all_positions)
+
+				# loop_sizes = self.loop_sizes
 
 
+				for i in range(left,-1,-1):
+					# print('left', i, self.unpaired[i], self.loop_sizes[self.unpaired[i]])
+					if self.loop_sizes[self.unpaired[i]] >= 8:
+						break
 
+				left_boundary = i
+
+
+				for i in range(right,len(self.seq)):
+					# print('right', i, self.unpaired[i], self.loop_sizes[self.unpaired[i]])
+					if self.loop_sizes[self.unpaired[i]] >= 8:
+						break
+
+				right_boundary = i
+
+				loop_length = right_boundary - left_boundary
+				return(loop_length)
+
+				# print(left_boundary, "to", right_boundary)
+				# print(loop_length, "nt")
 
 
 
@@ -939,6 +970,7 @@ class hairpinClass():
 
 			else:
 				self.valid = True
+				self.primary_hairpin_length = self.vc.measure_primary_hairpin(self.mas_positions, self.star_positions)
 
 				# Path(self.output_directory, self.hairpin_dir, 'folds').mkdir(parents=True, exist_ok=True)
 				fold = foldClass(self.full_name, self.seq, self.alignment_file, self.locus, self.strand, self.mas, self.output_directory, self.hairpin_dir, self.aln_string)
@@ -1474,8 +1506,6 @@ class hairpinClass():
 			asymetric_mismatches = 0
 			total_mismatches = 0
 
-			largest_loop = 0
-			loop = 0
 
 			for i in range(len(self.duplex_mas)):
 
@@ -1488,14 +1518,29 @@ class hairpinClass():
 					if m == "-" or s == '-':
 						asymetric_mismatches += 1
 
-					loop += 1
-					if loop > largest_loop:
-						largest_loop = loop
-
 					total_mismatches += 1
 
-				else:
-					loop = 0
+
+
+			largest_loop = 0
+
+			all_positions = list(set(self.mas_positions + self.star_positions))
+			all_positions.sort()
+
+			# print(self.vc.unpaired)
+
+			for p in all_positions:
+				loop_id = self.vc.unpaired[p]
+				loop_size = self.vc.loop_sizes[loop_id]
+
+				# print(p, self.seq[p], loop_id, loop_size)
+
+				if loop_size > largest_loop:
+					largest_loop = loop_size
+
+			# print(largest_loop)
+
+
 
 			# print(asymetric_mismatches, "<- asymetric mismatches")
 			# print(total_mismatches, "<- total mismatches")
@@ -1518,7 +1563,7 @@ class hairpinClass():
 			else:
 				out += '-'
 
-			if largest_loop <= 3:
+			if largest_loop <= 4:
 				out += 'x'
 			else:
 				out += '-'
@@ -1622,6 +1667,8 @@ class hairpinClass():
 		line += [self.ruling] + list(self.ruling_d.values())
 
 		line += [self.struc_c['struc'], self.struc_c['unstruc'], p_struc]
+
+		line += [self.primary_hairpin_length]
 
 		return("\t".join(map(str,line)))
 
@@ -2204,7 +2251,7 @@ def hairpin(**params):
 
 
 
-	header_line = "name\tsub_name\tsizecall\tlocus\tcontig\tstart\tstop\tstrand\tstranded\tlength\tseq\tfold\tmfe\tmfe_per_nt\tmas\tstar\tduplex_mas\tduplex_fold\tduplex_star\tstar_offset_left\tstar_offset_right\tp_constellation\tp_star\tvalid_fold\truling\tmpn_pass\tmismatches_total\tmismatches_asymm\tno_mas_structures\tno_star_structures\tprecision\tstar_found\tstruc_count\tunstruc_count\tp_struc"
+	header_line = "name\tsub_name\tsizecall\tlocus\tcontig\tstart\tstop\tstrand\tstranded\tlength\tseq\tfold\tmfe\tmfe_per_nt\tmas\tstar\tduplex_mas\tduplex_fold\tduplex_star\tstar_offset_left\tstar_offset_right\tp_constellation\tp_star\tvalid_fold\truling\tmpn_pass\tmismatches_total\tmismatches_asymm\tlargest_loop\tno_mas_structures\tno_star_structures\tprecision\tstar_found\tstruc_count\tunstruc_count\tp_struc\tprimary_hairpin_length"
 
 	Path(hairpin_dir, "folds").mkdir(parents=True, exist_ok=True)
 	with open(hairpin_file, 'w') as outf:
@@ -2391,7 +2438,7 @@ v v vvv vv vv v""")
 	# for job in jobs:
 
 	# # 	if job['name'] == "locus_1868":locus_1767
-	# 	if job['name'] == "locus_495": 
+	# 	if job['name'] == "locus_787": 
 	# 		run_job(job)
 
 	# sys.exit()
