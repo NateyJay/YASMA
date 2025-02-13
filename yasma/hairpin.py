@@ -55,7 +55,7 @@ def abundance_to_rgb(abd):
 
 
 class foldClass():
-	def __init__(self, name, seq, alignment_file, locus, strand, mas, output_directory, hairpin_dir, aln_string):
+	def __init__(self, name, seq, alignment_file, locus, strand, mas, output_directory, hairpin_dir, aln_string, libraries):
 
 		self.name    = name
 		self.seq     = seq
@@ -63,6 +63,7 @@ class foldClass():
 		self.strand  = strand
 
 		self.hairpin_dir = hairpin_dir
+		self.libraries = libraries
 
 		self.mas = mas
 
@@ -104,50 +105,41 @@ class foldClass():
 		
 	def get_depth(self):
 
-		if self.strand == "+":
-			flag = "0"
-		elif self.strand == "-":
-			flag = "16"
-		else:
-			sys.exit("what???")
+		def only_annotation_libraries(read):
+			strand = "-" if read.is_reverse else "+"
+			return(read.get_tag("RG") in self.libraries and strand == self.strand)
 
-		p1 = Popen(['samtools', 'view', "-h", self.alignment_file, self.locus], 
-			stdout=PIPE, encoding=ENCODING)
+		bamf = pysam.AlignmentFile(str(self.alignment_file),'rb')
+		if not bamf.has_index():
+			print(f'   index not found for {bam}. Indexing with samtools.')
 
-		p2 = Popen(['samtools', 'depth', '-'], 
-			stdin=PIPE, stdout=PIPE, encoding=ENCODING)
-		# out, err = p1.communicate()
-
-		for line in p1.stdout:
-			if line.startswith("@") or line.split("\t")[1] == flag:
-				p2.stdin.write(line)
-
-		out, err = p2.communicate()
+			pysam.index(str(self.alignment_file))
+			bamf.close()
+			bamf = pysam.AlignmentFile(str(self.alignment_file),'rb')
 
 
+		contig = self.locus.split(":")[0]
+		start  = int(self.locus.split(":")[1].split("-")[0])
+		stop   = int(self.locus.split(":")[1].split("-")[1])
 
+		# print(contig, start, stop)
+		# print()
+		cov = bamf.count_coverage(contig=contig,start=start, stop=stop, read_callback=only_annotation_libraries)
 
-		# print(out)
-
-		depth_d = {}
-		for o in out.strip().split("\n"):
-			o = o.strip().split()
-
-			key, val = [int(val) for val in o[1:]]
-
-			depth_d[key] = val
 
 		depths = []
-		for r in range(self.start, self.stop + 1):
 
-			try:
-				depths.append(depth_d[r])
-			except KeyError:
-				depths.append(0)
+		if self.strand == '+':
+			iterator = range(len(cov[0]))
+		else:
+			iterator = reversed(range(len(cov[0])))
 
+		for i in iterator:
+			summed_cov = sum([cov[j][i] for j in range(4)])
+			depths.append(summed_cov)
+			# print(i, summed_cov)
 
-		if self.strand == '-':
-			depths = depths[::-1]
+		# print(depths)
 
 		self.depths = depths
 
@@ -973,7 +965,7 @@ class hairpinClass():
 				self.primary_hairpin_length = self.vc.measure_primary_hairpin(self.mas_positions, self.star_positions)
 
 				# Path(self.output_directory, self.hairpin_dir, 'folds').mkdir(parents=True, exist_ok=True)
-				fold = foldClass(self.full_name, self.seq, self.alignment_file, self.locus, self.strand, self.mas, self.output_directory, self.hairpin_dir, self.aln_string)
+				fold = foldClass(self.full_name, self.seq, self.alignment_file, self.locus, self.strand, self.mas, self.output_directory, self.hairpin_dir, self.aln_string, params['libraries'])
 
 				self.assess_miRNA()
 
@@ -1180,6 +1172,8 @@ class hairpinClass():
 
 		for p in positions:
 			pair = self.vc.index[p]
+
+			# print(p, pair, pair in positions)
 
 			if pair in positions:
 				return(True)
@@ -1956,6 +1950,9 @@ def run_job(job):
 	input_mas    = job['input_mas']
 	sizecall     = job['sizecall']
 	hairpin_file = job['hairpin_file']
+	params['conds'] = job['conds']
+	params['libraries'] = job['libraries']
+
 
 	if params['silent']:
 		print(name, " "*30, end='\r')
@@ -2125,6 +2122,13 @@ def hairpin(**params):
 
 	hairpin_dir = Path(output_directory, f'hairpin', name)
 	Path(output_directory, f'hairpin', name, 'folds').mkdir(parents=True, exist_ok=True)
+
+	annotation_params_file = Path(annotation_dir, 'params.json')
+	if not annotation_params_file.is_file():
+		sys.exit(f"Error: (params.json) not found in annotation folder")
+
+	with open(annotation_params_file, 'r') as f:
+		annotation_params = json.load(f)
 
 	# print(f'{hairpin_dir}')
 	# sys.exit()
@@ -2319,6 +2323,9 @@ def hairpin(**params):
 			continue
 
 
+		libraries = list()
+		for a in annotation_params['annotation_conditions']:
+			libraries += annotation_params['conditions'][a]
 
 
 		job_params = entry
@@ -2328,6 +2335,9 @@ def hairpin(**params):
 		job_params['strand']       = strand
 		job_params['params']       = params
 		job_params['sizecall']     = sizecall
+		job_params['conds']        = annotation_params['annotation_conditions']
+		job_params['libraries']    = libraries
+
 
 
 		if sizecall == 'N':
@@ -2438,7 +2448,7 @@ v v vvv vv vv v""")
 	# for job in jobs:
 
 	# # 	if job['name'] == "locus_1868":locus_1767
-	# 	if job['name'] == "locus_787": 
+	# 	if job['name'] == "locus_1767": 
 	# 		run_job(job)
 
 	# sys.exit()
