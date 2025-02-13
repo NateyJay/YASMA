@@ -948,9 +948,9 @@ class hairpinClass():
 
 
 				if mas_left > 0:
-					self.offset_left = mas_left
+					self.offset_left = mas_left * -1
 				else:
-					self.offset_left = star_right * -1
+					self.offset_left = star_right
 
 
 
