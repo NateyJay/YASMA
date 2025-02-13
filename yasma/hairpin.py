@@ -99,8 +99,17 @@ class foldClass():
 
 		self.write()
 		self.write_txt()
+		self.write_depths()
 
 		# sys.exit()
+
+	def write_depths(self):
+		self.depth_file = Path(self.hairpin_dir, "folds", f"{self.name}.depths.txt")
+
+		with open(self.depth_file, 'w') as outf:
+			print("i","seq","fold", "depth", sep='\t', file=outf)
+			for i in range(len(self.seq)):
+				print(i, self.seq[i], self.fold[i], self.depths[i], sep='\t', file=outf)
 
 		
 	def get_depth(self):
@@ -124,7 +133,7 @@ class foldClass():
 
 		# print(contig, start, stop)
 		# print()
-		cov = bamf.count_coverage(contig=contig,start=start, stop=stop, read_callback=only_annotation_libraries)
+		cov = bamf.count_coverage(contig=contig,start=start, stop=stop+1, read_callback=only_annotation_libraries)
 
 
 		depths = []
@@ -164,6 +173,7 @@ class foldClass():
 
 		fc  = RNA.fold_compound(self.seq)
 		fold, mfe = fc.mfe()
+		self.fold=fold
 
 		RNA.file_PS_rnaplot(self.seq, fold, f"{temp_name}.ps")
 
@@ -1916,22 +1926,22 @@ def read_locus(alignment_file, contig, start, stop, strand):
 
 
 
-		if sam_pos >= start and sam_pos + sam_length <= stop:
+		# if sam_pos >= start and sam_pos + sam_length <= stop:
 
-			if strand == '+':
-				corrected_pos = sam_pos 
-			else:
-				corrected_pos = sam_pos - sam_length + 1
+		if strand == '+':
+			corrected_pos = sam_pos 
+		else:
+			corrected_pos = sam_pos - sam_length + 1
 
 
-			if sam_strand == strand:
-				try:
-					pos_d[corrected_pos].append(sam_read)
-				except KeyError:
-					pos_d[corrected_pos] = [sam_read]
+		if sam_strand == strand:
+			try:
+				pos_d[corrected_pos].append(sam_read)
+			except KeyError:
+				pos_d[corrected_pos] = [sam_read]
 
-			else:
-				unstranded_pos_d[corrected_pos] += 1
+		else:
+			unstranded_pos_d[corrected_pos] += 1
 
 
 	return(pos_d, unstranded_pos_d)
@@ -2448,7 +2458,7 @@ v v vvv vv vv v""")
 	# for job in jobs:
 
 	# # 	if job['name'] == "locus_1868":locus_1767
-	# 	if job['name'] == "locus_1767": 
+	# 	if job['name'] == "locus_327": 
 	# 		run_job(job)
 
 	# sys.exit()
