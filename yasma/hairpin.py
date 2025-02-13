@@ -1264,7 +1264,7 @@ class hairpinClass():
 			if self.canon_star_distance < 8:
 				# print(self.canon_star, "->", read, depth)
 
-				star       = read
+				star            = read
 				self.star_depth = depth
 
 				try:
@@ -1663,9 +1663,10 @@ class hairpinClass():
 
 		line = [self.name, self.sub_name, self.sizecall, self.locus, self.chrom, self.start, self.stop, self.strand]
 		line += [self.stranded, self.length]
-		line += [self.seq, self.fold, self.mfe, self.mfe_per_nt, self.mas, self.star] 
+		line += [self.seq, self.fold, self.mfe, self.mfe_per_nt, self.mas, self.read_c[self.mas], self.star, self.read_c[self.star]] 
 		line += [self.duplex_mas, self.duplex_fold, self.duplex_star, self.offset_left, self.offset_right, self.p_constellation, self.p_star]
 		line += [self.valid]
+
 
 
 		line += [self.ruling] + list(self.ruling_d.values())
@@ -2265,7 +2266,7 @@ def hairpin(**params):
 
 
 
-	header_line = "name\tsub_name\tsizecall\tlocus\tcontig\tstart\tstop\tstrand\tstranded\tlength\tseq\tfold\tmfe\tmfe_per_nt\tmas\tstar\tduplex_mas\tduplex_fold\tduplex_star\tstar_offset_left\tstar_offset_right\tp_constellation\tp_star\tvalid_fold\truling\tmpn_pass\tmismatches_total\tmismatches_asymm\tlargest_loop\tno_mas_structures\tno_star_structures\tprecision\tstar_found\tstruc_count\tunstruc_count\tp_struc\tprimary_hairpin_length"
+	header_line = "name\tsub_name\tsizecall\tlocus\tcontig\tstart\tstop\tstrand\tstranded\tlength\tseq\tfold\tmfe\tmfe_per_nt\tmas\tmas_depth\tstar\tstar_depth\tduplex_mas\tduplex_fold\tduplex_star\tstar_offset_left\tstar_offset_right\tp_constellation\tp_star\tvalid_fold\truling\tmpn_pass\tmismatches_total\tmismatches_asymm\tlargest_loop\tno_mas_structures\tno_star_structures\tprecision\tstar_found\tstruc_count\tunstruc_count\tp_struc\tprimary_hairpin_length"
 
 	Path(hairpin_dir, "folds").mkdir(parents=True, exist_ok=True)
 	with open(hairpin_file, 'w') as outf:
