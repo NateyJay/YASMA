@@ -1108,9 +1108,9 @@ class hairpinClass():
 
 
 
-
 			read_lengths = Counter()
 			for read in reads:
+
 
 				if len(read) + pos <= stop:
 					read_c[read] += 1
@@ -1132,13 +1132,14 @@ class hairpinClass():
 
 			for read, count in loop_c.items():
 
+
 				if strand == "+":
 					ahead  = i+1
-					behind = len(fold) - i - len(read) - 1
+					behind = len(fold) - i - len(read)
 
 				else:
 					ahead  = i - len(read) * 2 + 1
-					behind = len(fold) - ahead - len(read) - 1
+					behind = len(fold) - ahead - len(read)
 
 				corr_read = ''
 				for j,p in enumerate(range(ahead, ahead + len(read))):
@@ -1147,7 +1148,15 @@ class hairpinClass():
 					else:
 						corr_read += read[j].lower()
 				
-				aln_string += ["-" * ahead + corr_read + "-" * (behind) + f"  {count}"]
+				to_add = "-" * ahead + corr_read + "-" * (behind)
+
+				# print(len(to_add), len(seq))
+				if len(to_add) == len(seq):
+
+					aln_string.append(to_add + f"  {count}")
+				else:
+					
+					print("warning!!", i, pos, read, read_c[read])
 
 
 
@@ -2456,13 +2465,13 @@ stranded
 ┋ ┋ ┋┋┋ ┋┋ ┋┋ ┋
 v v vvv vv vv v""")
 
-	# for job in jobs:
+	for job in jobs:
 
-	# # 	if job['name'] == "locus_1868":locus_1767
-	# 	if job['name'] == "locus_327": 
-	# 		run_job(job)
+	# 	if job['name'] == "locus_1868":locus_1767
+		if job['name'] == "locus_327": 
+			run_job(job)
 
-	# sys.exit()
+	sys.exit()
 
 	# with multiprocessing.get_context('spawn').Pool(100) as pool:
 	with multiprocessing.Pool(proc_n) as pool:
