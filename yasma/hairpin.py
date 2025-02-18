@@ -504,9 +504,9 @@ class hairpinClass():
 		self.valid   = False
 		self.status  = []
 
-		stranded = strand in ["-", "+"]
+		# stranded = strand in ["-", "+"]
 
-		self.stranded         = stranded
+		# self.stranded         = stranded
 
 		self.name             = name
 		self.sub_name         = sub_name
@@ -582,9 +582,9 @@ class hairpinClass():
 		self.ruling = '-              '
 
 
-		if not stranded:
-			self.status.append("hairpin not stranded")
-			return
+		# if not stranded:
+		# 	self.status.append("hairpin not stranded")
+		# 	return
 
 		locus_details = self.get_locus(locus, strand, input_mas, pos_d, unstranded_pos_d)
 
@@ -594,6 +594,17 @@ class hairpinClass():
 
 		self.seq, self.fold, self.mfe, self.pairing, self.read_c, self.struc_c, self.aln_string, self.unstranded_count = locus_details
 
+
+		frac_stranded = sum(self.read_c.values()) / (sum(self.read_c.values()) + self.unstranded_count)
+
+		if frac_stranded < 0.8:
+			self.strand   = '.'
+			self.stranded = False
+			self.status.append("Locus unstranded")
+			return
+
+		else:
+			self.stranded = True
 
 
 
@@ -953,7 +964,6 @@ class hairpinClass():
 					self.offset_left = star_right
 
 
-
 				if mas_right > 0:
 					self.offset_right = mas_right
 				else:
@@ -976,6 +986,9 @@ class hairpinClass():
 
 				# Path(self.output_directory, self.hairpin_dir, 'folds').mkdir(parents=True, exist_ok=True)
 				fold = foldClass(self.full_name, self.seq, self.alignment_file, self.locus, self.strand, self.mas, self.output_directory, self.hairpin_dir, self.aln_string, params['libraries'])
+
+
+
 
 				self.assess_miRNA()
 
@@ -1085,10 +1098,14 @@ class hairpinClass():
 
 		read_c   = Counter()
 		struc_c  = Counter()
-		self.hp_pos_d = {}
+		# self.hp_pos_d = {}
 
 		unstranded_count = 0
 
+		# from pprint import pprint
+		# pprint(pos_d)
+
+		# print(locus)
 
 		if self.strand == "+":
 			it = range(start, stop)
@@ -1100,45 +1117,47 @@ class hairpinClass():
 			loop_c = Counter()
 
 			unstranded_count += unstranded_pos_d[pos]
+			# print(pos)
 
 			try:
 				reads = pos_d[pos]
 			except KeyError:
 				continue
 
-
-
 			read_lengths = Counter()
 			for read in reads:
 
-
-				if len(read) + pos <= stop:
-					read_c[read] += 1
-					loop_c[read] += 1
-					read_lengths[len(read)] += 1
+				# if strand == "+" and len(read) + pos > stop:
+				# 	continue
 
 
-					if strand == '+':
-						relative_start = pos - start
-					else:
-						relative_start = len(seq) - (len(read) + pos - start)
+				# if len(read) + pos <= stop:
+				read_c[read] += 1
+				loop_c[read] += 1
+				read_lengths[len(read)] += 1
 
 
-					try:
-						self.hp_pos_d[relative_start].add(read)
-					except:
-						self.hp_pos_d[relative_start] = set([read])
+				# if strand == '+':
+				# 	relative_start = pos - start
+				# else:
+				# 	relative_start = len(seq) - (len(read) + pos - start)
+
+
+				# try:
+				# 	self.hp_pos_d[i].add(read)
+				# except:
+				# 	self.hp_pos_d[i] = set([read])
 
 
 			for read, count in loop_c.items():
-
+				# print(read, count)
 
 				if strand == "+":
 					ahead  = i+1
-					behind = len(fold) - i - len(read)
+					behind = len(fold) - i - len(read) - 1
 
 				else:
-					ahead  = i - len(read) * 2 + 1
+					ahead  = i - len(read) 
 					behind = len(fold) - ahead - len(read)
 
 				corr_read = ''
@@ -1152,13 +1171,12 @@ class hairpinClass():
 
 				# print(len(to_add), len(seq))
 				if len(to_add) == len(seq):
-
 					aln_string.append(to_add + f"  {count}")
-				else:
 					
-					print("warning!!", i, pos, read, read_c[read])
-
-
+				else:
+					# print("warning!!", i, pos, read, read_c[read])
+					# print(len(to_add), len(seq))
+					pass
 
 
 			for length, count in read_lengths.items():
@@ -1927,31 +1945,36 @@ def read_locus(alignment_file, contig, start, stop, strand):
 		start = 0
 
 
-	# print(alignment_file, contig, start, stop)
+	# print(alignment_file, f"{contig}:{start}-{stop}")
 
 	for read in samtools_view(alignment_file, contig=contig, start=start, stop=stop):
 
 
 		sam_strand, sam_length, _, sam_pos, sam_chrom, sam_rg, sam_read, sam_read_id = read
 
-
-
 		# if sam_pos >= start and sam_pos + sam_length <= stop:
 
-		if strand == '+':
-			corrected_pos = sam_pos 
-		else:
-			corrected_pos = sam_pos - sam_length + 1
-
+		# if strand == '+':
+		# 	corrected_pos = sam_pos 
+		# else:
+		# 	corrected_pos = sam_pos - sam_length + 1
 
 		if sam_strand == strand:
+			# try:
+			# 	pos_d[corrected_pos].append(sam_read)
+			# except KeyError:
+			# 	pos_d[corrected_pos] = [sam_read]
+
 			try:
-				pos_d[corrected_pos].append(sam_read)
+				pos_d[sam_pos].append(sam_read)
 			except KeyError:
-				pos_d[corrected_pos] = [sam_read]
+				pos_d[sam_pos] = [sam_read]
 
 		else:
-			unstranded_pos_d[corrected_pos] += 1
+			# unstranded_pos_d[corrected_pos] += 1
+			unstranded_pos_d[sam_pos] += 1
+
+
 
 
 	return(pos_d, unstranded_pos_d)
@@ -1973,6 +1996,9 @@ def run_job(job):
 	params['conds'] = job['conds']
 	params['libraries'] = job['libraries']
 
+	# if sub_name != 'sub3':
+	# 	return
+
 
 	if params['silent']:
 		print(name, " "*30, end='\r')
@@ -1982,6 +2008,8 @@ def run_job(job):
 	stop   = int(locus.split(":")[1].split("-")[1])
 
 	pos_d, unstranded_pos_d = read_locus(inputs['alignment_file'], contig, start, stop, strand)
+
+
 
 	hpc = hairpinClass(params, inputs, name, sub_name, locus, strand, sizecall, length, input_mas, pos_d, unstranded_pos_d)
 	hpc.table()
@@ -2468,7 +2496,8 @@ v v vvv vv vv v""")
 	# for job in jobs:
 
 	# # 	if job['name'] == "locus_1868":locus_1767
-	# 	if job['name'] == "locus_327": 
+	# 	# if job['name'] == "locus_327":  ## cocin
+	# 	if job['name'] ==  'locus_909':  #fugra 
 	# 		run_job(job)
 
 	# sys.exit()
