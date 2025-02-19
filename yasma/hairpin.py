@@ -592,7 +592,7 @@ class hairpinClass():
 			self.status.append("undefined error in get_locus()")
 			return
 
-		self.seq, self.fold, self.mfe, self.pairing, self.read_c, self.struc_c, self.aln_string, self.unstranded_count = locus_details
+		self.seq, self.fold, self.mfe, self.pairing, self.read_c, self.struc_c, self.aln_string, self.unstranded_count, self.read_indicies = locus_details
 
 
 		frac_stranded = sum(self.read_c.values()) / (sum(self.read_c.values()) + self.unstranded_count)
@@ -921,17 +921,27 @@ class hairpinClass():
 
 
 
-			self.mas_constellation_depth = 0
+			self.mas_constellation_depth  = 0
 			self.star_constellation_depth = 0
+			self.not_constellation_depth  = 0
 
 			locus_depth = sum(self.read_c.values())
 
 			for read, depth in self.read_c.items():
-				if distance(self.mas, read) <= 5:
+				i = self.read_indicies[read]
+				read_positions = set(range(i, i+len(read)+1))
+
+
+
+
+				if len(read_positions & set(self.mas_positions)) / len(self.mas_positions) > 0.6:
 					self.mas_constellation_depth += depth
 
-				if distance(self.star, read) <= 5:
+				elif len(read_positions & set(self.star_positions)) / len(self.star_positions) > 0.6:
 					self.star_constellation_depth += depth
+
+				else:
+					self.not_constellation_depth += depth
 
 
 			self.p_constellation = (self.mas_constellation_depth + self.star_constellation_depth) / locus_depth
@@ -951,6 +961,7 @@ class hairpinClass():
 					for i,s in enumerate(seq[::d]):
 						if s.isupper():
 							return(i)
+					return(i)
 
 				mas_left   = count_lower(self.duplex_mas, 1)
 				mas_right  = count_lower(self.duplex_mas, -1)
@@ -969,7 +980,10 @@ class hairpinClass():
 				else:
 					self.offset_right = star_left * -1
 
+			# try:
 			find_star_offsets()
+			# except TypeError:
+			# 	print(self.duplex_mas, self.duplex_star)
 
 			# print(self.offset_left, self.offset_right)
 
@@ -1096,8 +1110,9 @@ class hairpinClass():
 		start = int(locus.split(":")[-1].split("-")[0])
 		stop  = int(locus.split(":")[-1].split("-")[1])
 
-		read_c   = Counter()
-		struc_c  = Counter()
+		read_c        = Counter()
+		struc_c       = Counter()
+		read_indicies = dict()
 		# self.hp_pos_d = {}
 
 		unstranded_count = 0
@@ -1152,6 +1167,7 @@ class hairpinClass():
 			for read, count in loop_c.items():
 				# print(read, count)
 
+
 				if strand == "+":
 					ahead  = i+1
 					behind = len(fold) - i - len(read) - 1
@@ -1160,19 +1176,31 @@ class hairpinClass():
 					ahead  = i - len(read) 
 					behind = len(fold) - ahead - len(read)
 
+
+				read_indicies[read] = ahead
+
+				if ahead + len(read) > len(seq):
+					continue
+
 				corr_read = ''
 				for j,p in enumerate(range(ahead, ahead + len(read))):
+					# try:
 					if seq[p] ==  read[j]:
 						corr_read += read[j]
 					else:
 						corr_read += read[j].lower()
+					# except IndexError:
+					# 	print(j, p)
+					# 	print(seq, len(seq))
+					# 	print(read)
+					# 	pass
 				
 				to_add = "-" * ahead + corr_read + "-" * (behind)
 
 				# print(len(to_add), len(seq))
 				if len(to_add) == len(seq):
 					aln_string.append(to_add + f"  {count}")
-					
+
 				else:
 					# print("warning!!", i, pos, read, read_c[read])
 					# print(len(to_add), len(seq))
@@ -1202,7 +1230,7 @@ class hairpinClass():
 
 
 
-		return(seq, fold, mfe, pairing, read_c, struc_c, aln_string, unstranded_count)
+		return(seq, fold, mfe, pairing, read_c, struc_c, aln_string, unstranded_count, read_indicies)
 
 	def find_secondary_structures(self, positions):
 		# print(fold)
@@ -1624,6 +1652,13 @@ class hairpinClass():
 				return("-")
 
 
+		def test_star_abundance():
+			if self.star_constellation_depth * 0.1 > self.not_constellation_depth:
+				return('x')
+
+			else:
+				return("-")
+
 
 		def test_precision():
 
@@ -1675,7 +1710,7 @@ class hairpinClass():
 		test_str += " " + test_duplex_mismatch()
 		test_str += " " + test_secondary_structure()
 		test_str += " " + test_constellation() + test_precision()
-		test_str += " " + test_star_found()
+		test_str += " " + test_star_found() + test_star_abundance()
 
 		self.ruling = test_str
 
@@ -1937,7 +1972,7 @@ def full_trim_hairpin(hpc, offset=2, wiggle = 5):
 
 
 
-def read_locus(alignment_file, contig, start, stop, strand):
+def read_locus(alignment_file, contig, start, stop, strand, libraries):
 	pos_d = {}
 	unstranded_pos_d = Counter()
 
@@ -1947,7 +1982,7 @@ def read_locus(alignment_file, contig, start, stop, strand):
 
 	# print(alignment_file, f"{contig}:{start}-{stop}")
 
-	for read in samtools_view(alignment_file, contig=contig, start=start, stop=stop):
+	for read in samtools_view(alignment_file, contig=contig, start=start, stop=stop, rgs = libraries):
 
 
 		sam_strand, sam_length, _, sam_pos, sam_chrom, sam_rg, sam_read, sam_read_id = read
@@ -2007,7 +2042,7 @@ def run_job(job):
 	start  = int(locus.split(":")[1].split("-")[0])
 	stop   = int(locus.split(":")[1].split("-")[1])
 
-	pos_d, unstranded_pos_d = read_locus(inputs['alignment_file'], contig, start, stop, strand)
+	pos_d, unstranded_pos_d = read_locus(inputs['alignment_file'], contig, start, stop, strand, params['libraries'])
 
 
 
@@ -2491,7 +2526,9 @@ stranded
 ┋ ┋ ┋┋┋ ┋┋ ┋┋
 ┋ ┋ ┋┋┋ ┋┋ ┋┋ star_found
 ┋ ┋ ┋┋┋ ┋┋ ┋┋ ┋
-v v vvv vv vv v""")
+┋ ┋ ┋┋┋ ┋┋ ┋┋ ┋star_above_background
+┋ ┋ ┋┋┋ ┋┋ ┋┋ ┋┋
+v v vvv vv vv vv""")
 
 	# for job in jobs:
 
