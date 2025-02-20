@@ -545,6 +545,16 @@ class hairpinClass():
 		self.p_constellation = 'NA'
 		self.p_star = 'NA'
 		self.primary_hairpin_length = 'NA'
+		self.p_looped = 'NA'
+		self.p_structured = 'NA'
+		self.p_disqualified = 'NA'
+
+		self.mas_constellation_depth  = 'NA'
+		self.star_constellation_depth = 'NA'
+		self.not_constellation_depth  = 'NA'
+		self.looped_read_depth        = 'NA'
+		self.structured_read_depth    = 'NA'
+		self.disqualified_read_depth  = 'NA'
 
 
 
@@ -852,6 +862,26 @@ class hairpinClass():
 				# print(left_boundary, "to", right_boundary)
 				# print(loop_length, "nt")
 
+			def read_to_largest_loop(self, read_positions):
+
+				largest = 0
+				for p in read_positions:
+
+					try:
+						loop_id = self.unpaired[p]
+						loop_size = self.loop_sizes[loop_id]
+
+						# print(p, self.seq[p], loop_id, loop_size, sep='\t')
+					except IndexError:
+						return(largest)
+
+					if loop_size > largest:
+						largest = loop_size
+
+				return(largest)
+
+
+
 
 
 
@@ -924,12 +954,27 @@ class hairpinClass():
 			self.mas_constellation_depth  = 0
 			self.star_constellation_depth = 0
 			self.not_constellation_depth  = 0
+			self.looped_read_depth        = 0
+			self.structured_read_depth    = 0
+			self.disqualified_read_depth  = 0
 
 			locus_depth = sum(self.read_c.values())
 
 			for read, depth in self.read_c.items():
+				# print(read)
 				i = self.read_indicies[read]
-				read_positions = set(range(i, i+len(read)+1))
+				read_positions = set(range(i, i+len(read)))
+
+				ll = self.vc.read_to_largest_loop(read_positions)
+
+				if ll >= 6:
+					self.looped_read_depth += depth
+
+				if self.find_secondary_structures(read_positions):
+					self.structured_read_depth += depth
+
+				if ll >= 6 or self.find_secondary_structures(read_positions):
+					self.disqualified_read_depth += depth
 
 
 
@@ -951,6 +996,10 @@ class hairpinClass():
 			except:
 				print(self.status.append("constellation depth shows zero"))
 				self.p_star = "NA"
+
+			self.p_looped       = self.looped_read_depth / sum(self.read_c.values())
+			self.p_structured   = self.structured_read_depth / sum(self.read_c.values())
+			self.p_disqualified = self.disqualified_read_depth / sum(self.read_c.values())
 
 
 
@@ -1236,7 +1285,10 @@ class hairpinClass():
 		# print(fold)
 
 		for p in positions:
-			pair = self.vc.index[p]
+			try:
+				pair = self.vc.index[p]
+			except IndexError:
+				return(False)
 
 			# print(p, pair, pair in positions)
 
@@ -1589,6 +1641,7 @@ class hairpinClass():
 			# print(self.vc.unpaired)
 
 			for p in all_positions:
+				
 				loop_id = self.vc.unpaired[p]
 				loop_size = self.vc.loop_sizes[loop_id]
 
@@ -1714,7 +1767,7 @@ class hairpinClass():
 
 		self.ruling = test_str
 
-
+		
 
 	def table(self):
 
@@ -1727,6 +1780,7 @@ class hairpinClass():
 		line += [self.stranded, self.length]
 		line += [self.seq, self.fold, self.mfe, self.mfe_per_nt, self.mas, self.read_c[self.mas], self.star, self.read_c[self.star]] 
 		line += [self.duplex_mas, self.duplex_fold, self.duplex_star, self.offset_left, self.offset_right, self.p_constellation, self.p_star]
+		line += [self.mas_constellation_depth, self.star_constellation_depth, self.not_constellation_depth, self.looped_read_depth, self.structured_read_depth, self.disqualified_read_depth, self.p_looped, self.p_structured, self.p_disqualified]
 		line += [self.valid]
 
 
@@ -2338,7 +2392,7 @@ def hairpin(**params):
 
 
 
-	header_line = "name\tsub_name\tsizecall\tlocus\tcontig\tstart\tstop\tstrand\tstranded\tlength\tseq\tfold\tmfe\tmfe_per_nt\tmas\tmas_depth\tstar\tstar_depth\tduplex_mas\tduplex_fold\tduplex_star\tstar_offset_left\tstar_offset_right\tp_constellation\tp_star\tvalid_fold\truling\tmpn_pass\tmismatches_total\tmismatches_asymm\tlargest_loop\tno_mas_structures\tno_star_structures\tprecision\tstar_found\tstruc_count\tunstruc_count\tp_struc\tprimary_hairpin_length"
+	header_line = "name\tsub_name\tsizecall\tlocus\tcontig\tstart\tstop\tstrand\tstranded\tlength\tseq\tfold\tmfe\tmfe_per_nt\tmas\tmas_depth\tstar\tstar_depth\tduplex_mas\tduplex_fold\tduplex_star\tstar_offset_left\tstar_offset_right\tp_constellation\tp_star\tmas_constellation_depth\tstar_constellation_depth\tnot_constellation_depth\tlooped_reads\tstructured_reads\tdisqualified_reads\tp_looped\tp_structured\tp_disqualified\tvalid_fold\truling\tmpn_pass\tmismatches_total\tmismatches_asymm\tlargest_loop\tno_mas_structures\tno_star_structures\tprecision\tstar_found\tstruc_count\tunstruc_count\tp_struc\tprimary_hairpin_length"
 
 	Path(hairpin_dir, "folds").mkdir(parents=True, exist_ok=True)
 	with open(hairpin_file, 'w') as outf:
@@ -2534,7 +2588,7 @@ v v vvv vv vv vv""")
 
 	# # 	if job['name'] == "locus_1868":locus_1767
 	# 	# if job['name'] == "locus_327":  ## cocin
-	# 	if job['name'] ==  'locus_909':  #fugra 
+	# 	if job['name'] ==  'locus_968':  #fugra 
 	# 		run_job(job)
 
 	# sys.exit()
