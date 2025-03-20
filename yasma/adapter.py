@@ -43,6 +43,13 @@ from .cli import cli
 @optgroup.group('\n  Optional settings',
 				help='')
 
+
+@optgroup.option('--min_adapter_content', 
+	required=False,
+	default= 0.1, 
+	type=float,
+	help="Min proportion of reads containing the adapter, 0.0 to 1.0. Default: 0.1")
+
 @optgroup.option('-n', 
 	required=False,
 	default= 100000, 
@@ -390,7 +397,7 @@ def adapter(**params):
 
 			preceding = test_preceding_base(seq)
 			passing = ''
-			if perc >= 10:
+			if perc >= params['min_adapter_content'] * 100:
 				passing = " <-"
 
 				if perc > best_perc:
