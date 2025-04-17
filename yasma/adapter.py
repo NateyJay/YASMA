@@ -300,6 +300,10 @@ def adapter(**params):
 		for seq in seqs[:1000]:
 			c.update([len(seq)])
 
+		print(seq)
+		import pprint
+		pprint(c)
+
 		if c.most_common()[0][1] < 950:
 			return(False)
 		return(c.most_common()[0][0])
