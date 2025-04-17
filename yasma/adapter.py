@@ -56,6 +56,9 @@ from .cli import cli
 	type=int,
 	help="Number of reads to check for adapter (default 10,000)")
 
+@optgroup.option('--override_pretrim', is_flag=True, default=False, help='Ignores flagging a library as pretrimmed if it has variation in read length and detectable adapter sequences.')
+
+
 @optgroup.option('--override', is_flag=True, default=False, help='Overrides config file changes without prompting.')
 
 
@@ -297,17 +300,13 @@ def adapter(**params):
 	def check_for_trimming(seqs):
 		c = Counter()
 
-		for seq in seqs[:1000]:
+		for seq in seqs:
 			c.update([len(seq)])
 
-		print(seq)
-		from pprint import pprint
-		pprint(c)
-		print(c.most_common()[0][0])
+		read_length      = c.most_common()[0][0]
+		read_length_freq = round(c.most_common()[0][1] / sum(c.values()), 3)
 
-		if c.most_common()[0][1] < 950:
-			return(False)
-		return(c.most_common()[0][0])
+		return(read_length, read_length_freq)
 
 
 	adapters          = {}
@@ -344,11 +343,8 @@ def adapter(**params):
 		f.close()
 
 
-		read_length = check_for_trimming(seqs)
-		pretrim = False
-		if not read_length:
-			print("Warning: Library is likely already trimmed...")
-			pretrim = True
+		read_length, read_length_freq = check_for_trimming(seqs)
+
 
 		def count_kmers(seqs):
 			kmer_c = Counter()
@@ -428,6 +424,15 @@ def adapter(**params):
 
 		# 	while True:
 
+
+		pretrim = False
+		if read_length_freq < 0.8 and best_perc < 0.10:
+			print("Warning: Library is likely already trimmed...")
+			print(f"  this is because <80% of reads are the most common length and <10% of reads contain an adapter sequence")
+			print("  -> override this with the flag --override_pretrim")
+
+			if not params['--override_pretrim']:
+				pretrim = True
 
 
 		print()
