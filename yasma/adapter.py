@@ -275,29 +275,24 @@ def adapter(**params):
 
 	def process_file(f, line_base, n):
 		seqs = []
-		offset = 0
-
-		target_line = n * line_base
-		for i, line in enumerate(f):
-			
-			try:
-				line = line.decode(ENCODING)
-			except AttributeError:
-				pass
-
-			if i % line_base == 1:
-				seq = line.strip()
-
-				if "N" not in seq:
-					seqs.append(seq)
-				else:
-					offset += line_base
 
 
-			if i - offset >= target_line:
-				return(seqs)
+		i = 0
+
+		while i < target_line:
+
+			f.readline()
+			seqs.append(f.readline().strip().strip("N"))
+
+			if line_base == 4:
+				f.readline()
+				f.readline()
+
+			i += 1
 
 		return(seqs)
+
+
 
 	def check_for_trimming(seqs):
 		c = Counter()
