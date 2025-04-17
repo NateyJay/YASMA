@@ -279,7 +279,7 @@ def adapter(**params):
 
 		i = 0
 
-		while i < target_line:
+		while i < n:
 
 			f.readline()
 			seqs.append(f.readline().strip().strip("N"))
