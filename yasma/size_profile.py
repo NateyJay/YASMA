@@ -24,14 +24,52 @@ class peakClass():
 		self.sizes               = list(range(min_size,max_size))
 		self.candidate_threshold = candidate_threshold
 		self.extension_threshold = extension_threshold
-		self.bam_rgs             = libraries
+		self.libraries           = libraries
+
+		self.min_size = min_size
+		self.max_size = max_size
 
 		self.master = dict()
 		self.master['sizes'] = self.sizes
+		self.master['mask']  = [False] * len(self.sizes)
 
 		self.calc_proportions()
 		self.calc_statistics()
+
+		print('masking slopes...')
+		mask_i = 0
+		while True:
+			pre_mask = " ".join(map(str, self.master['mask']))
+			self.mask_slope()
+
+			if any(self.master['mask']):
+				self.calc_statistics()
+
+
+			mask_i += 1
+			print(f'  iteration {mask_i}')
+
+			if " ".join(map(str, self.master['mask'])) == pre_mask:
+				break
+
+
+		try:
+
+			print()
+			print("Basic stats:")
+			print()
+			print(f"  sd:  {round(self.sd,4)}")
+			print(f"  med: {round(self.med,4)}")
+			print()
+			print(f"  zmed = (p - {round(self.med,4)}) / {round(self.sd,4)}")
+			print()
+
+		except TypeError:
+			sys.exit(f"Error: failed to calculate basic statistics. This is likely due to very low measured alignment rates.")
+
+
 		self.call_peaks()
+
 
 	def calc_proportions(self):
 
@@ -40,7 +78,10 @@ class peakClass():
 
 		# props = list()  ## a list of all proportions in order
 		# prop_d = dict() ## a dictionary of proportions by size
-		for rg in self.bam_rgs:
+		if self.libraries == 'all':
+			self.libraries = list(set(rg_c.keys()))
+
+		for rg in self.libraries:
 			self.master[rg] = list()
 
 		self.master['prop'] = list()
@@ -48,20 +89,37 @@ class peakClass():
 
 		for size in self.master['sizes']:
 			self.master['prop'].append(0)
-			for rg in self.bam_rgs:
+			for rg in self.libraries:
 				count = rg_size_c[(rg, str(size))]
-				prop  = count / rg_c[rg]
+	
+				try:
+					prop  = count / rg_c[rg]
+				except ZeroDivisionError:
+					prop  = 0
 				# print(rg, size, count, prop, sep='\t')
 
 				self.master[rg].append(prop)
 				self.master['prop'][-1] += prop / len(rg_c)
 
+
 	def calc_statistics(self):
 
 
 		props = self.master['prop']
+		props = [p if not self.master['mask'][i] else 0 for i,p in enumerate(props)]
 
-		non_zero_props = [p for p in props if p >= 0]
+		non_zero_props = [p for p in props if p > 0]
+
+		if len(non_zero_props) < 2:
+			self.med = None
+			self.sd  = None
+
+			self.master['zprop']     = [0 for p in props]
+			self.master['peak']      = [None for p in props]
+			self.master['candidate'] = [False for p in props]
+			self.master['extension'] = [False for p in props]
+			return
+
 
 		sd  = stdev(non_zero_props)
 		med = median(non_zero_props)
@@ -70,14 +128,6 @@ class peakClass():
 		self.med = med
 
 
-		print()
-		print("Basic stats:")
-		print()
-		print(f"  sd:  {round(sd,4)}")
-		print(f"  med: {round(med,4)}")
-		print()
-		print(f"  zmed = (p - {round(med,4)}) / {round(sd,4)}")
-		print()
 
 		zprops = [(p - med) / sd for p in props]
 
@@ -86,19 +136,93 @@ class peakClass():
 		self.master['extension'] = list()
 		self.master['peak'] = list()
 
-		for z in zprops:
+		for i,z in enumerate(zprops):
+			p = props[i]
 			self.master['zprop'].append(z)
-			self.master['candidate'].append(z > self.candidate_threshold)
+			self.master['candidate'].append(z > self.candidate_threshold and p > 0.01)
 			self.master['extension'].append(z > self.extension_threshold)
 			self.master['peak'].append(None)
+
+
+
+	def mask_slope(self):
+
+		# print('masking slopes...')
+		for i, zprop in enumerate(self.master['zprop']):
+
+			prop = self.master['prop'][i]
+
+			try:
+				next_prop = self.master['prop'][i+1]
+			except IndexError:
+				next_prop = prop
+
+			try:
+				pchange = next_prop / prop
+			except ZeroDivisionError:
+				pchange = None
+
+
+			# print(i, round(zprop,3), round(prop,3), round(next_prop,3), round(pchange,3), sep='\t')
+
+
+			if zprop < 0 and pchange and pchange > 1:
+				break
+
+			elif zprop < self.candidate_threshold and pchange and pchange > 1.1:
+				break
+
+			else:
+				self.master['mask'][i] = True
+
+
+		## this also masks any leftward or rightward peaks which slope out of the window
+		## these cannot be resolved in the window, and are therefore ignored.
+
+		rs = [enumerate(self.master['extension']), reversed(list(enumerate(self.master['extension'])))]
+
+		for rang in rs:
+			masked_positions = []
+			nucleated = False
+			for r, e in rang:
+
+				if self.master['candidate'][r]:
+					nucleated = True
+				# print(r, e, self.master['candidate'][r], nucleated)
+
+				if not e:
+					if not nucleated:
+						masked_positions = []
+
+					break
+
+				masked_positions.append(r)
+
+			for p in masked_positions:
+				self.master['mask'][p] = True
+
+
+
+		# for r in range(self.min_size)
+		# 	for i,e in enumerate(extensions):
+			
+
+
+
 
 	def call_peaks(self):
 		props  = self.master['prop']
 		zprops = self.master['zprop']
 
+		masked = [i for i,m in enumerate(self.master['mask']) if m]
 
 		candidates = [i for i,z in sorted(enumerate(zprops), key=lambda x:x[1], reverse=True) if z > self.candidate_threshold]
 		extensions = [i for i,z in sorted(enumerate(zprops), key=lambda x:x[1], reverse=True) if z > self.extension_threshold]
+
+		candidates = [i for i in candidates if i not in masked]
+		extensions = [i for i in extensions if i not in masked]
+
+		candidates = [i for i in candidates if props[i] > 0.01]
 
 		change_threshold = -50
 		max_threshold = 50
@@ -133,13 +257,12 @@ class peakClass():
 						rang = range(c-1, -1, -1)
 
 					for r in rang:
-
 						## Breaks if the position does not meet the minimum proportion for a peak based on median-k.
 						if r not in extensions:
 							print(f'({r}) not a candidate')
 							break
 							
-						# print(r)
+
 						p_curr = props[r]
 						p_change = round((p_curr - p_last) / p_last  * 100,1)
 						p_max    = round(p_curr / p_cand * 100, 1)
@@ -154,9 +277,9 @@ class peakClass():
 						# 	break
 
 						## This makes a peak cutoff if the peak increases (saying this is likely a different peak)
-						if p_change > 0:
-							print(f'({r}) peak growing')
-							break
+						# if p_change > 0:
+						# 	print(f'({r}) peak growing')
+						# 	break
 
 						## Breaks if the peak is extending into an already established peak
 						if self.master['peak'][r]:
@@ -166,43 +289,44 @@ class peakClass():
 						# print(direction, r, round(p_curr,4), round(p_last,4), p_change, p_max, sep='\t')
 						self.master['peak'][r] = peak_i
 
-						if r == 0:
-							for i,p in enumerate(self.master['peak']):
-								if p == peak_i:
-									self.master['peak'][i] = None
 
-							peak_i -= 1
+						# ## also masking any contiguous peaks that do not resolve within the leftward window
+						# if r == 0:
+						# 	for i,p in enumerate(self.master['peak']):
+						# 		if p == peak_i:
+						# 			self.master['peak'][i] = None
+						# 			self.master['mask'][i] = True
+
+						# 	peak_i -= 1
+
 
 	def peak_table(self, out_file=False):
 
 		props  = self.master['prop']
 		zprops = self.master['zprop']
 		peaks  = self.master['peak']
+		masks  = self.master['mask']
 
 		candidates = [i for i,c in enumerate(self.master['candidate']) if c] 
-		extensions = [i for i,e in enumerate(self.master['candidate']) if e] 
-
-
-
-		
+		extensions = [i for i,e in enumerate(self.master['extension']) if e] 
 
 
 		if out_file:
 			outf = open(out_file, 'w')
-			print("project\ti\tsize\tprop\tzero\tzmed\tcand\thyst\tpeak",file=outf)
+			print("project\ti\tsize\tprop\tzero\tzmed\tcand\thyst\tpeak\tmask",file=outf)
 
 
 		print()
 		print("Sizes in terms of peaks:")
 		print()
-		print("i\tsize\tprop\tzero\tzmed\tcand\thyst\tpeak")
-		print("============================================================")
+		print("i\tsize\tprop\tzero\tzmed\tcand\thyst\tpeak\tmask")
+		print("=====================================================================")
 		for i,s in enumerate(self.sizes):
 
-			print(i, s, round(props[i],4), props[i] ==  0, round(zprops[i],4), i in candidates, i in extensions, peaks[i], sep='\t')
+			print(i, s, round(props[i],4), props[i] ==  0, round(zprops[i],4), i in candidates, i in extensions, peaks[i], masks[i], sep='\t')
 
 			if out_file:
-				print(self.project, i, s, round(props[i],4), props[i] ==  0, round(zprops[i],4), i in candidates, i in extensions, peaks[i], sep='\t', file=outf)
+				print(self.project, i, s, round(props[i],4), props[i] ==  0, round(zprops[i],4), i in candidates, i in extensions, peaks[i], masks[i], sep='\t', file=outf)
 
 
 		if out_file:
@@ -223,9 +347,13 @@ class peakClass():
 		zprops = self.master['zprop']
 		peaks  = self.master['peak']
 		candidates = [i for i,c in enumerate(self.master['candidate']) if c] 
-		extensions = [i for i,e in enumerate(self.master['candidate']) if e] 
+		extensions = [i for i,e in enumerate(self.master['extension']) if e] 
 
-		max_peak = max([p for p in peaks if p])
+
+		if any(peaks):
+			max_peak = max([p for p in peaks if p])
+		else:
+			max_peak = 0
 
 		unplaced = 1.0
 		unplaced_count = len(self.sizes)
@@ -306,7 +434,6 @@ class peakClass():
 			# z = zprops[i]
 			p = props[i]
 
-
 			val = 0
 
 			bar_string = '  '
@@ -315,7 +442,13 @@ class peakClass():
 				if val > p:
 					break
 
-				z = (val - self.med) / self.sd
+
+				val += 0.01
+
+				try:
+					z = (val - self.med) / self.sd
+				except TypeError:
+					z = 0
 
 				if z > self.extension_threshold:
 					pch = "•"
@@ -324,13 +457,15 @@ class peakClass():
 
 
 				bar_string += pch
-				val += 0.01
 
 			peak_i = self.master['peak'][i]
 			if peak_i:
 				peak_name = f"peak{peak_i}"
 			else:
 				peak_name = ''
+
+			if self.master['mask'][i]:
+				peak_name = 'mask'
 
 			print(s, round(p,3), round(zprops[i],3), peak_name, bar_string, sep='\t')
 			print(s, round(p,3), round(zprops[i],3), peak_name, bar_string, sep='\t', file=outf)
@@ -399,13 +534,21 @@ def size_profile(**params):
 	conditions              = ic.inputs['conditions']
 	annotation_conditions   = ic.inputs['annotation_conditions']
 
+	if not alignment_file:
+		sys.exit("Error: [alignment_file] not specified (and therefore alignment.depth.txt not found)")
 
-	chromosomes, bam_rgs = get_chromosomes(alignment_file)
+	depth_file = Path(alignment_file).with_suffix(".depth.txt")
+
+	if not depth_file.is_file():
+		sys.exit(f"Error: depth file {str(depth_file)} not found, cannot calculate peaks...")
+
+
+	# chromosomes, bam_rgs = get_chromosomes(alignment_file)
 
 	libraries = []
 
 	if len(annotation_conditions) == 0 or params['all']:
-		libraries = bam_rgs
+		libraries = 'all'
 	else:
 		for a in annotation_conditions:
 			try:
