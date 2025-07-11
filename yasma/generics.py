@@ -706,8 +706,9 @@ def validate_path(ctx, param, value):
 
 	if not path.is_file() and not path.is_dir():
 		raise click.BadParameter(f"path not found: {path}")
+		
 
-	full_path = str(Path(path).absolute())
+	full_path = Path(path).absolute()
 
 	return(full_path)
 
@@ -1135,9 +1136,12 @@ class percentageClass():
 
 def make_depth_file(alignment_file, verbose=True):
 
+	if not alignment_file.is_file():
+		sys.exit(f"Error: Cannot make depth file, alignment_file not found\n{str(alignment_file)}")
 
 	header = ['rg','chrom','length','abundance']
 	depth_file = alignment_file.with_suffix(".depth.txt")
+
 	try:
 		alignment_file.with_suffix(alignment_file.suffix + ".bai").unlink()
 	except FileNotFoundError:
@@ -1481,6 +1485,8 @@ def get_library_format(file):
 		return ".fa"
 	elif first_line.startswith("@"):
 		return ".fq"
+	elif len(first_line) == 0:
+		print(f"Warning: file ({str(file)}) appears do contain zero reads...")
 	else:
 		print(f"Error: file ({str(file)}) does not look like a fasta or fastq (or gzipped version) file...")
 		sys.exit()
