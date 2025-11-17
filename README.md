@@ -1,11 +1,13 @@
 
 <p align="center"><img src="images/logo2.png" alt="main logo" width="300" /></p>
 
-
 YASMA is a sRNA annotation suite based around the tool **YASMA-tradeoff**. This tool performs **genome-based** *de novo* annotations which is focused on the ***total small RNA population***, not just a few classes like miRNAs.
 
 In addition to the annotator, YASMA has many helper functions to facilitate reproducible analysis of sRNAs. These support the annotator, but are not required, as YASMA-tradeoff can produce annotations from any small RNA alignment (.bam).
 
+### Published work available
+
+This work is now [published](https://doi.org/10.1016/j.csbj.2025.05.045)! Please have a look at the publication if you want to know more about the benefits of YASMA-tradeoff and the lessons we learned about sRNAs in fungi.
 
 ## Overview
 
@@ -45,9 +47,6 @@ Annotation based on these alignments follows a multi step approach:
 5. Filtering loci to remove those which might be real, but don't have sufficient depth, density, or complexity to assess them.
 
 This results in contiguous loci which are more homogenous in profile. It also tends to avoid over-annotation of background sequences.
-
-#### Is this published?
-This work is currently in submission, with a completed manuscript available on [bioRxiv](https://www.biorxiv.org/content/10.1101/2025.01.25.634868v1).
 
 </a>
 
