@@ -1,20 +1,30 @@
 # Installation
 
-Yasma is written in `python 3.x`. It is not yet in any package managers, but it is fairly easy to install directly with github. This should work in linux/unix systems (please make a issue request if you find a system-related problem!).
+### 1) Best option: conda
 
-### Installing from github with a native python installation
+The first and best option for installation is through bioconda, which includes all dependencies.
+```
+conda create -n my_env
+conda activate my_env
+conda install bioconda:yasma
 
-This simply downloads and installs the tool to your system PATH. Extra python modules are required for Yasma modules, which you must install manually. These are lazy-loaded and some may not be necessary if you don't need that analysis.
+yasma -h
+```
+
+### 2) Installing from github with a native python installation
+
+This option requires more work, but might be more flexible if you have trouble with conda or dependencies in conda. 
+
+This simply downloads and installs the tool to your system PATH. Extra python modules are required for Yasma modules, which you must install manually. These are lazy-loaded and some may not be necessary if you don't need that analysis. Its a good idea to use a virtual environment here, which i show with `venv` in python.
 
 ```
-## cloning the repo with git
-git clone https://github.com/NateyJay/YASMA.git
-## this could also be done using the github desktop app or downloading the repository directly from this page.
-## curl -L -O https://github.com/NateyJay/YASMA/archive/refs/tags/v0.1.0-beta.zip ## curl should work too.
+python3 -m venv yasma
+source yasma/bin/activate
 
-## Yasma can be run from this directory simply with
+git clone https://github.com/NateyJay/YASMA.git
 cd YASMA
-./yasma.py
+
+./yasma.py -h
 
 ```
 
@@ -39,6 +49,7 @@ Python modules/programs:
 * click
 * click-option-group
 * pysam
+* pprintpp
 * pyBigWig (**coverage**, ***jbrowse**, **tradeoff** with -bw)
 * cutadapt (only needed for **trim**)
 * levenshtein (**hairpin**)
@@ -52,7 +63,7 @@ Other programs
 Nearly all dependencies and tools are available through apt.
 
 ```
-sudo apt install python3-numpy python3-click python3-click-option-group python3-pysam python3-pyBigWig python3-cutadapt python3-levenshtein bowtie
+sudo apt install python3-numpy python3-click python3-click-option-group python3-pysam python3-pyBigWig python3-cutadapt python3-levenshtein bowtie python3-pprintpp
 
 ## viennarna is not available through apt, so we can use pip
 python3 -m pip install viennarna
@@ -65,7 +76,7 @@ Other systems like MacOS relies on pip to download packages. Note, you may need 
 
 ```
 ## core modules
-python3 -m pip install numpy click click-option-group pysam cutadapt pyBigWig levenshtein viennarna
+python3 -m pip install numpy click click-option-group pysam cutadapt pyBigWig levenshtein viennarna pprintpp
 
 ## sra-tools and bowtie1 are not found in pip, but they are in homebrew
 brew install brewsci/bio/bowtie
