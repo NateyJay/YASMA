@@ -53,9 +53,9 @@ This results in contiguous loci which are more homogenous in profile. It also te
 <a name="quickstart"/>
 
 
-## Quick start / installation
+## Quick start
 
-YASMA is now available on bioconda! This makes installing the tool and dependencies quite streamlined
+YASMA is now available on bioconda! This makes installing the tool and dependencies quite streamlined.
 
 ```
 conda create -n my_env
@@ -63,28 +63,6 @@ conda activate my_env
 conda install bioconda::yasma
 
 yasma -h
-```
-
-If this gives problems or you want to avoid conda, you can also just run from the [most recent release](https://github.com/NateyJay/YASMA/releases) or even from the cloned repo. I show the latter here, using a virtual environment and package managers for MacOS. More explicit instructions in the [installation doc](doc/installation.md), including for other systems.
-
-```
-python3 -m venv yasma
-source yasma/bin/activate
-
-# getting the YASMA git
-git clone https://github.com/NateyJay/YASMA.git
-
-# installing pip modules
-python3 -m pip install numpy click click-option-group pysam cutadapt pyBigWig levenshtein viennarna
-
-# installing homebrew modules
-brew install brewsci/bio/bowtie
-brew install sratoolkit
-
-# showing the help
-./YASMA/yasma.py
-
-## ./YASMA to your PATH to make this runable from anywhere.
 ```
 
 
