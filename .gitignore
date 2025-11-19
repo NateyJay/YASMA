@@ -5,3 +5,4 @@ images/logos.afdesign~lock~
 *.afdesign~lock~
 
 build/
+src/yasma.egg*
