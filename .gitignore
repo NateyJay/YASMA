@@ -3,3 +3,5 @@
 images/logos.afdesign~lock~
 images/logos.afdesign~lock~
 *.afdesign~lock~
+
+build/
