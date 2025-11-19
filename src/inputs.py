@@ -9,7 +9,7 @@ from click_option_group import optgroup
 from pathlib import Path
 from os.path import isfile, isdir
 from collections import Counter#, deque
-from pprint import pprint
+from pprintpp import pprint
 
 
 from .generics import *

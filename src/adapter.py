@@ -14,7 +14,7 @@ from time import time, sleep
 from collections import Counter, deque
 from itertools import count, chain
 from statistics import median, mean
-from pprint import pprint
+from pprintpp import pprint
 
 
 from .generics import *
