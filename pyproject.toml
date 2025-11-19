@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yasma"
+version = "1.0.1"
+description = "Yet Another Small RNA Annotator"
+readme = "README.md"
+authors = [
+    { name = "Nate Johnson", email = "jax523@gmail.com" }
+]
+license = { file = "LICENSE" }
+requires-python = ">=3.12"
+
+# Only list Python package dependencies here (not external tools!)
+dependencies = [
+    "numpy",
+    "pandas",
+    "click",      # for CLI, if you use it
+    "pprintpp",
+    "Levenshtein",
+    "numpy",
+    "pyBigWig",
+    "pysam",
+    "click_option_group"
+]
+
+# Provide a command-line entry point
+[project.scripts]
+yasma = "yasma.cli:cli"
+
+# Optional metadata
+[project.urls]
+homepage = "https://github.com/NateyJay/YASMA"
+repository = "https://github.com/NateyJay/YASMA"
+issues = "https://github.com/NateyJay/YASMA/issues"
+
+# This tells setuptools where your package code lives
+[tool.setuptools.packages.find]
+where = ["src"]

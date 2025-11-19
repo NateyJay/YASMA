@@ -1,0 +1,9 @@
+numpy
+pandas
+click
+pprintpp
+Levenshtein
+numpy
+pyBigWig
+pysam
+click_option_group
