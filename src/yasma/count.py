@@ -4,7 +4,6 @@ from .generics import *
 
 from shutil import rmtree
 from collections import deque
-from pprint import pprint
 
 
 
@@ -83,15 +82,6 @@ def count(** params):
 	# name                 = params['name']
 
 	Path(output_directory, "counts").mkdir(parents=True, exist_ok=True)
-	temp_dir = Path(output_directory, 'counts', 'temp')
-
-	try:
-		rmtree(temp_dir)
-	except FileNotFoundError:
-		pass
-	temp_dir.mkdir(parents=True, exist_ok=True)
-
-
 
 	chromosomes, libraries = get_chromosomes(alignment_file)
 
