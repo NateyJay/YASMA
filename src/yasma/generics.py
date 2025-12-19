@@ -232,7 +232,7 @@ class inputClass():
 			'genome_file',
 			'jbrowse_directory',
 			'gene_annotation_file',
-			'annotation_file',
+			'annotation_files',
 			'min_length',
 			'max_length'
 			]
@@ -246,7 +246,7 @@ class inputClass():
 			'genome_file',
 			'jbrowse_directory',
 			'gene_annotation_file',
-			'annotation_file'
+			'annotation_files'
 			]
 
 
@@ -315,12 +315,13 @@ class inputClass():
 				return(str(p.absolute()))
 
 
-		for p in ["untrimmed_libraries", "trimmed_libraries"]:
+		for p in ["untrimmed_libraries", "trimmed_libraries", 'annotation_files']:
+
 			if self.inputs[p]:
 				for i in range(len(self.inputs[p])):
 					self.inputs[p][i] = encode_path(self.inputs[p][i])
 
-		for p in ["alignment_file", 'genome_file', 'jbrowse_directory', 'gene_annotation_file', 'annotation_file']:
+		for p in ["alignment_file", 'genome_file', 'jbrowse_directory', 'gene_annotation_file']:
 			if self.inputs[p]:
 				self.inputs[p] = encode_path(self.inputs[p])
 
@@ -335,13 +336,13 @@ class inputClass():
 			return(Path(od, p))
 
 
-		for p in ["untrimmed_libraries", "trimmed_libraries"]:
-			if self.inputs[p]:
+		for p in ["untrimmed_libraries", "trimmed_libraries", 'annotation_files']:
+			if p in self.inputs and self.inputs[p]:
 				for i in range(len(self.inputs[p])):
 					self.inputs[p][i] = decode_path(self.inputs[p][i])
 
 
-		for p in ["alignment_file", 'genome_file', 'jbrowse_directory', 'gene_annotation_file', 'annotation_file']:
+		for p in ["alignment_file", 'genome_file', 'jbrowse_directory', 'gene_annotation_file']:
 			if p in self.inputs:
 				if self.inputs[p]:
 					self.inputs[p] = decode_path(self.inputs[p])
@@ -374,6 +375,8 @@ class inputClass():
 
 			if option in self.paths and value:
 
+				if isinstance(value, tuple):
+					value = list(value)
 
 				if isinstance(value, list):
 					for i in range(len(value)):
