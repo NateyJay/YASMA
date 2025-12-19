@@ -641,7 +641,6 @@ def validate_outdir(ctx, param, od):
 			
 def validate_glob_path(ctx, param, value):
 
-
 	if len(value) == 0:
 		# print(param)
 		# raise click.UsageError("Error: Missing or empty option '-l'")
@@ -655,10 +654,12 @@ def validate_glob_path(ctx, param, value):
 		full_paths.append(path.absolute())
 
 		if not path.is_file() and not path.is_dir():
-			raise click.BadParameter(f"path not found: {path}")
+			print(f"Warning: bad path ({path}) removed!")
+			# raise click.BadParameter(f"path not found: {path}")
 
 	full_paths = tuple(full_paths)
 	return(full_paths)
+
 
 def validate_library_paths(ctx, param, value):
 
