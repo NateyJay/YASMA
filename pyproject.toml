@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yasma"
-version = "1.0.1"
+version = "1.1.0"
 description = "Yet Another Small RNA Annotator"
 readme = "README.md"
 authors = [
