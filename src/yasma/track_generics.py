@@ -107,11 +107,12 @@ class bigwigClass():
 		self.depths = [0] * chrom_length
 
 
-	def add(self, pos, length):
+	def add(self, pos, length, val=1):
+		'''add depth for positons along an alignment. Val may be used to select normalized values (default is 1 read) '''
 
 		for r in range(pos, pos+length+1):
 			try:
-				self.depths[r] += 1
+				self.depths[r] += val
 			except IndexError:
 				# print(f"WARNING: position {r:,} is longer than the total chromosome length")
 				pass
@@ -163,6 +164,8 @@ class bigwigClass():
 			starts.remove(0)
 			ends.remove(0)
 			values.remove(0)
+
+		# print(values)
 
 		self.bw.addEntries([chrom] * len(values), starts, ends=ends, values=values)
 

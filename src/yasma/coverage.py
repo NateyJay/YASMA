@@ -4,6 +4,7 @@ from .track_generics import *
 
 
 
+
 @cli.command(group='Calculation', help_priority=4)
 
 
@@ -30,12 +31,21 @@ from .track_generics import *
 	required=False,
 	type=str,
 	multiple=True,
-	help='Entry of size limits for a peak. Encoded as two integers separated by a dash (`-`), for example: 21-22 is an appropriate entry for plant miRNAS. Also accepts single-size peaks without dash. Multiple peaks may be identified, separated with spaces or by calling the option again.')
+	default=["20-25"],
+	help='Entry of size limits for a peak. Encoded as two integers separated by a dash (`-`), for example: 21-22 is an appropriate entry for plant miRNAS. Also accepts single-size peaks without dash. Multiple peaks may be identified, separated with spaces or by calling the option again. Default: 20-25')
 
+# @optgroup.option("--summarize", 
+# 	default=False,
+# 	is_flag=True,
+# 	help="Produces a summary of all sizes and annotations")
 
+@optgroup.option("--force", 
+	default=False,
+	is_flag=True,
+	help="Forces remaking bigwigs even if all expected are found")
 
 def coverage(**params):
-	"""Produces combined bigwig coverage files"""
+	"""Produces bigwig coverage files"""
 
 	rc = requirementClass()
 	# rc.add_samtools()
@@ -48,62 +58,92 @@ def coverage(**params):
 	alignment_file          = ic.inputs["alignment_file"]
 	project_name            = ic.inputs['project_name']
 	# annotation_readgroups   = ic.inputs['annotation_readgroups']
+	conditions              = ic.inputs['conditions']
 
-	peaks = list(params['peaks'])
+	force = params['force']
 
+	def process_peaks(unprocessed_peaks):
+		peaks = set()
+		for peak in unprocessed_peaks:
+			if peak.count("-") == 1:
+				for r in range(int(peak.split('-')[0]),int(peak.split('-')[1])+1):
+					peaks.add(r)
+
+			else:
+				try:
+					peaks.add(int(peak))
+				except ValueError:
+					sys.exit(f"Error: '{peak}' if incorrectly formated. Must be a number or range.")
+
+
+		peaks = list(peaks)
+		peaks.sort()
+		return(peaks)
+
+	peaks = process_peaks(list(params['peaks']))
 
 
 	chromosomes, libraries = get_chromosomes(alignment_file)
 
-	# libraries = 
-	# annotation_readgroups = check_rgs(annotation_readgroups, bam_rgs)
+	chrom_depth_c = get_global_depth(alignment_file, aggregate_by=['rg'])
 
-	chrom_depth_c = get_global_depth(alignment_file, aggregate_by=['rg','chrom'])
+	library_to_condition = {}
+	for condition, srrs in conditions.items():
+		for srr in srrs:
+			library_to_condition[srr] = condition
 
-
-	keys = list(chrom_depth_c.keys())
-	for key in keys:
-		if key[0] in libraries:
-			chrom_depth_c[key[1]] += chrom_depth_c[key]
-
-		del chrom_depth_c[key]
+	libraries = list(library_to_condition.keys())
 
 
 
-	aligned_depth = sum(chrom_depth_c.values())
+	rpm_d = {}
+	for rg, depth in chrom_depth_c.items():
+		rpm_d[rg] = 1 / depth * 1000000
+
+
+	# keys = list(chrom_depth_c.keys())
+	# for key in keys:
+	# 	if key[0] in libraries:
+	# 		chrom_depth_c[key[1]] += chrom_depth_c[key]
+
+	# 	del chrom_depth_c[key]
+
+
+
+	# aligned_depth = sum(chrom_depth_c.values())
+
 
 	cov_dir = Path(output_directory, 'coverage')
 	cov_dir.mkdir(parents=True, exist_ok=True)
 
 
-	if peaks:
-		peak_lookup = {}
-		for i,peak in enumerate(peaks):
-			peak = peak.split("-")
-			peak = [int(p) for p in peak]
+	def check_done(force):
+		for size in sizes:
+			for strand in strands:
+				for condition in conditions.keys():
+					file = Path(cov_dir,f'{condition}_{size}{strand}.bw')
+					if not file.is_file():
+						return()
 
-			if len(peak) == 1:
-				peak_lookup[peak[0]] = i
-			else:
-				for p in range(min(peak), max(peak)+1):
-					peak_lookup[p] = i
-
-		peak_list = ['all', 'other'] + peaks
-	else:
-		peak_list = ['all']
-
-
-
+		print("All expected output files are already found.")
+		if force:
+			print("  force=True -> running anyways")
+		else:
+			print("  stopping (override with --force)")
 
 
 	bw_d = {}
-	bw_d['all'] = bigwigClass(Path(cov_dir, 'all.bw'), aligned_depth, chromosomes, strand= "+", name='all')
 
-	strands = ['+','-']
-	for peak in peak_list:
+	sizes = peaks + ["non"]
+	strands = ['+', "-"]
+
+	for size in sizes:
 		for strand in strands:
-			name = f"{peak}{strand}"
-			bw_d[name] = bigwigClass(Path(cov_dir, f'{name}.bw'), aligned_depth, chromosomes, strand= strand, name=name)
+			for condition in conditions.keys():
+				bw_d[(condition, size, strand)] = bigwigClass(Path(cov_dir, f'{condition}_{size}{strand}.temp.bw'), total_reads=None, chromosomes=chromosomes, strand= strand)
+
+
+
 
 
 	bamf = pysam.AlignmentFile(alignment_file)
@@ -121,18 +161,20 @@ def coverage(**params):
 		for key in bw_d.keys():
 			bw_d[key].reset(chrom_length)
 
-		perc = percentageClass(1, chrom_depth_c[chrom])
+
 
 		for i,read in enumerate(bamf.fetch(contig=chrom)):
 
-			perc_out = perc.get_percent(i)
-			if perc_out:
-				print(f"   reading position depths ..... {perc_out}%", end='\r', flush=True)
+			# perc_out = perc.get_percent(i)
+			# if perc_out:
+			# 	print(f"   reading position depths ..... {perc_out}%", end='\r', flush=True)
 			
 			if read.is_unmapped:
 				continue
 
-			if read.get_tag("RG") not in libraries:
+			library = read.get_tag("RG")
+
+			if library not in libraries:
 				continue
 
 			if read.is_forward:
@@ -140,28 +182,26 @@ def coverage(**params):
 			else:
 				strand = "-"
 
-			length   = read.query_length
-			position = read.reference_start
+			length    = read.query_length
+			position  = read.reference_start
+			condition = library_to_condition[library]
+			val       = round(rpm_d[library], 4)
 
 
-			if peaks:
-				try:
-					peak_name = f"{peaks[peak_lookup[length]]}{strand}"
-				except KeyError:
-					peak_name = f'other{strand}'
+			if length in peaks:
+				size = length
+			else:
+				size = 'non'
 
+			bw_d[(condition, size, strand)].add(position, length, val)
 
-				bw_d[peak_name].add(position, length)
-
-
-			bw_d['all'].add(position, length)
-			bw_d[f'all{strand}'].add(position, length)
 
 
 		print()
-		for key in bw_d.keys():
-			print(f"[{key}]", end='  ', flush=True)
-			bw_d[key].rle(chrom)
+		for condition, size, strand in bw_d.keys():
+			name = f"{condition}_{size}{strand}"
+			print(f"[{name}]", end='  ', flush=True)
+			bw_d[(condition, size, strand)].rle(chrom)
 
 		print()
 		print()
@@ -169,6 +209,7 @@ def coverage(**params):
 
 	for key in bw_d.keys():
 		bw_d[key].close()
+		Path(bw_d[key].file).rename(bw_d[key].file.replace(".temp.bw", '.bw'))
 
 	bamf.close()
 
