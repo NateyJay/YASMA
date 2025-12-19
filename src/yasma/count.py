@@ -107,20 +107,26 @@ def count(** params):
 		annotation_files = [f for f in output_directory.glob("*/loci.gff3")]
 
 		if not annotation_files:
-			print("No annotation files found! have you run an annotation? (yasma tradeoff)")
+			print("Error: No annotation files found! have you run an annotation? (yasma tradeoff)")
 			print("Searches for annotations by default at */loci.gff3")
 			print("Provide other annotations with -an [annotation_file_path]")
 			sys.exit()
 
 	if not annotation_files:
-		sys.exit("Annotation files not found. Are they supplied correctly?")
+		sys.exit("Error: Annotation files not found. Are they supplied correctly?")
 
 
 	print()
 	print(f'counting annotations from:')
 
+
 	for af in annotation_files:
-		print(f"  {af}")
+		print(f"  {af.is_file()}\t{af}")
+
+	annotation_files = [a for a in annotation_files if a.is_file()]
+
+	if not annotation_files:
+		sys.exit("Error: All annotation paths are not findable...")
 	print()
 
 	c = Counter()
