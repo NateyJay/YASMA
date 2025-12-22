@@ -234,8 +234,8 @@ def count(** params):
 				p = round(read_i / aligned_read_count * 100, 1)
 				print(f"  read_i: {read_i:,}   ({p}%)   ", end='\r')
 
-				if read_i > 10000000:
-					break
+				# if read_i > 10000000:
+				# 	break
 
 
 			read_i += 1
