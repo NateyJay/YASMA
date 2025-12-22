@@ -143,6 +143,7 @@ def count(** params):
 	annotation_names = set()
 	locus_d = dict()
 	coord_d = dict()
+	used_names = list()
 
 	for annotation_file in annotation_files:
 		annotation_file = Path(annotation_file)
@@ -193,6 +194,12 @@ def count(** params):
 					end      = int(coords.split(':')[1].split("-")[1])
 
 
+					if name in used_names:
+						used_names.append(name)
+						name = f"{name}_{used_names.count(name)}"
+					else:
+						used_names.append(name)
+
 					features.append((contig, contig_i, start, end, name, annotation_name))
 
 					try:
@@ -227,8 +234,8 @@ def count(** params):
 				p = round(read_i / aligned_read_count * 100, 1)
 				print(f"  read_i: {read_i:,}   ({p}%)   ", end='\r')
 
-				# if read_i > 10000000:
-				# 	break
+				if read_i > 10000000:
+					break
 
 
 			read_i += 1
