@@ -204,7 +204,7 @@ def get_bin_threshold(cdf_c, to_save=False, to_print=False):
 @optgroup.option('-gsf', "--genome_scaling_factor",
 	default=0.4,
 	type=float,
-	help="")
+	help="This affects the sensitivity threshold of the annotation. This denotes the weight of the percent_genome relative to the percent_reads when calculating the tradeoff threshold. Generally, higher GSF = higher precision and lower GSF = higher sensitivity, though this is likely not the first or best option for optimizing these. Default 0.4.")
 
 
 # @optgroup.option("--genome_weight",
@@ -267,15 +267,28 @@ def get_bin_threshold(cdf_c, to_save=False, to_print=False):
 
 
 
+
+
 @optgroup.group('\n  Locus options',
 				help='')
 
-@optgroup.option('--filter_skew/--no_filter_skew', default=False, help='filter highly skewed loci (default: False).')
+@optgroup.option('--filter_skew/--no_filter_skew', default=True, help='filter highly skewed loci (default: True).')
 
 @optgroup.option("--max_skew",
-	default=0.90,
+	default=0.9,
 	type=float,
-	help="Filter value for loci which are skewed toward only one sequence in abundance. By default (0.95), if more than 1 in 20 reads for a locus are a single sequence, they are excluded from the annotation.")
+	help="Filter value for loci which are skewed toward only one sequence in abundance. By default (0.9), if more than 9 in 10 reads for a locus are a single sequence, this locus is removed from the annotation.")
+
+
+
+@optgroup.option('--override_skew/--no_override_skew', is_flag=True, default=True, help='ignore skew for some sizecalled loci (default: True)')
+@optgroup.option("--skew_ignore_range", 
+	required=False,
+	type=str,
+	multiple=True,
+	default=["20-24"],
+	help='Overrides skew filter for loci with a sizecall in range given. This saves highly-precisely processed (skewed) genes where there is a known expected size (i.e., miRNAs in plants/animals). Default: 20-24.')
+
 
 @optgroup.option('--filter_complexity/--no_filter_complexity', is_flag=True, default=True, help='filter low complexity loci (default: True)')
 @optgroup.option("--min_complexity",
@@ -296,6 +309,13 @@ def get_bin_threshold(cdf_c, to_save=False, to_print=False):
 	help="Min of (default 100) reads per 1000 nucleotides in a locus.")
 
 
+@optgroup.option('--filter_size/--no_filter_size', is_flag=True, default=True, help='filter small-sized loci (default: True). This is meant to remove loci which have a sizecall that makes them likely to be derived from predominantly highly-degraded RNAs. These are a particular threat, as they are greatly affected by library quality and may align spuriously.')
+@optgroup.option("--min_size",
+	default=19,
+	type=int,
+	help="Min sizecall (predominant sRNA size for a locus) of 19 nt (inclusive).")
+
+
 # @optgroup.option('--filter_rpm/--no_filter_rpm', is_flag=True, default=False, help='filter loci with very low RPM values. Defalue: False. These may be real loci but are likely trivially low expression and only detectable with extreme sequencing depth.')
 # @optgroup.option("--min_rpm",
 # 	default=0.5,
@@ -309,13 +329,13 @@ def get_bin_threshold(cdf_c, to_save=False, to_print=False):
 
 @optgroup.option('-bw', '--bigwig', is_flag=True, default=False, help='Write coverage and kernel tracks to bigwig files. Increases run-time.')
 @optgroup.option('--time_test', is_flag=True, default=False, help='Shows time test statistics for difference parts of the pipeline.')
-@optgroup.option('--dont_revise_regions', is_flag=True, default=False, help='Argument to skip revising regions step.')
-@optgroup.option('--dont_trim_loci', is_flag=True, default=False, help='Argument to skip final trim of annotated loci.')
+# @optgroup.option('--dont_revise_regions', is_flag=True, default=False, help='Argument to skip revising regions step.')
+@optgroup.option('--trim_loci/--dont_trim_loci', is_flag=True, default=True, help='Toggle for performing the final trim of annotated loci. Default: trim_loci')
 
 # @optgroup.option('--force', is_flag=True, default=False, help='force resubsample')
-@optgroup.option('--debug', is_flag=True, default=False, help='Debug flag')
+# @optgroup.option('--debug', is_flag=True, default=False, help='Debug flag')
 @optgroup.option('--test_mode', is_flag=True, default=False, help='test_mode flag')
-@optgroup.option('--override', is_flag=True, default=False, help='Overrides config file changes without prompting.')
+# @optgroup.option('--override', is_flag=True, default=False, help='Overrides config file changes without prompting.')
 
 
 def tradeoff(**params):
@@ -337,7 +357,7 @@ def tradeoff(**params):
 	clump_dist              = params['merge_dist']
 	clump_strand_similarity = params['merge_strand_similarity']
 	# min_locus_length        = params['min_locus_length']
-	debug                   = params['debug']
+	# debug                   = params['debug']
 	annotation_name         = params['name']
 	# target_depth            = params['subsample']
 	# seed                    = params['subsample_seed']
@@ -348,6 +368,10 @@ def tradeoff(**params):
 	params['alignment_file'] = alignment_file
 	params['project_name'] = project_name
 
+	skew_ignore_range = set(process_range(list(params['skew_ignore_range'])))
+
+	if not params['override_skew']:
+		skew_ignore_range = {}
 
 	### optimizing time
 
@@ -387,12 +411,6 @@ def tradeoff(**params):
 	# if params['target_genome_perc'] and params['target_read_perc']:
 	# 	sys.exit("ERROR: cannot specify target read AND genome percentages (one is dependent on the other)")
 
-
-
-	if debug: 
-		show_warnings = True
-	else:
-		show_warnings = False
 
 
 
@@ -447,11 +465,11 @@ def tradeoff(**params):
 	### getting basic metrics, including a test_mode chromosome filter
 
 	if params['test_mode']:
-		chromosomes = chromosomes[3:5]
+		# chromosomes = chromosomes[3:10]
 		# chromosomes = chromosomes[20:30]
 		# chromosomes = chromosomes[2:5]
 		# chromosomes = chromosomes[:2]
-		# chromosomes = chromosomes[:1]
+		chromosomes = chromosomes[:1]
 		# chromosomes = chromosomes[4:7]
 		# chromosomes = chromosomes[7:8]
 		# chromosomes = chromosomes[9:]
@@ -505,8 +523,6 @@ def tradeoff(**params):
 			libraries.append(lib)
 
 	annotation_libraries = set(annotation_libraries)
-
-
 
 
 	print()
@@ -585,8 +601,12 @@ def tradeoff(**params):
 	region_file = Path(output_directory, dir_name, 'regions.gff3')
 	init_gff(region_file)
 
-	filter_gff_file = Path(output_directory, dir_name, 'filtered_loci.gff3')
+	filter_gff_file = Path(output_directory, dir_name, 'removed_loci.gff3')
 	init_gff(filter_gff_file)
+
+	filter_file = Path(output_directory, dir_name, 'removed_loci.txt')
+	with open(filter_file, 'w') as outf:
+		print('coords\tlength\tfilter_string\tcomplexity\tpass_complexity\tskew\tpass_skew\tabd\tpass_abd\tabd_dens\tpass_abd_dens\tsize\tpass_size', sep='\t', file=outf)
 
 	results_file = Path(output_directory, dir_name, 'loci.txt')
 	with open(results_file, 'w') as outf:
@@ -603,9 +623,6 @@ def tradeoff(**params):
 		outf.write('')
 
 
-	filter_file = Path(output_directory, dir_name, 'filtered_loci.txt')
-	with open(filter_file, 'w') as outf:
-		print('coords\tlength\tabd\tpass_abd\tabd_dens\tpass_abd_dens\tcomplexity\tpass_complexity\tskew\tpass_skew', sep='\t', file=outf)
 
 
 	# stats_file = f"{output_directory}/{dir_name}/stats_by_ref.txt"
@@ -1711,9 +1728,11 @@ This could be caused by a couple factors:
 	# Some filter counters
 	complexity_filter = 0
 	skew_filter       = 0
+	skew_ignore       = 0
 	abd_filter        = 0
 	abd_dens_filter   = 0
-	rpm_filter        = 0
+	size_filter       = 0
+	# rpm_filter        = 0
 
 	annotated_space = 0
 	annotated_reads = 0
@@ -1923,12 +1942,13 @@ This could be caused by a couple factors:
 		## Assessing locus dimensions and making annotations
 
 		stat_d['loci'] += len(loci)
+		bad_sizes = set(range(params['min_length'], params['min_size']))
 
 		last_stop = 0
 		for i,locus in enumerate(loci):
 
 
-			if not params['dont_trim_loci']:
+			if params['trim_loci']:
 				rc = reviseClass(locus)
 				locus[2], locus[3] = rc.trim()
 
@@ -1956,7 +1976,7 @@ This could be caused by a couple factors:
 			ec = elapsedClass()
 
 			size, strand = get_region_stats(chrom, start, stop)
-
+			size.get()
 
 			# aligned_read_count = 0
 			for read in bamf.fetch(contig=chrom, start=start, stop=stop):
@@ -1994,12 +2014,15 @@ This could be caused by a couple factors:
 			abd_dens = sum(seq.values()) / (stop-start) * 1000
 			rpm      = sum(seq.values()) / aligned_read_count * 1000000
 
-			pass_complexity = complexity >= params['min_complexity']
-			pass_skew       = skew <= params['max_skew']
-			pass_abd        = sum(seq.values()) >= params['min_abundance']
-			pass_abd_dens   = abd_dens >= params['min_abundance_density']
+			pass_complexity  = complexity >= params['min_complexity']
+			pass_skew        = skew <= params['max_skew']
+			pass_skeq_ignore = size.size_1_key != None and size.size_1_key[0] in skew_ignore_range
+			pass_abd         = sum(seq.values()) >= params['min_abundance']
+			pass_abd_dens    = abd_dens >= params['min_abundance_density']
+			pass_size        = bad_sizes.isdisjoint(size.sizecall)
 			# pass_rpm        = rpm >= params['min_rpm']
 
+			# input()
 
 			pass_all_filters = 0
 
@@ -2009,7 +2032,10 @@ This could be caused by a couple factors:
 
 			if not pass_skew:
 				skew_filter += 1
-				pass_all_filters += int(params['filter_skew'])
+				if pass_skeq_ignore:
+					skew_ignore += 1
+				else:
+					pass_all_filters += int(params['filter_skew'])
 
 			if not pass_abd:
 				abd_filter += 1
@@ -2019,16 +2045,23 @@ This could be caused by a couple factors:
 				abd_dens_filter += 1
 				pass_all_filters += int(params['filter_abundance_density'])
 
+			if not pass_size:
+				size_filter += 1
+				pass_all_filters += int(params['filter_size'])
+
 			# if not pass_rpm:
 			# 	rpm_filter += 1
 			# 	pass_all_filters += int(params['filter_rpm'])
 
-
 			if pass_all_filters > 0:
+
+				filter_string = [pass_complexity, pass_skew, pass_abd, pass_abd_dens, pass_size]
+				filter_string = [str(int(x)) for x in filter_string]
+				filter_string = "".join(filter_string)
 				# regions_name_i -= 1
-				print(coords, length, abd, pass_abd, round(abd/length*1000,4), pass_abd_dens, round(complexity,4), pass_complexity, skew, pass_skew, sep='\t', file=filterf)
+				print(coords, length, filter_string, round(complexity,4), pass_complexity, skew, abd, pass_abd, round(abd/length*1000,4), pass_abd_dens, pass_skew, size.sizecall, pass_size, sep='\t', file=filterf)
 				print(chrom, 'yto', 'filtered_locus', start, stop, '.','.','.', 
-					f"ID={name};PassComplexity={pass_complexity};Complexity={complexity};PassSkew={pass_skew};Skew={skew};PassAbd={pass_abd};Abd={sum(seq.values())};PassAbdDens={pass_abd_dens};AbdDens={abd_dens}", sep='\t', file=filtergf) # ;PassRPM={pass_rpm};RPM={rpm}
+					f"ID={name};filterStr={filter_string};PassComplexity={pass_complexity};Complexity={complexity};PassSkew={pass_skew};Skew={skew};PassAbd={pass_abd};Abd={sum(seq.values())};PassAbdDens={pass_abd_dens};AbdDens={abd_dens};PassSize={pass_size};Size={"_".join(map(str, size.sizecall))}", sep='\t', file=filtergf) # ;PassRPM={pass_rpm};RPM={rpm}
 				continue
 
 			final_locus_count += 1
@@ -2071,10 +2104,13 @@ This could be caused by a couple factors:
 	print()
 	print()
 	print(f"locus filters:  (x = filter activated)")
-	print(f"  {bool_to_check(params['filter_skew'])} {skew_filter:,} loci are extremely skewed (> {params['max_skew']} prop. abundance is a single sequence)")
+	print(f"  {bool_to_check(params['filter_skew'])} {skew_filter:,} loci are skewed (> {params['max_skew']} proportion abundance is a single sequence)")
+	if params['override_skew']:
+		print(f"        {skew_ignore:,} of these are preserved due to --ignore_skew {skew_ignore_range}")
 	print(f"  {bool_to_check(params['filter_complexity'])} {complexity_filter:,} loci have low complexity (< {params['min_complexity']} unique reads per 1000 nt)")
 	print(f"  {bool_to_check(params['filter_abundance'])} {abd_filter:,} loci are below min abundance (< {params['min_abundance']} aligned reads)")
 	print(f"  {bool_to_check(params['filter_abundance_density'])} {abd_dens_filter:,} loci are below min abundance density (< {params['min_abundance_density']} aligned reads / 1000 nt)")
+	print(f"  {bool_to_check(params['filter_size'])} {size_filter:,} loci have a sizecall too small (< {params['min_size']}, inclusive)")
 	# print(f"  {bool_to_check(params['filter_rpm'])} {rpm_filter:,} loci are below min RPM of aligned reads (< {params['min_rpm']} rpm)")
 	print()
 	print(f"  {final_locus_count:,} loci passing activated filter(s)")
@@ -2132,7 +2168,10 @@ This could be caused by a couple factors:
 	end_time = datetime.now()
 
 
-	ic.inputs['annotation_file'] = gff_file
+	if not ic.inputs['annotation_files']:
+		ic.inputs['annotation_files'] = []
+	ic.inputs['annotation_files'].append(gff_file)
+	ic.inputs['annotation_files'] = list(set(ic.inputs['annotation_files']))
 	ic.write()
 
 	date_time = end_time.strftime("%Y/%m/%d, %H:%M:%S")

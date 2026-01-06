@@ -201,6 +201,7 @@ class requirementClass():
 class inputClass():
 
 	def __init__(self, params):
+		self.params = params
 
 		try:
 			if params['override']:
@@ -479,29 +480,41 @@ class inputClass():
 
 			# 	pass_check = False
 			# 	print(f'Error: required option {option} not supplied or in logged inputs...')
-		print()
+
 		if not pass_check:
-
-
 			sys.exit("Error: one or more essential options are not provided in 'inputs.json' or program call")
 
-		print("Other options:")
+		headers = ["Other Options:", "Other Params:"]
 
-		options = list(self.inputs.keys())
-		options += [o for o in self.inputs.keys() if o not in options]
-		options = [o for o in options if o not in required_options]
+		other_options = list(self.inputs.keys())
+		other_options += [o for o in self.inputs.keys() if o not in other_options]
+		other_options = [o for o in other_options if o not in required_options]
 
-		for option in options:
+		other_params = list(self.params.keys())
+		other_params = [o for o in other_params if o not in other_options]
 
-			if option in self.inputs:
-				value = self.inputs[option]
-			else:
-				value = self.params[option]
+		for options in [other_options, other_params]:
+			print()
+			print(headers.pop(0))
+			for option in options:
 
-			print(f"    {option}:", "." * (offset-len(option)), value)
+				if option in self.inputs:
+					value = self.inputs[option]
+				else:
+					value = self.params[option]
+
+				if type(value) in [list, tuple, set]:
+
+					print(f"    {option}:", "." * (offset-len(option)), str(value[0]))
+					for v in value[1:]:
+						print(f"     ", " " * (offset), str(v))
+
+
+
+				else:
+					print(f"    {option}:", "." * (offset-len(option)), str(value))
 
 		print()
-
 
 
 	def check_chromosomes(self):
@@ -759,7 +772,23 @@ def validate_condition(ctx, param, input_tuple):
 	return(d)		
 
 
+def process_range(unprocessed_peaks):
+	peaks = set()
+	for peak in unprocessed_peaks:
+		if peak.count("-") == 1:
+			for r in range(int(peak.split('-')[0]),int(peak.split('-')[1])+1):
+				peaks.add(r)
 
+		else:
+			try:
+				peaks.add(int(peak))
+			except ValueError:
+				sys.exit(f"Error: '{peak}' if incorrectly formated. Must be a number or range.")
+
+
+	peaks = list(peaks)
+	peaks.sort()
+	return(peaks)
 
 def parse_locus(locus):
 	locus = locus.replace("..", "-").strip()
@@ -976,7 +1005,7 @@ class sizeClass():
 
 	def __add__(self, other):
 		self.size_c += other.size_c
-		self.depth += other.depth
+		self.depth  += other.depth
 		return(self)
 
 

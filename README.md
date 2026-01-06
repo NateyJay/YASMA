@@ -152,9 +152,7 @@ This also lets you know if there are incongruities in your data. For example, it
 ## Modules
 ### Processing
 
-Using these modules, yasma can look for adapter sequences, trim libraries (using cutadapt), and align them to a genome (using shortstack3/4 x bowtie1).
-
-All of these could be run manually, but alignment with shortstack is essential as the annotation looks for readgroup information in shortstack's bam format.
+Using these modules, yasma can look for adapter sequences, trim libraries (using cutadapt), and align them to a genome. Alignment mimics the process of ShortStack3/4, utilizing bowtie1 as the alignment engine and placing multimapping reads based on unique-mapper weighting. Other alignments (bam format) may be used, but the `@RG` field is required in the bam (natively produced in YASMA or ShortStack alignments).
 
 
 ### Annotation
@@ -166,6 +164,7 @@ There are several options, but an essential one specified here is `-r, --annotat
 Many outputs are produced from this step, with some described here:
 
 * `loci.gff3` and `loci.txt` - the core annotation output, identifying loci and their dimensions (in gff and tabular formats). 
+* `removed_loci.gff3` - loci that have been filtered in one of the locus filter steps.
 * `coverage.bw` and `kernel.bw` - track files associated with the sRNA alignment coverage and padded_coverage by max() (kernel).
 * `regions.gff3` and `revised_regions.gff3` - annotation files of distinct sRNA regions based off the padded_coverage, and the revision of those regions including nearby similar sRNAs.
 * `thresholds.txt` - a table showing the percent of the genome retrieved and reads annotated for each threshold in sRNA abundance.
@@ -189,9 +188,6 @@ This module was made to take some of the headache out of making nicely-formatted
 This tool is still in development, but it is meant to evaluate all loci for the possibility that they are derived from an RNA hairpin, rather than RDR-dsRNA. This is not finalized, but it generally looks for stranded regions and folds them, analyzing their profile based on a battery of rules from multiple publications.
 
 
-### Ann. wrappers
-
-We love [shortstack](https://github.com/MikeAxtell/ShortStack) here. Consdering it is essential for the alignment of our data, we also include wrappers for ShortStack annotation built into the directory organization of this tool. Useful for easily comparing annotations. Requires that `ShortStack3` or `ShortStack4` are executable from command line (these is not their normal names: "ShortStack").
 
 ### Other stuff
 
@@ -203,35 +199,57 @@ We love [shortstack](https://github.com/MikeAxtell/ShortStack) here. Consdering 
 
 ## YASMA cookbook
 
+This describes a simple pipeline making use of 5 libraries from 2 conditions. Most inputs are described in the `yasma.py inputs` call, with the pipeline calls importing these values from the `inputs.json` file.
+
+This most simple pipeline will provide an annotation based on all libraries and a corresponding counts file.
+
 ```
+mkdir srna_analysis
+cd srna_analysis
+
 ## Using the following hypothetical libraries from the corresponding conditions
-# lib_1.fa -> hyphae
-# lib_2.fa -> hyphae
-# lib_3.fa -> conidia
-# lib_4.fa -> conidia
-# lib_5.fa -> conidia
+# lib_1.fa -> wt
+# lib_2.fa -> wt
+# lib_3.fa -> mut
+# lib_4.fa -> mut
+# lib_5.fa -> mut
 
 ## supplying all input information for the analysis
-yasma.py inputs -o full_analysis \
--ul lib_1.fa lib_2.fa lib_3.fa lib_4.fa lib_5.fa \
+yasma.py inputs -o . \                     # making a working directory in this folder
+-ul ../untrimmed_library_directory/*.fa \  # wherever these are located
 -g path_to_your_genome.fa \
--c lib_1:hyphae lib_2:hyphae lib_3:conidia lib_4:conidia lib_5:conidia
+-c lib_1:wt lib_2:wt lib_3:mut lib_4:mut lib_5:mut  # describing library-to-condition relationships
 
 ## basic call
 yasma.py adapter
 yasma.py trim
 yasma.py align
-yasma.py tradeoff ## this will annotate with all conditions
+```
+
+These basic steps have now trimmed and aligned the sRNAs. Now we can annotate. First, we will try a full annotation of all conditions.
+
+```
+yasma.py tradeoff    # defaults to all conditions
 yasma.py count
+```
 
+This performed annotations and counts on all conditions.
 
+Suppose we only want to annotate using a specific condition, and count all libraries against it. We'll perform a different annotation specifying the annotation conditions (can be more than one). Count automatically quantifies all logged annotation gffs. 
 
+In this example, this might be quite important if you expect that the mutant will change or lose loci compared to wt. Suppose the mutant results in a loss of sRNAs - this might be problematic to use as the basis of a sRNA annotation.
+
+```
 ## to perform the annotation with a specific condition(s)
-yasma.py tradeoff -ac hyphae
+yasma.py tradeoff -ac wt --name wt
+yasma.py count
+```
 
+Of course YASMA is quite flexible, and you may give it trimmed libraries (it should actually detect this automatically).
 
+```
 ## using pre-trimmed libraries
-yasma.py inputs -o full_analysis \
+yasma.py inputs -o . \
 -tl lib_1.fa lib_2.fa lib_3.fa lib_4.fa lib_5.fa \
 -g path_to_your_genome.fa \
 -c lib_1:hyphae lib_2:hyphae lib_3:conidia lib_4:conidia lib_5:conidia
@@ -239,10 +257,12 @@ yasma.py inputs -o full_analysis \
 yasma.py align
 yasma.py tradeoff
 yasma.py count
+```
 
-
-## using an alignment as input (note, this must contain the @RG flag to indicate source libraries.
-yasma.py inputs -o full_analysis \
+You may even supply it with a different alignment and skip the library stuff altogether. Note, this requires that the @RG flag specifies the library names that match the supplied conditions.
+```
+## using an alignment as input
+yasma.py inputs -o . \
 -a path_to_alignment.bam \ 
 -c lib_1:hyphae lib_2:hyphae lib_3:conidia lib_4:conidia lib_5:conidia
 
@@ -252,6 +272,24 @@ yasma.py count
 
 
 </a>
+
+<a name="Post-filtering"/>
+
+In an effort to reduce false positives, annotated loci are filtered to remove loci (`removed_loci.gff3`) which seem likely to be noise. This is somewhat subjective, but basically it is focused on loci which are dominated by very few unique sequences. This is defined by four metrics:
+
+### Skew
+This is basically how many reads in the annotation come from the most-abundant read. Upon publication, YASMA-tradeoff filters loci which have greater than 90% (`--max_skew 0.90`) of reads are a single sequence. This is useful to remove annotations from duplicated sequences, but might also have a negative effect on highly precisely processed miRNAs.
+
+To save highly precise sRNAs in well-studied systems, the option `--override_skew` allows this filter to be ignored for loci meeting certain sizing requirements. 
+
+### Complexity
+Complexity is focused on the number of unique reads across genomic space. This is meant to remove loci which have over-expanded and might represent a very large genomic area with only very few unique reads. This is defined by `--min_complexity`, which is the minimum number of unique reads per 1000 nt. By default this is `10 unique reads per 1000`. Low complexity loci are often caught by the skew filter also.
+
+### Abundance
+Minimum abundance is very simple: how many reads are defining a given locus. By default `--min_abundance 50`, ensures that there are at least enough reads to assess the size profile of a given locus. Loci filtered by this might be real, but YASMA-tradeoff ignores them to avoid false-confidence. If real, you must have more depth to find this locus.
+
+### Abundance density
+In addition to unique read density (complexity), YASMA-tradeoff filters loci which are generally too large for the number of containing reads. By default, this is `--min_abundance_density 100` reads per 1000 nt. This prevents expansive barely expressed loci, which can occur in edge-cases.
 
 
 

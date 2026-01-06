@@ -62,25 +62,9 @@ def coverage(**params):
 
 	force = params['force']
 
-	def process_peaks(unprocessed_peaks):
-		peaks = set()
-		for peak in unprocessed_peaks:
-			if peak.count("-") == 1:
-				for r in range(int(peak.split('-')[0]),int(peak.split('-')[1])+1):
-					peaks.add(r)
-
-			else:
-				try:
-					peaks.add(int(peak))
-				except ValueError:
-					sys.exit(f"Error: '{peak}' if incorrectly formated. Must be a number or range.")
 
 
-		peaks = list(peaks)
-		peaks.sort()
-		return(peaks)
-
-	peaks = process_peaks(list(params['peaks']))
+	peaks = process_range(list(params['peaks']))
 
 
 	chromosomes, libraries = get_chromosomes(alignment_file)
