@@ -509,7 +509,17 @@ class inputClass():
 					for v in value[1:]:
 						print(f"     ", " " * (offset), str(v))
 
+				elif type(value) == dict:
 
+					first = True
+					for k,v in value.items():
+						if first:
+							prefix = f"    {option}: " + "." * (offset-len(option)) + " "
+							first=False
+						else:
+							prefix = " " * len(prefix)
+
+						print(f"{prefix}{k} : {v}")
 
 				else:
 					print(f"    {option}:", "." * (offset-len(option)), str(value))
