@@ -140,7 +140,6 @@ def trim(**params):
 
 		suffixes = file.suffixes
 		for i,s in enumerate(suffixes):
-			print(i,s)
 			if s.endswith(('.fastq', '.fq', '.fasta', '.fa')):
 				suffixes[i] = '.t' + library_format
 
