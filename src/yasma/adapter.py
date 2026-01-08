@@ -279,13 +279,15 @@ def adapter(**params):
 	def process_file(f, line_base, n):
 		seqs = []
 
-
 		i = 0
 
 		while i < n:
-
 			f.readline()
-			seqs.append(f.readline().strip().strip("N"))
+
+			seq = f.readline()
+			seq = seq.decode()
+
+			seqs.append(seq.strip().strip("N"))
 
 			if line_base == 4:
 				f.readline()
