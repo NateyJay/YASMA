@@ -1031,6 +1031,21 @@ class assessClass():
 		depth = sum(seq_c.values())
 		rpm = depth / aligned_depth * 1000000
 
+		gap = start - last_stop
+
+		if depth == 0:
+			gff_line = [
+			chrom, 'yasma_locus', 'empty', start, stop, '.', '.', '.',
+			f'ID={name};project={project};annotation={annotation};depth={depth}']
+			result_line = [f"{chrom}:{start}-{stop}", name, stop-start, depth, rpm, 0, 'NA', "NA", 'NA', 'NA', 'NA',
+						gap, 'NA', 
+						'NA', 'NA',
+						'NA', 'NA',
+						'NA', 'NA',
+						'NA'
+			]
+
+			return(result_line, gff_line)
 
 		### ShortStack standard metrics
 
@@ -1059,7 +1074,6 @@ class assessClass():
 
 		skew = major_rna_depth / depth
 
-		gap = start - last_stop
 
 
 		

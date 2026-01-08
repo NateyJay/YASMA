@@ -21,3 +21,5 @@ from .coverage import *
 # from .conservation import *
 # from .merge import *
 
+from .analyze import *
+
