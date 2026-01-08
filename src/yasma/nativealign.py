@@ -149,19 +149,21 @@ def align(**params):
 			sys.exit(f"Error: trimmed library {lib} not found!\nare you sure this is right? check -tl option or inputs.json")
 
 
-	bowtie_build_index = genome_file.with_suffix(".1.ebwt")
+	bowtie_build_index = genome_file.with_suffix(".rev.1.ebwt")
 
+	print("checking for bowtie1 indicies...")
 	if not bowtie_build_index.is_file():
 		call = ['bowtie-build', '--offrate', str(offrate), genome_file, genome_file.with_suffix('')]
-		print(f"bowtie index file not found '{bowtie_build_index}'")
-		print(f"building de novo...")
+		print(f"  bowtie index file not found '{bowtie_build_index}'")
+		print(f"  building de novo...")
 
-		print(" ".join(map(str, call)))
+		print(" ", " ".join(map(str, call)))
 
 		p = Popen(call, encoding=ENCODING, stdout=PIPE, stderr=PIPE)
 		p.wait()
 
-
+	else:
+		print("  index found:", str(bowtie_build_index))
 
 
 	start = time.time()
@@ -275,7 +277,7 @@ def align(**params):
 			bowtie_call.append('-f')
 
 		elif suff == '.fq':
-			bowtie_call.append('-f')
+			pass
 
 
 		# if ".fa" in lib.suffixes or ".fasta" in lib.suffixes:
