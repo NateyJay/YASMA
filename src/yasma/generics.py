@@ -1261,6 +1261,7 @@ def make_depth_file(alignment_file, verbose=True):
 			for chrom in chroms:
 				for length in lengths:
 					print(rg, chrom, length, c[(rg,length, chrom)], sep='\t', file=outf)
+	print()
 
 def get_global_depth(alignment_file, force=False, aggregate_by=['rg','chrom','length']):
 
