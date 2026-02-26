@@ -1798,6 +1798,8 @@ class hairpinClass():
 
 		line += [self.primary_hairpin_length]
 
+		line += [str(self.status)]
+
 		return("\t".join(map(str,line)))
 
 	# sys.exit()
@@ -2482,7 +2484,7 @@ def hairpin(**params):
 
 
 
-	header_line = "name\tsub_name\tsizecall\tlocus\tcontig\tstart\tstop\tstrand\tstranded\tlength\tseq\tfold\tmfe\tmfe_per_nt\tmas\tmas_depth\tstar\tstar_depth\tduplex_mas\tduplex_fold\tduplex_star\tstar_offset_left\tstar_offset_right\tp_constellation\tp_star\tmas_constellation_depth\tstar_constellation_depth\tnot_constellation_depth\tlooped_reads\tstructured_reads\tdisqualified_reads\tp_looped\tp_structured\tp_disqualified\tvalid_fold\truling\tmpn_pass\tmismatches_total\tmismatches_asymm\tlargest_loop\tno_mas_structures\tno_star_structures\tprecision\tstar_found\tstruc_count\tunstruc_count\tp_struc\tprimary_hairpin_length"
+	header_line = "name\tsub_name\tsizecall\tlocus\tcontig\tstart\tstop\tstrand\tstranded\tlength\tseq\tfold\tmfe\tmfe_per_nt\tmas\tmas_depth\tstar\tstar_depth\tduplex_mas\tduplex_fold\tduplex_star\tstar_offset_left\tstar_offset_right\tp_constellation\tp_star\tmas_constellation_depth\tstar_constellation_depth\tnot_constellation_depth\tlooped_reads\tstructured_reads\tdisqualified_reads\tp_looped\tp_structured\tp_disqualified\tvalid_fold\truling\tmpn_pass\tmismatches_total\tmismatches_asymm\tlargest_loop\tno_mas_structures\tno_star_structures\tprecision\tstar_found\tstruc_count\tunstruc_count\tp_struc\tprimary_hairpin_length\tstatus"
 
 	Path(hairpin_dir, "folds").mkdir(parents=True, exist_ok=True)
 	with open(hairpin_file, 'w') as outf:
