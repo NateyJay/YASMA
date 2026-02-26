@@ -493,6 +493,7 @@ class inputClass():
 		other_params = list(self.params.keys())
 		other_params = [o for o in other_params if o not in other_options]
 
+
 		for options in [other_options, other_params]:
 			print()
 			print(headers.pop(0))
@@ -504,6 +505,9 @@ class inputClass():
 					value = self.params[option]
 
 				if type(value) in [list, tuple, set]:
+					if not value:
+						print(f"    {option}:", "." * (offset-len(option)), str(value))
+						continue
 
 					print(f"    {option}:", "." * (offset-len(option)), str(value[0]))
 					for v in value[1:]:
@@ -724,7 +728,6 @@ def validate_library_paths(ctx, param, value):
 
 
 def validate_path(ctx, param, value):
-
 
 	if not value:
 		return(None)
@@ -1352,7 +1355,7 @@ def samtools_view(bam, rgs='all', contig=None, start=None, stop=None, threads=4,
 				read.reference_start, 
 				read.reference_name, 
 				read.get_tag("RG"), 
-				read.get_forward_sequence().replace("T","U"), 
+				read.get_forward_sequence().upper().replace("T","U"), 
 				read.query_name)
 	else:
 

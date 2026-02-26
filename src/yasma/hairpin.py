@@ -11,6 +11,8 @@ from collections import deque
 import multiprocessing
 import RNA
 
+from pprint import pprint
+
 def abundance_to_rgb(abd):
 
 	if abd == 0:
@@ -2033,6 +2035,7 @@ def read_locus(alignment_file, contig, start, stop, strand, libraries):
 	if start < 0:
 		start = 0
 
+	mas_c = Counter()
 
 	# print(alignment_file, f"{contig}:{start}-{stop}")
 
@@ -2059,14 +2062,19 @@ def read_locus(alignment_file, contig, start, stop, strand, libraries):
 			except KeyError:
 				pos_d[sam_pos] = [sam_read]
 
+			mas_c[sam_read] += 1
+
+
 		else:
 			# unstranded_pos_d[corrected_pos] += 1
 			unstranded_pos_d[sam_pos] += 1
 
+		try:
+			mas = mas_c.most_common()[0][0]
+		except IndexError:
+			mas = None
 
-
-
-	return(pos_d, unstranded_pos_d)
+	return(pos_d, unstranded_pos_d, mas)
 
 
 def run_job(job):
@@ -2079,10 +2087,9 @@ def run_job(job):
 	locus        = job['locus']
 	length       = job['length']
 	strand       = job['strand']
-	input_mas    = job['input_mas']
+	# input_mas    = job['input_mas']
 	sizecall     = job['sizecall']
 	hairpin_file = job['hairpin_file']
-	params['conds'] = job['conds']
 	params['libraries'] = job['libraries']
 
 	# if sub_name != 'sub3':
@@ -2096,11 +2103,15 @@ def run_job(job):
 	start  = int(locus.split(":")[1].split("-")[0])
 	stop   = int(locus.split(":")[1].split("-")[1])
 
-	pos_d, unstranded_pos_d = read_locus(inputs['alignment_file'], contig, start, stop, strand, params['libraries'])
+	pos_d, unstranded_pos_d, mas = read_locus(inputs['alignment_file'], contig, start, stop, strand, params['libraries'])
+
+	if not mas:
+		print(f"Warning: no reads detected in {locus}")
+		return
 
 
 
-	hpc = hairpinClass(params, inputs, name, sub_name, locus, strand, sizecall, length, input_mas, pos_d, unstranded_pos_d)
+	hpc = hairpinClass(params, inputs, name, sub_name, locus, strand, sizecall, length, mas, pos_d, unstranded_pos_d)
 	hpc.table()
 
 	# print(f'p{os.getpid()}\t' + hpc.status_line(sizecall))
@@ -2123,7 +2134,7 @@ def run_job(job):
 			trim_name = 't'
 		else:
 			trim_name = sub_name + "-t"
-		trimmed_hpc = hairpinClass(params, inputs, name, trim_name, trimmed_locus, strand, sizecall, length, input_mas, pos_d, unstranded_pos_d)
+		trimmed_hpc = hairpinClass(params, inputs, name, trim_name, trimmed_locus, strand, sizecall, length, mas, pos_d, unstranded_pos_d)
 
 
 
@@ -2193,17 +2204,25 @@ def run_job(job):
 	type=int,
 	help='Number of cores/processes used in analyzing hairpins. ')
 
-@optgroup.option("--matures",
-	type=click.Path(),
-	help='location for a fasta of mature miRNAs which will be used to spot orthologs.')
+# @optgroup.option("--matures",
+# 	type=click.Path(),
+# 	help='location for a fasta of mature miRNAs which will be used to spot orthologs.')
 
 @optgroup.option("--annotation_folder",
 	type=click.Path(),
-	help="location for the yasma annotation used in this analysis. Defaults to the project's tradeoff folder")
+	help="location for the yasma annotation used in this analysis. Defaults to the project's tradeoff folder. If provided, no name is required and hairpin information will be deposited in the annotation folder. Expects locus definitions will be found in loci.gff3.")
+
+@optgroup.option("--annotation_file",
+	type=click.UNPROCESSED, callback=validate_path,
+	help='A gff format annotation to be used for hairpin definitions. Overrides any loci.gff3 annotations in a provided --annotation_folder. If this folder is provided, output is deposited there. Otherwise, --name is required for output: hairpin_[name]')
+
+@optgroup.option("--annotation_readgroups",
+	type=str, multiple=True,
+	help='Manual input for libraries associated with an annotation. This is used for --annotation_file which doesnt have yasma-style parameters associated. Simply list all readgroups in alignment file which apply to this annotation. ALL can be specified to use all alignments.')
 
 @optgroup.option("-n", "--name",
 	type=str,
-	help="name for sub folder where hairpin analysis is deposited")
+	help="name for sub folder where hairpin analysis is deposited, if no --annotation_folder is provided")
 
 
 @optgroup.option('--silent', is_flag=True, default=False, help='Silences printing hairpin analysis to terminal. Useful when lots of loci are found.')
@@ -2234,7 +2253,11 @@ def hairpin(**params):
 	alignment_file       = ic.inputs['alignment_file']
 	genome_file          = ic.inputs['genome_file']
 
-	matures              = params['matures']
+	annotation_dir       = params['annotation_folder']
+	annotation_file      = params['annotation_file']
+	name                 = params['name']
+
+	# matures              = params['matures']
 	ignore_replication   = params['ignore_replication']
 	max_length           = params['max_length']
 	proc_n               = params['cores']
@@ -2243,29 +2266,89 @@ def hairpin(**params):
 	# print(output_directory)
 	# sys.exit()
 
-	if params['annotation_folder']:
-		annotation_dir = params['annotation_folder']
 
-		if annotation_dir != Path(output_directory, "tradeoff") and not params['name']:
-			sys.exit("Error: if supplying a different --annotation_folder, you must also provide a --name")
-		name = params['name']
+
+
+	## updated structure and naming
+	if annotation_file:
+		assert name, "Name must be specified if --annotation_file"
+
+		if not annotation_dir:
+			annotation_dir = Path(output_directory, f"annotation_{name}")
+			annotation_dir.mkdir(parents=True, exist_ok=True)
+
+			shutil.copy(annotation_file, Path(annotation_dir, "loci.gff3"))
+
+		hairpin_dir  = Path(annotation_dir, f"hairpin_{name}")
 
 	else:
-		annotation_dir = Path(output_directory, "tradeoff")
-		if not params['name']:
-			name = 'tradeoff'
+		annotation_file = Path(annotation_dir, "loci.gff3")
+
+		assert annotation_file.is_file(), f"No loci.gff3 file found in annotation directory: {str(annotation_folder)}"
+		hairpin_dir  = Path(annotation_dir, "hairpin")
+
+	hairpin_dir.mkdir(parents=True, exist_ok=True)
+
+
+	fold_dir     = Path(hairpin_dir, 'folds')
+	fold_dir.mkdir(parents=True, exist_ok=True)
+
+	hairpin_file = Path(hairpin_dir, "hairpins.txt")
+
+
+
+	## old structure and naming
+
+	# if params['annotation_folder']:
+	# 	annotation_dir = params['annotation_folder']
+
+	# 	if annotation_dir != Path(output_directory, "tradeoff") and not params['name']:
+	# 		sys.exit("Error: if supplying a different --annotation_folder, you must also provide a --name")
+	# 	name = params['name']
+
+	# else:
+	# 	annotation_dir = Path(output_directory, "tradeoff")
+	# 	if not params['name']:
+	# 		name = 'tradeoff'
+	# 	else:
+	# 		name = params['name']
+
+
+	# hairpin_dir = Path(output_directory, f'hairpin', name)
+	# Path(output_directory, f'hairpin', name, 'folds').mkdir(parents=True, exist_ok=True)
+
+
+	def get_annotation_libraries():
+		'''a function to find all library readgroups associated with this annotation'''
+
+		annotation_params_file = Path(annotation_dir, 'params.json')
+
+		_, all_libraries = get_chromosomes(alignment_file)
+
+		if not annotation_params_file.is_file():
+			libraries = params['annotation_readgroups']
+
+			if not libraries:
+				sys.exit("Input error: must provide --annotation_readgroups for annotation_files which have no associated parameter file. i.e. what libraries in your alignment should be used for the hairpin analysis?")
+
+			if libraries[0].upper() == 'ALL':
+				libraries = all_libraries
+
 		else:
-			name = params['name']
+			with open(annotation_params_file, 'r') as f:
+				annotation_params = json.load(f)
 
-	hairpin_dir = Path(output_directory, f'hairpin', name)
-	Path(output_directory, f'hairpin', name, 'folds').mkdir(parents=True, exist_ok=True)
+			libraries = list()
+			for a in annotation_params['annotation_conditions']:
+				libraries += annotation_params['conditions'][a]
 
-	annotation_params_file = Path(annotation_dir, 'params.json')
-	if not annotation_params_file.is_file():
-		sys.exit(f"Error: (params.json) not found in annotation folder")
+		for l in libraries:
+			if l not in all_libraries:
+				sys.exit(f"Error: supplied library [{l}] is not found in the alignment_file header {all_libraries}. Are you sure about the formatting?")
 
-	with open(annotation_params_file, 'r') as f:
-		annotation_params = json.load(f)
+		return(libraries)
+
+	libraries = get_annotation_libraries()
 
 	# print(f'{hairpin_dir}')
 	# sys.exit()
@@ -2273,10 +2356,11 @@ def hairpin(**params):
 
 	params['hairpin_dir'] = hairpin_dir
 	params['output_directory'] = output_directory
+	params['libraries'] = libraries
 
-	results_file   = Path(annotation_dir, "loci.txt")
-	tops_file      = Path(annotation_dir, "reads.txt")
-	other_mas_file = Path(annotation_dir, 'reads.txt')
+	# results_file   = Path(annotation_dir, "loci.txt")
+	# tops_file      = Path(annotation_dir, "reads.txt")
+	# other_mas_file = Path(annotation_dir, 'reads.txt')
 
 	hairpin_file   = Path(hairpin_dir, "hairpins.txt")
 
@@ -2286,11 +2370,11 @@ def hairpin(**params):
 	print()
 	# sys.exit()
 
-	if params['matures']:
-		mature_d = bowtie_matures(matures, genome_file)
+	# if params['matures']:
+	# 	mature_d = bowtie_matures(matures, genome_file)
 
-	else:
-		mature_d = None
+	# else:
+	# 	mature_d = None
 
 
 	# def get_genome_file():
@@ -2354,39 +2438,39 @@ def hairpin(**params):
 
 
 
-	assert results_file.is_file(), f"results_file {results_file} not found... (Have you run annotation with this directory?)"
+	assert annotation_file.is_file(), f"annotation_file {annotation_file} not found... (Have you run annotation with this directory?)"
 
-	input_mas_d = {}
-	# tops_file = f"{output_directory}/tradeoff/reads.txt"
-	with open(tops_file, 'r') as f:
-		header = f.readline()
-		for line in f:
-			line = line.strip().split('\t')
+	# input_mas_d = {}
+	# # tops_file = f"{output_directory}/tradeoff/reads.txt"
+	# with open(tops_file, 'r') as f:
+	# 	header = f.readline()
+	# 	for line in f:
+	# 		line = line.strip().split('\t')
 
-			name = line[0]
-			mas  = line[1].upper().replace("T","U")
+	# 		name = line[0]
+	# 		mas  = line[1].upper().replace("T","U")
 
-			if name not in input_mas_d.keys():
-				input_mas_d[name] = mas
-				# input_mas_d[line[0]] = line[1]
-
-
+	# 		if name not in input_mas_d.keys():
+	# 			input_mas_d[name] = mas
+	# 			# input_mas_d[line[0]] = line[1]
 
 
-	other_mas_d = {}
 
-	with open(other_mas_file, 'r') as f:
-		f.readline()
 
-		for line in f:
-			line = line.strip().split("\t")
+	# other_mas_d = {}
 
-			cluster, seq = line[:2]
+	# with open(other_mas_file, 'r') as f:
+	# 	f.readline()
 
-			try:
-				other_mas_d[cluster].append(seq)
-			except:
-				other_mas_d[cluster] = [seq]
+	# 	for line in f:
+	# 		line = line.strip().split("\t")
+
+	# 		cluster, seq = line[:2]
+
+	# 		try:
+	# 			other_mas_d[cluster].append(seq)
+	# 		except:
+	# 			other_mas_d[cluster] = [seq]
 		
 
 
@@ -2400,10 +2484,33 @@ def hairpin(**params):
 
 
 
-	with open(results_file, 'r') as f:
-		header = f.readline().strip().split("\t")
-		header = [h.lower() for h in header]
-		entries = f.readlines()
+	# with open(results_file, 'r') as f:
+	# 	header = f.readline().strip().split("\t")
+	# 	header = [h.lower() for h in header]
+	# 	entries = f.readlines()
+
+	entries = []
+	with open(annotation_file, 'r') as f:
+		for line in f:
+			if line.startswith("#"):
+				continue
+
+			line = line.strip().split('\t')
+
+			e1 = dict(zip(['seqid','source','type','start','end','score','strand','phase','attributes'], line[:8]))
+
+			e2 = dict([tuple(i.split('=')) for i in line[8].split(';')])
+
+			# dict(zip([() for i in line[8].split(";")]))
+
+			entry = e1 | e2
+
+			entries.append(entry)
+
+
+
+
+
 
 	jobs = []
 
@@ -2411,39 +2518,36 @@ def hairpin(**params):
 	print()
 	print(f"making job list for hairpin analysis:")
 
-	for entry_i, line in enumerate(entries):
+	for entry_i, entry in enumerate(entries):
 
 
-		entry = dict(zip(header, line.strip().split('\t')))
+		chrom = entry['seqid']
+		start = int(entry['start'])
+		stop  = int(entry['end'])
 
-
-
-		name     = entry['name']
-		locus    = entry['locus']
+		name     = entry['ID']
+		locus    = f"{chrom}:{start}-{stop}"
 		strand   = entry['strand']
-		length   = int(entry['length'])
-		sizecall = entry['sizecall']
+		length   = stop - start
 
-		# if name != 'locus_7':
-		# 	continue
+		sizecall = '?'
+		for key in ['sizecall','dicercall','DicerCall']:
+			if key in entry:
+				sizecall = entry[key]
+				break
 
-		locus = locus.replace("..", "-")
 
-		chrom = locus.split(":")[0]
-		start = int(locus.split(":")[1].split("-")[0])
-		stop  = int(locus.split(":")[1].split("-")[1])
-
+		mas = None
+		for key in ['mas','MAS','majorRNA', 'MajorRNA']:
+			if key in entry:
+				mas = entry[key].upper().replace("T","U")
+				break
 
 
 		print(f"\t{len(jobs)} jobs ... {round(entry_i / len(entries) * 100, 1)}% <- {name}        ", end = '\r')
 
-		other_mas = other_mas_d[name]
-
-
-		# print(seq, fold, mfe, sep='\n')
 
 		cluster_selected = True
-
 
 
 		stranded     = strand in ["-", "+"]
@@ -2451,30 +2555,22 @@ def hairpin(**params):
 		too_short    = length < 100
 
 
-
-
-
 		if not stranded:
 			# hpc = hairpinClass(params, ic.inputs, name, '', locus, strand, length, 'None', {})
 			# hpc.status_line(sizecall, mature_d)
 			continue
 
-
-		libraries = list()
-		for a in annotation_params['annotation_conditions']:
-			libraries += annotation_params['conditions'][a]
-
-
 		job_params = entry
-		job_params['input_mas']    = input_mas_d[name]
+		# job_params['input_mas']    = input_mas_d[name]
+		job_params['locus']        = locus
+		job_params['name']         = name
+		job_params['length']       = length
 		job_params['inputs']       = ic.inputs
 		job_params['hairpin_file'] = hairpin_file
 		job_params['strand']       = strand
 		job_params['params']       = params
 		job_params['sizecall']     = sizecall
-		job_params['conds']        = annotation_params['annotation_conditions']
 		job_params['libraries']    = libraries
-
 
 
 		if sizecall == 'N':
@@ -2524,11 +2620,10 @@ def hairpin(**params):
 				seq = seq.upper()
 				seq = seq.replace("T", "U")
 
-				found = False
-				for mas in other_mas:
-					if mas in seq:
-						found = True
-						break
+				if not mas:
+					found = True
+				else:
+					found = mas in seq
 
 				if found:
 
@@ -2542,7 +2637,6 @@ def hairpin(**params):
 					# 	print(job_params['locus'])
 
 					jobs.append(dict(job_params))
-
 
 
 
