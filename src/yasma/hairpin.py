@@ -2071,7 +2071,7 @@ def read_locus(alignment_file, contig, start, stop, strand, libraries):
 
 		try:
 			mas = mas_c.most_common()[0][0]
-		except IndexError:
+		except:
 			mas = None
 
 	return(pos_d, unstranded_pos_d, mas)
