@@ -50,7 +50,7 @@ from shutil import rmtree
 
 @optgroup.option("--min_length",
 	default = 15,
-	help= 'Minimum allowed size for a trimmed read. (default 10)')
+	help= 'Minimum allowed size for a trimmed read. (default 15)')
 
 
 @optgroup.option("--max_length",
