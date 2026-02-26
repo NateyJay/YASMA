@@ -606,8 +606,12 @@ class hairpinClass():
 
 		self.seq, self.fold, self.mfe, self.pairing, self.read_c, self.struc_c, self.aln_string, self.unstranded_count, self.read_indicies = locus_details
 
+		try:
+			frac_stranded = sum(self.read_c.values()) / (sum(self.read_c.values()) + self.unstranded_count)
+		except ZeroDivisionError:
+			self.status.append("error: no reads aligned to locus")
+			return
 
-		frac_stranded = sum(self.read_c.values()) / (sum(self.read_c.values()) + self.unstranded_count)
 
 		if frac_stranded < 0.8:
 			self.strand   = '.'
