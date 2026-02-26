@@ -2036,6 +2036,7 @@ def read_locus(alignment_file, contig, start, stop, strand, libraries):
 		start = 0
 
 	mas_c = Counter()
+	mas = None
 
 	# print(alignment_file, f"{contig}:{start}-{stop}")
 
