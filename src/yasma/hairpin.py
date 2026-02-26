@@ -526,6 +526,7 @@ class hairpinClass():
 		self.output_directory = params['output_directory']
 		self.hairpin_dir      = params['hairpin_dir']
 		self.sizecall         = sizecall
+		self.stranded         = "NA"
 
 		self.chrom = self.locus.split(":")[0]
 		self.contig = self.chrom
