@@ -2059,7 +2059,7 @@ This could be caused by a couple factors:
 				filter_string = [str(int(x)) for x in filter_string]
 				filter_string = "".join(filter_string)
 				# regions_name_i -= 1
-				print(coords, length, filter_string, round(complexity,4), pass_complexity, skew, abd, pass_abd, round(abd/length*1000,4), pass_abd_dens, pass_skew, size.sizecall, pass_size, sep='\t', file=filterf)
+				print(coords, length, filter_string, round(complexity,4), pass_complexity, skew, pass_skew, abd, pass_abd, round(abd/length*1000,4), pass_abd_dens, size.sizecall, pass_size, sep='\t', file=filterf)
 				print(chrom, 'yto', 'filtered_locus', start, stop, '.','.','.', 
 					f"ID={name};filterStr={filter_string};PassComplexity={pass_complexity};Complexity={complexity};PassSkew={pass_skew};Skew={skew};PassAbd={pass_abd};Abd={sum(seq.values())};PassAbdDens={pass_abd_dens};AbdDens={abd_dens};PassSize={pass_size};Size={"_".join(map(str, size.sizecall))}", sep='\t', file=filtergf) # ;PassRPM={pass_rpm};RPM={rpm}
 				continue
