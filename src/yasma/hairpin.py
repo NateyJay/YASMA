@@ -2170,7 +2170,7 @@ def run_job(job):
 	pos_d, unstranded_pos_d, mas, mas_edit_ops = read_locus(inputs['alignment_file'], contig, start, stop, strand, params['libraries'])
 
 	if not mas:
-		print(f"Warning: MAS could not be identified for {locus}")
+		print(f"Warning: no correctly ({strand}) strand reads aligning to {locus}")
 		return
 
 
