@@ -498,7 +498,7 @@ setfont
 
 class hairpinClass():
 	def __init__(self, params, inputs, #stranded, short_enough, 
-		name, sub_name, locus, strand, sizecall, length, input_mas, pos_d, unstranded_pos_d):#, genome_file, alignment_file, output_directory, hairpin_dir):
+		name, sub_name, locus, strand, sizecall, length, input_mas, pos_d, unstranded_pos_d, edit_ops):#, genome_file, alignment_file, output_directory, hairpin_dir):
 	
 		import RNA
 
@@ -572,7 +572,8 @@ class hairpinClass():
 		# print(self.pos_d)
 
 
-		self.mas = input_mas
+		self.mas_edit_ops = edit_ops
+		self.mas, self.unedited_mas = correct_snps(input_mas, self.strand, self.mas_edit_ops) 
 		self.star = '-'
 		self.duplex_mas = '-'
 		self.duplex_fold = '-'
@@ -908,6 +909,7 @@ class hairpinClass():
 		self.star = '-'
 		self.duplex_mas, self.duplex_fold, self.duplex_star = '-','-','-'
 
+
 		if self.mas not in self.seq:
 			self.status.append("MAS not found in hairpin sequence")
 			return
@@ -1050,6 +1052,8 @@ class hairpinClass():
 			if self.star_structures:
 				self.status.append("secondary structure found in STAR")
 				self.ruling = self.ruling[:8] + "-" + self.ruling[9:]
+
+				fold = foldClass(self.full_name, self.seq, self.alignment_file, self.locus, self.strand, self.mas, self.output_directory, self.hairpin_dir, self.aln_string, params['libraries'])
 
 
 			else:
@@ -1456,7 +1460,6 @@ class hairpinClass():
 
 		duplex = self.vc.get_duplex(self.mas_positions, self.star_positions)
 
-		print(duplex)
 
 		if len(duplex) > 3 :
 			self.status.append(duplex)
@@ -1783,6 +1786,9 @@ class hairpinClass():
 
 	def table(self):
 
+		if self.unedited_mas == self.mas:
+			self.unedited_mas = "="
+
 		try:
 			p_struc = self.struc_c['struc'] / sum(self.struc_c.values())
 		except ZeroDivisionError:
@@ -1790,7 +1796,7 @@ class hairpinClass():
 
 		line = [self.name, self.sub_name, self.sizecall, self.locus, self.chrom, self.start, self.stop, self.strand]
 		line += [self.stranded, self.length]
-		line += [self.seq, self.fold, self.mfe, self.mfe_per_nt, self.mas, self.read_c[self.mas], self.star, self.read_c[self.star]] 
+		line += [self.seq, self.fold, self.mfe, self.mfe_per_nt, self.mas, self.unedited_mas, self.read_c[self.mas], self.star, self.read_c[self.star]] 
 		line += [self.duplex_mas, self.duplex_fold, self.duplex_star, self.offset_left, self.offset_right, self.p_constellation, self.p_star]
 		line += [self.mas_constellation_depth, self.star_constellation_depth, self.not_constellation_depth, self.looped_read_depth, self.structured_read_depth, self.disqualified_read_depth, self.p_looped, self.p_structured, self.p_disqualified]
 		line += [self.valid]
@@ -2039,6 +2045,34 @@ def full_trim_hairpin(hpc, offset=2, wiggle = 5):
 
 
 
+def correct_snps(seq, strand, edit_ops):
+
+	import re
+	re_term = re.compile("([0-9]+)([A-Z])")
+	complement = {'A': 'U', 'C': 'G', 'G': 'C', 'U': 'A'}
+
+	unedited = list(seq)
+	edited   = list(seq)
+	# print(edited)
+	for m in re_term.findall(edit_ops):
+		# print(" " , m)
+		if strand == '+':
+			i = int(m[0])
+			edited[i] = m[1]
+		else:
+			i = len(seq) - int(m[0]) - 1
+			edited[i] = complement[m[1]]
+
+		unedited[i] = unedited[i].lower()
+
+
+
+
+	edited   = "".join(edited)
+	unedited = "".join(unedited)
+
+	return(edited, unedited)
+
 
 def read_locus(alignment_file, contig, start, stop, strand, libraries):
 	pos_d = {}
@@ -2048,10 +2082,15 @@ def read_locus(alignment_file, contig, start, stop, strand, libraries):
 		start = 0
 
 	mas_c = Counter()
+	mas_ed = dict()
 	mas = None
 
-	print(libraries)
+	# print(libraries)
 	# print(alignment_file, f"{contig}:{start}-{stop}")
+
+	
+
+
 
 	for read in samtools_view(alignment_file, contig=contig, start=start, stop=stop, rgs = libraries):
 
@@ -2076,22 +2115,30 @@ def read_locus(alignment_file, contig, start, stop, strand, libraries):
 			except KeyError:
 				pos_d[sam_pos] = [sam_read]
 
-			if sam_edit == 0:
-				mas_c[sam_read] += 1
 
+
+
+			mas_ed[sam_read] = sam_edit
+
+			mas_c[sam_read] += 1
 
 		else:
 			# unstranded_pos_d[corrected_pos] += 1
 			unstranded_pos_d[sam_pos] += 1
 
+
 	try:
 		mas = mas_c.most_common()[0][0]
 	except:
 		mas = None
+		edit_ops = None
 
 	# pprint(mas_c)
+	if mas:
+		edit_ops = mas_ed[mas]
 
-	return(pos_d, unstranded_pos_d, mas)
+
+	return(pos_d, unstranded_pos_d, mas, edit_ops)
 
 
 def run_job(job):
@@ -2120,15 +2167,15 @@ def run_job(job):
 	start  = int(locus.split(":")[1].split("-")[0])
 	stop   = int(locus.split(":")[1].split("-")[1])
 
-	pos_d, unstranded_pos_d, mas = read_locus(inputs['alignment_file'], contig, start, stop, strand, params['libraries'])
+	pos_d, unstranded_pos_d, mas, mas_edit_ops = read_locus(inputs['alignment_file'], contig, start, stop, strand, params['libraries'])
 
 	if not mas:
-		print(f"Warning: no reads detected in {locus}")
+		print(f"Warning: MAS could not be identified for {locus}")
 		return
 
 
 
-	hpc = hairpinClass(params, inputs, name, sub_name, locus, strand, sizecall, length, mas, pos_d, unstranded_pos_d)
+	hpc = hairpinClass(params, inputs, name, sub_name, locus, strand, sizecall, length, mas, pos_d, unstranded_pos_d, mas_edit_ops)
 	hpc.table()
 
 	# print(f'p{os.getpid()}\t' + hpc.status_line(sizecall))
@@ -2151,7 +2198,7 @@ def run_job(job):
 			trim_name = 't'
 		else:
 			trim_name = sub_name + "-t"
-		trimmed_hpc = hairpinClass(params, inputs, name, trim_name, trimmed_locus, strand, sizecall, length, mas, pos_d, unstranded_pos_d)
+		trimmed_hpc = hairpinClass(params, inputs, name, trim_name, trimmed_locus, strand, sizecall, length, mas, pos_d, unstranded_pos_d, mas_edit_ops)
 
 
 
@@ -2499,7 +2546,7 @@ def hairpin(**params):
 
 
 
-	header_line = "name\tsub_name\tsizecall\tlocus\tcontig\tstart\tstop\tstrand\tstranded\tlength\tseq\tfold\tmfe\tmfe_per_nt\tmas\tmas_depth\tstar\tstar_depth\tduplex_mas\tduplex_fold\tduplex_star\tstar_offset_left\tstar_offset_right\tp_constellation\tp_star\tmas_constellation_depth\tstar_constellation_depth\tnot_constellation_depth\tlooped_reads\tstructured_reads\tdisqualified_reads\tp_looped\tp_structured\tp_disqualified\tvalid_fold\truling\tmpn_pass\tmismatches_total\tmismatches_asymm\tlargest_loop\tno_mas_structures\tno_star_structures\tprecision\tstar_found\tstruc_count\tunstruc_count\tp_struc\tprimary_hairpin_length\tstatus"
+	header_line = "name\tsub_name\tsizecall\tlocus\tcontig\tstart\tstop\tstrand\tstranded\tlength\tseq\tfold\tmfe\tmfe_per_nt\tmas\tunedited_mas\tmas_depth\tstar\tstar_depth\tduplex_mas\tduplex_fold\tduplex_star\tstar_offset_left\tstar_offset_right\tp_constellation\tp_star\tmas_constellation_depth\tstar_constellation_depth\tnot_constellation_depth\tlooped_reads\tstructured_reads\tdisqualified_reads\tp_looped\tp_structured\tp_disqualified\tvalid_fold\truling\tmpn_pass\tmismatches_total\tmismatches_asymm\tlargest_loop\tno_mas_structures\tno_star_structures\tprecision\tstar_found\tstruc_count\tunstruc_count\tp_struc\tprimary_hairpin_length\tstatus"
 
 	Path(hairpin_dir, "folds").mkdir(parents=True, exist_ok=True)
 	with open(hairpin_file, 'w') as outf:
