@@ -908,7 +908,6 @@ class hairpinClass():
 		self.star = '-'
 		self.duplex_mas, self.duplex_fold, self.duplex_star = '-','-','-'
 
-
 		if self.mas not in self.seq:
 			self.status.append("MAS not found in hairpin sequence")
 			return
@@ -932,7 +931,10 @@ class hairpinClass():
 		self.aln_string.insert(3,'\nAll reads:')
 
 
-		if self.star_found:
+		if not self.star_found:
+			fold = foldClass(self.full_name, self.seq, self.alignment_file, self.locus, self.strand, self.mas, self.output_directory, self.hairpin_dir, self.aln_string, params['libraries'])
+
+		else:
 			try:
 				star_i = self.seq.index(self.star)
 			except ValueError:
@@ -1453,6 +1455,8 @@ class hairpinClass():
 
 
 		duplex = self.vc.get_duplex(self.mas_positions, self.star_positions)
+
+		print(duplex)
 
 		if len(duplex) > 3 :
 			self.status.append(duplex)
@@ -2046,12 +2050,13 @@ def read_locus(alignment_file, contig, start, stop, strand, libraries):
 	mas_c = Counter()
 	mas = None
 
+	print(libraries)
 	# print(alignment_file, f"{contig}:{start}-{stop}")
 
 	for read in samtools_view(alignment_file, contig=contig, start=start, stop=stop, rgs = libraries):
 
 
-		sam_strand, sam_length, _, sam_pos, sam_chrom, sam_rg, sam_read, sam_read_id = read
+		sam_strand, sam_length, sam_edit, sam_pos, sam_chrom, sam_rg, sam_read, sam_read_id = read
 
 		# if sam_pos >= start and sam_pos + sam_length <= stop:
 
@@ -2071,17 +2076,20 @@ def read_locus(alignment_file, contig, start, stop, strand, libraries):
 			except KeyError:
 				pos_d[sam_pos] = [sam_read]
 
-			mas_c[sam_read] += 1
+			if sam_edit == 0:
+				mas_c[sam_read] += 1
 
 
 		else:
 			# unstranded_pos_d[corrected_pos] += 1
 			unstranded_pos_d[sam_pos] += 1
 
-		try:
-			mas = mas_c.most_common()[0][0]
-		except:
-			mas = None
+	try:
+		mas = mas_c.most_common()[0][0]
+	except:
+		mas = None
+
+	# pprint(mas_c)
 
 	return(pos_d, unstranded_pos_d, mas)
 
@@ -2235,6 +2243,12 @@ def run_job(job):
 
 
 @optgroup.option('--silent', is_flag=True, default=False, help='Silences printing hairpin analysis to terminal. Useful when lots of loci are found.')
+
+
+@optgroup.option("-l", "--locus",
+	type=str,
+	multiple=True,
+	help="Allows the user to analyze specifically 1 or more loci, identified by name.")
 
 
 @optgroup.group('\n  Advance options',
@@ -2525,6 +2539,17 @@ def hairpin(**params):
 
 	print(f"  {len(entries):,} annotated loci")
 	print()
+
+	if params['locus']:
+		entries = [e for e in entries if e['ID'] in params['locus']]
+		print("Using specific locus mode (--locus)")
+		print(f"  loci: {params['locus']}")
+		print(f"  {len(entries):,} loci found")
+		print()
+
+
+	proc_n =  min([proc_n, len(entries)])
+
 	print(f"making job list for hairpin analysis:")
 
 	for entry_i, entry in enumerate(entries):
