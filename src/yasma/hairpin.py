@@ -1362,8 +1362,7 @@ class hairpinClass():
 
 		if len(set(self.mas_positions).intersection(self.star_positions)) > 0:
 			self.status.append("mas and proposed star overlap")
-
-			self.star_positions = self.star_positions - self.mas_positions
+			self.star_positions = [s for s in self.star_positions if s not in self.mas_positions]
 			# return False
 
 
