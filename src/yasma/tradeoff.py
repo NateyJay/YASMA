@@ -554,7 +554,8 @@ def tradeoff(**params):
 	for lib in libraries:
 		condition = rev_conditions[lib]
 		depth = g[lib]
-		rpb = round(1000000000 / depth, 2)
+
+		rpb = round(1_000_000_000 / depth, 2)
 
 		rpb_d[lib] = rpb
 
