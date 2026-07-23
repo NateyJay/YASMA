@@ -85,11 +85,17 @@ def count(** params):
 
 	chromosomes, libraries = get_chromosomes(alignment_file)
 
+	if not conditions:
+		print("Warning: no conditions defined. \nUsing library names as conditions (supply these with -c)")
+
+		conditions = {'default': []}
+		for library in libraries:
+			conditions['default'].append(library)
+
 	rev_conditions = {}
 	for k,vs in conditions.items():
 		for v in vs:
 			rev_conditions[v] = k
-
 
 
 	chrom_depth_c = get_global_depth(alignment_file, aggregate_by=['rg','chrom'])
@@ -156,7 +162,7 @@ def count(** params):
 
 			for i,line in enumerate(f):
 
-				if not line.startswith("#"):
+				if len(line) > 1 and not line.startswith("#"):
 					line = line.strip().split("\t")
 
 					if annotation_file.suffix == ".txt":
@@ -214,6 +220,7 @@ def count(** params):
 
 	c      = Counter()
 	deep_c = Counter()
+	five_c = Counter()
 
 	read_i = 0
 	with pysam.AlignmentFile(alignment_file, "rb") as bamf:
@@ -223,7 +230,6 @@ def count(** params):
 		features.sort(key=lambda x: x[1]) # sorting by contig order
 
 		features = deque(features)
-
 
 
 		last_contig = ''
@@ -243,6 +249,10 @@ def count(** params):
 			size    = read.query_length
 			strand  = "-" if read.is_reverse else "+"
 			library = read.get_tag("RG")
+			seq     = read.get_forward_sequence()
+			fivep   = seq[0]
+			if seq[0] == 'T':
+				fivep = 'U'
 
 
 			if read.is_unmapped:
@@ -291,6 +301,7 @@ def count(** params):
 
 				c[(annotation_name, name, library)] += 1
 				deep_c[(annotation_name, name, library, size, strand)] += 1
+				five_c[(annotation_name, name, library, fivep)] += 1
 
 				i += 1
 
@@ -298,6 +309,7 @@ def count(** params):
 				name = 'unannotated'
 				c[(annotation_name, name, library)] += 1
 				deep_c[(annotation_name, name, library, size, strand)] += 1
+				five_c[(annotation_name, name, library, fivep)] += 1
 
 	outputs      = dict()
 	output_files = dict()
@@ -313,6 +325,11 @@ def count(** params):
 		output_files[key] = Path(output_directory, 'counts', f'{annotation_name}.deepcounts.temp')
 		outputs[key]      = open(output_files[key], 'w')
 		print('name', 'condition', 'rg','length','strand','count', sep='\t', file=outputs[key])
+
+		key = (annotation_name, 'fivep')
+		output_files[key] = Path(output_directory, 'counts', f'{annotation_name}.fivep.temp')
+		outputs[key]      = open(output_files[key], 'w')
+		print('name', 'condition', 'rg','fivep', 'count', sep='\t', file=outputs[key])
 
 
 
@@ -333,6 +350,11 @@ def count(** params):
 			for library in libraries:
 
 				condition = rev_conditions[library]
+				
+				for five in ['A','U','C','G']:
+					count = five_c[(annotation_name, locus, library, five)]
+					print(locus, condition, library, five, count, sep='\t', file=outputs[(annotation_name, 'fivep')], flush=True)
+
 
 				counts.append(c[(annotation_name, locus, library)])
 
@@ -352,6 +374,10 @@ def count(** params):
 				coords = coord_d[(annotation_name, locus)]
 			else:
 				coords = '*'
+
+
+
+
 			print(locus, coords, "\t".join(map(str, counts)), sep='\t', file=outputs[(annotation_name, 'counts')])
 
 
