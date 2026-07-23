@@ -285,8 +285,10 @@ def adapter(**params):
 			f.readline()
 
 			seq = f.readline()
-			seq = seq.decode()
-
+			try:
+				seq = seq.decode()
+			except AttributeError:
+				pass
 			seqs.append(seq.strip().strip("N"))
 
 			if line_base == 4:
@@ -433,7 +435,7 @@ def adapter(**params):
 			print(f"  this is because <80% of reads are the most common length and <10% of reads contain an adapter sequence")
 			print("  -> override this with the flag --override_pretrim")
 
-			if not params['--override_pretrim']:
+			if not params['override_pretrim']:
 				pretrim = True
 
 
