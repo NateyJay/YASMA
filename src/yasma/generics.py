@@ -18,7 +18,8 @@ from math import floor
 
 import pysam
 import json
-
+# from pprint import pprint
+from glob import glob
 
 
 
@@ -665,24 +666,29 @@ def validate_outdir(ctx, param, od):
 	return(od)
 
 
-			
 def validate_glob_path(ctx, param, value):
+
 
 	if len(value) == 0:
 		# print(param)
 		# raise click.UsageError("Error: Missing or empty option '-l'")
 		return(None)
 
-	paths = list(value)
+	input_paths = list(value)
+
 
 	full_paths = []
-	for path in paths:
-		path = Path(path)
-		full_paths.append(path.absolute())
+	for path in input_paths:
+		paths = glob(path)
 
-		if not path.is_file() and not path.is_dir():
-			print(f"Warning: bad path ({path}) removed!")
-			# raise click.BadParameter(f"path not found: {path}")
+		for path in paths:
+
+			path = Path(path)
+			full_paths.append(path.absolute())
+
+			if not path.is_file() and not path.is_dir():
+				print(f"Warning: bad path ({path}) removed!")
+				# raise click.BadParameter(f"path not found: {path}")
 
 	full_paths = tuple(full_paths)
 	return(full_paths)
