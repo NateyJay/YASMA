@@ -87,14 +87,14 @@ from shutil import copyfile
 
 @optgroup.option('-tl', "--trimmed_libraries", 
 	required=False, 
-	type=click.UNPROCESSED, callback=validate_glob_path,
+	type=click.UNPROCESSED, callback=validate_library_paths,
 	multiple=True,
 	help='Path to trimmed libraries. Accepts wildcards (*).')
 
 
 @optgroup.option("-ul", "--untrimmed_libraries", 
 	required=False, 
-	type=click.UNPROCESSED, callback=validate_glob_path,
+	type=click.UNPROCESSED, callback=validate_library_paths,
 	multiple=True,
 	help='Path to untrimmed libraries. Accepts wildcards (*).')
 
