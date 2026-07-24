@@ -461,10 +461,10 @@ def adapter(**params):
 
 
 	# print(untrimmed_libraries)
+	# print(adapters)
 
 	# if "PRE-TRIMMED" in adapters:
 	# 	ic.inputs['trimmed_libraries'] = untrimmed_libraries.copy()
-
 
 	print()
 	print("adapters found:")
