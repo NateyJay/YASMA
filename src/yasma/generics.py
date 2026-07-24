@@ -9,7 +9,7 @@ from click_option_group import optgroup
 
 
 from subprocess import PIPE, Popen, call, DEVNULL
-from pathlib import Path
+from pathlib import Path, PurePath
 from time import time
 from collections import Counter
 from os import stat
@@ -505,19 +505,35 @@ class inputClass():
 				else:
 					value = self.params[option]
 
+				if isinstance(value, Path):
+					value = value.relative_to(self.output_directory)
+
+
+
+
 				if type(value) in [list, tuple, set]:
 					if not value:
 						print(f"    {option}:", "." * (offset-len(option)), str(value))
 						continue
 
+					if isinstance(value[0], Path):
+						value[0] = value[0].relative_to(self.output_directory)
 					print(f"    {option}:", "." * (offset-len(option)), str(value[0]))
 					for v in value[1:]:
+
+						if isinstance(v, Path):
+							v = v.relative_to(self.output_directory)
+
 						print(f"     ", " " * (offset), str(v))
 
 				elif type(value) == dict:
 
 					first = True
 					for k,v in value.items():
+
+						if isinstance(v, Path):
+							v = v.relative_to(self.output_directory)
+
 						if first:
 							prefix = f"    {option}: " + "." * (offset-len(option)) + " "
 							first=False
