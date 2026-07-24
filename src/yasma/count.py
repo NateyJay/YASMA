@@ -349,8 +349,12 @@ def count(** params):
 				strands = ['+', '-']
 			for library in libraries:
 
-				condition = rev_conditions[library]
-				
+				try:
+					condition = rev_conditions[library]
+				except KeyError:
+					continue
+
+
 				for five in ['A','U','C','G']:
 					count = five_c[(annotation_name, locus, library, five)]
 					print(locus, condition, library, five, count, sep='\t', file=outputs[(annotation_name, 'fivep')], flush=True)
