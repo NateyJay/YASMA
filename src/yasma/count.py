@@ -125,9 +125,21 @@ def count(** params):
 	print()
 	print(f'counting annotations from:')
 
-
+	pass_count = 0
 	for af in annotation_files:
-		print(f"  {af.is_file()}\t{af}")
+		good_ann = False
+		if af.is_file():
+			with open(af, 'r') as f:
+				for line in f:
+					if not line.startswith("#"):
+						good_ann = True
+						pass_count += 1
+						break
+
+		print(f"  {good_ann}\t{af}")
+
+	if pass_count == 0:
+		sys.exit("Error: none of the input annotations are valid! Check the files, maybe something went wrong with annotation step.")
 
 	annotation_files = [a for a in annotation_files if a.is_file()]
 
@@ -156,6 +168,7 @@ def count(** params):
 		annotation_name = annotation_file.parts[-2]
 		annotation_names.add(annotation_name)
 
+
 		with open(annotation_file, 'r') as f:
 			if annotation_file.suffix == '.txt':
 				f.readline()
@@ -164,6 +177,7 @@ def count(** params):
 
 				if len(line) > 1 and not line.startswith("#"):
 					line = line.strip().split("\t")
+					print(line)
 
 					if annotation_file.suffix == ".txt":
 						coords, name = line[:2]
@@ -216,9 +230,7 @@ def count(** params):
 					coord_d[(annotation_name, name)] = coords
 
 
-
-
-	c      = Counter()
+	c      = Counter()	
 	deep_c = Counter()
 	five_c = Counter()
 
