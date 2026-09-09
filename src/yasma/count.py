@@ -4,6 +4,7 @@ from .generics import *
 
 from shutil import rmtree
 from collections import deque
+import gzip
 
 
 
