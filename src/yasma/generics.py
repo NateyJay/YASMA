@@ -522,7 +522,10 @@ class inputClass():
 					for v in value[1:]:
 
 						if isinstance(v, Path):
-							v = v.relative_to(self.output_directory)
+							try:
+								v = v.relative_to(self.output_directory)
+							except:
+								pass
 
 						print(f"     ", " " * (offset), str(v))
 
