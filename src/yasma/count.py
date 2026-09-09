@@ -339,7 +339,7 @@ def count(** params):
 		key = (annotation_name, 'deepcounts')
 		output_files[key] = Path(output_directory, 'counts', f'{annotation_name}.deepcounts.temp')
 		outputs[key]      = open(output_files[key], 'w')
-		print('name', 'condition', 'library','length','strand','count', sep='\t', file=outputs[key])
+		print('name', 'condition', 'library','length','strand', 'fivep','count', sep='\t', file=outputs[key])
 
 		# key = (annotation_name, 'fivep')
 		# output_files[key] = Path(output_directory, 'counts', f'{annotation_name}.fivep.temp')
