@@ -338,7 +338,7 @@ def count(** params):
 
 		key = (annotation_name, 'deepcounts')
 		output_files[key] = Path(output_directory, 'counts', f'{annotation_name}.deepcounts.temp')
-		outputs[key]      = open(output_files[key], 'w')
+		outputs[key]      = gzip.open(output_files[key], 'wt')
 		print('name', 'condition', 'library','length','strand', 'fivep','count', sep='\t', file=outputs[key])
 
 		# key = (annotation_name, 'fivep')
@@ -409,8 +409,13 @@ def count(** params):
 	print()
 	print("saving outputs:")
 	for file_name in output_files.values():
-		print(" ", file_name.with_suffix(".txt"))
-		file_name.rename(file_name.with_suffix(".txt"))
+
+		if "deepcounts" in file_name:
+			suff = ".txt.gz"
+		else:
+			suff = ".txt"
+		print(" ", file_name.with_suffix(suff))
+		file_name.rename(file_name.with_suffix(suff))
 
 	ic.inputs['annotation_files'] = annotation_files
 	ic.write()
