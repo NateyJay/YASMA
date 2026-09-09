@@ -411,7 +411,7 @@ def count(** params):
 	print("saving outputs:")
 	for file_name in output_files.values():
 
-		if "deepcounts" in file_name:
+		if "deepcounts" in file_name.name:
 			suff = ".txt.gz"
 		else:
 			suff = ".txt"
