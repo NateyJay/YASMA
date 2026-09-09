@@ -390,7 +390,7 @@ def count(** params):
 							if count == 0 and not include_zeros:
 								continue
 
-							print(locus, condition, library, size, strand, count, fivep, sep='\t', file=outputs[(annotation_name, 'deepcounts')], flush=True)
+							print(locus, condition, library, size, strand, fivep, count, sep='\t', file=outputs[(annotation_name, 'deepcounts')], flush=True)
 
 			if locus != 'unannotated':
 				coords = coord_d[(annotation_name, locus)]
