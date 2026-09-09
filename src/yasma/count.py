@@ -177,7 +177,7 @@ def count(** params):
 
 				if len(line) > 1 and not line.startswith("#"):
 					line = line.strip().split("\t")
-					print(line)
+					# print(line)
 
 					if annotation_file.suffix == ".txt":
 						coords, name = line[:2]
@@ -229,10 +229,13 @@ def count(** params):
 
 					coord_d[(annotation_name, name)] = coords
 
+	# print(annotation_files)
+	# print(annotation_names)
+	# sys.exit()
 
 	c      = Counter()	
 	deep_c = Counter()
-	five_c = Counter()
+	# five_c = Counter()
 
 	read_i = 0
 	with pysam.AlignmentFile(alignment_file, "rb") as bamf:
@@ -312,16 +315,16 @@ def count(** params):
 				unannotated.discard(annotation_name)
 
 				c[(annotation_name, name, library)] += 1
-				deep_c[(annotation_name, name, library, size, strand)] += 1
-				five_c[(annotation_name, name, library, fivep)] += 1
+				deep_c[(annotation_name, name, library, size, strand, fivep)] += 1
+				# five_c[(annotation_name, name, library, fivep)] += 1
 
 				i += 1
 
 			for annotation_name in unannotated:
 				name = 'unannotated'
 				c[(annotation_name, name, library)] += 1
-				deep_c[(annotation_name, name, library, size, strand)] += 1
-				five_c[(annotation_name, name, library, fivep)] += 1
+				deep_c[(annotation_name, name, library, size, strand, fivep)] += 1
+				# five_c[(annotation_name, name, library, fivep)] += 1
 
 	outputs      = dict()
 	output_files = dict()
@@ -338,10 +341,10 @@ def count(** params):
 		outputs[key]      = open(output_files[key], 'w')
 		print('name', 'condition', 'rg','length','strand','count', sep='\t', file=outputs[key])
 
-		key = (annotation_name, 'fivep')
-		output_files[key] = Path(output_directory, 'counts', f'{annotation_name}.fivep.temp')
-		outputs[key]      = open(output_files[key], 'w')
-		print('name', 'condition', 'rg','fivep', 'count', sep='\t', file=outputs[key])
+		# key = (annotation_name, 'fivep')
+		# output_files[key] = Path(output_directory, 'counts', f'{annotation_name}.fivep.temp')
+		# outputs[key]      = open(output_files[key], 'w')
+		# print('name', 'condition', 'rg','fivep', 'count', sep='\t', file=outputs[key])
 
 
 
@@ -367,9 +370,9 @@ def count(** params):
 					continue
 
 
-				for five in ['A','U','C','G']:
-					count = five_c[(annotation_name, locus, library, five)]
-					print(locus, condition, library, five, count, sep='\t', file=outputs[(annotation_name, 'fivep')], flush=True)
+				# for five in ['A','U','C','G']:
+				# 	count = five_c[(annotation_name, locus, library, five)]
+				# 	print(locus, condition, library, five, count, sep='\t', file=outputs[(annotation_name, 'fivep')], flush=True)
 
 
 				counts.append(c[(annotation_name, locus, library)])
@@ -379,12 +382,14 @@ def count(** params):
 
 					for strand in strands:
 
-						count = deep_c[(annotation_name, locus, library, size, strand)]
+						for fivep in ['A','U','G','C']:
 
-						if count == 0 and not include_zeros:
-							continue
+							count = deep_c[(annotation_name, locus, library, size, strand, fivep)]
 
-						print(locus, condition, library, size, strand, count, sep='\t', file=outputs[(annotation_name, 'deepcounts')], flush=True)
+							if count == 0 and not include_zeros:
+								continue
+
+							print(locus, condition, library, size, strand, count, sep='\t', file=outputs[(annotation_name, 'deepcounts')], flush=True)
 
 			if locus != 'unannotated':
 				coords = coord_d[(annotation_name, locus)]
