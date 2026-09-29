@@ -368,7 +368,8 @@ def count(** params):
 				try:
 					condition = rev_conditions[library]
 				except KeyError:
-					continue
+					## capturing counts for alignments without a known condition
+					condition = None
 
 
 				# for five in ['A','U','C','G']:
