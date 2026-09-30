@@ -98,6 +98,10 @@ def count(** params):
 		for v in vs:
 			rev_conditions[v] = k
 
+	for library in libraries:
+		if library not in rev_conditions:
+			rev_conditions[library] = None
+
 
 	chrom_depth_c = get_global_depth(alignment_file, aggregate_by=['rg','chrom'])
 
