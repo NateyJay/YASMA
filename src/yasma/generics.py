@@ -906,7 +906,7 @@ class sizeClass():
 		keys.add((size-1, size+0, size+1,))
 		keys.add((size-0, size+1, size+2,))
 
-		keys = [k for k in keys if min(k) >= self.min_size or max(k) <= self.max_size]
+		keys = [k for k in keys if min(k) >= self.min_size and max(k) <= self.max_size]
 		return(keys)
 
 
@@ -925,7 +925,7 @@ class sizeClass():
 		for size in sizes:
 
 
-			if 15 <= size <= 30:
+			if self.min_size <= size <= self.max_size:
 
 				self.depth += 1
 				self.size_c.update(self.get_keys(size))
@@ -1015,6 +1015,7 @@ class sizeClass():
 
 
 		def expand_call(call):
+			## this treats 3n sizes as N's also. For strawpolling for locus custruction, this is thought to help with locus contiguity
 			if len(call) == 3:
 				call.add("N")
 				return(call)
@@ -1041,12 +1042,83 @@ class sizeClass():
 		else:
 			return False
 
-	def __add__(self, other):
+	def __iadd__(self, other):
 		self.size_c += other.size_c
 		self.depth  += other.depth
 		return(self)
 
 
+	####################################
+	## bootstrap size call (Oct 2026)
+	## code vibe coded from claude.
+	## Optional, stricter call. Does not touch get(), __str__, __eq__ or __add__,
+	## so the original call still works as a permissive "straw poll".
+	##  - contiguous windows of 1-3 sizes; a window of n sizes must hold >= n/(n+1) of reads
+	##  - confidence = fraction of bootstrap calls (boot_fraction x depth reads, with
+	##    replacement) compatible with the full call: share >= 1 size, "N" only matches "N"
+	##  - loci below min_depth get a strict call but confidence None
+	####################################
+ 
+	def size_counts(self):
+		## per-size read counts, recovered from the single-size keys
+		sizes  = list(range(self.min_size, self.max_size + 1))
+		counts = [self.size_c[(size,)] for size in sizes]
+		return(sizes, counts)
+ 
+ 
+	@staticmethod
+	def strict_call(sizes, counts, max_width=3):
+		total = sum(counts)
+		if total == 0:
+			return(None)
+ 
+		for width in range(1, max_width + 1):
+			best_sum, best_start = -1, None
+			for start in range(len(sizes) - width + 1):
+				window_sum = sum(counts[start:start + width])
+				if window_sum > best_sum:
+					best_sum, best_start = window_sum, start
+ 
+			if best_sum / total >= width / (width + 1):
+				return(tuple(sizes[best_start:best_start + width]))
+ 
+		return(tuple("N"))
+ 
+ 
+	@staticmethod
+	def calls_compatible(ref_call, call):
+		if ref_call is None or call is None:
+			return(ref_call == call)
+		if "N" in ref_call or "N" in call:
+			return("N" in ref_call and "N" in call)
+		return(len(set(ref_call) & set(call)) > 0)
+ 
+ 
+	def bootstrap(self, boot_fraction=0.5, n_reps=100, min_depth=100, seed=None):
+		import numpy as np
+ 
+		sizes, counts = self.size_counts()
+		depth = sum(counts)
+ 
+		self.boot_sizecall   = self.strict_call(sizes, counts)
+		self.boot_confidence = None
+ 
+		if depth < min_depth:
+			return(self.boot_sizecall, self.boot_confidence)
+ 
+		rng      = np.random.default_rng(seed)
+		n_draw   = max(1, round(depth * boot_fraction))
+		probs    = np.array(counts) / depth
+		boot_mat = rng.multinomial(n_draw, probs, size=n_reps)    # n_reps x sizes
+ 
+		agree = 0
+		for rep_counts in boot_mat:
+			rep_call = self.strict_call(sizes, rep_counts.tolist())
+			if self.calls_compatible(self.boot_sizecall, rep_call):
+				agree += 1
+ 
+		self.boot_confidence = agree / n_reps
+		return(self.boot_sizecall, self.boot_confidence)
 
 class assessClass():
 	'''produces a line assessment of a locus, similar to ShortStack3'''
@@ -1055,7 +1127,7 @@ class assessClass():
 
 		self.header =  ['Locus','Name','Length','Reads','RPM']
 		self.header += ['UniqueReads','FracTop','Strand','MajorRNA','MajorRNAReads','Complexity']
-		self.header += ['Gap', 'skew', 'size_1n','size_1n_depth', 'size_2n','size_2n_depth', 'size_3n','size_3n_depth', 'sizecall']
+		self.header += ['Gap', 'skew', 'size_1n','size_1n_depth', 'size_2n','size_2n_depth', 'size_3n','size_3n_depth', 'sizecall', "bs_sizecall", "bs_confidence"]
 
 
 
@@ -1080,7 +1152,7 @@ class assessClass():
 						'NA', 'NA',
 						'NA', 'NA',
 						'NA', 'NA',
-						'NA'
+						'NA', "NA", "NA"
 			]
 
 			return(result_line, gff_line)
@@ -1124,6 +1196,7 @@ class assessClass():
 		skew       = round(skew, 3)
 
 		sizecall.get()
+		bs_sizecall, bs_confidence = sizecall.bootstrap(boot_fraction=0.5, n_reps=100, min_depth=100)
 
 		result_line = [f"{chrom}:{start}-{stop}", name, stop-start, depth, rpm]
 		result_line += [unique_reads, frac_top, strand, major_rna, major_rna_depth, complexity]
@@ -1132,7 +1205,8 @@ class assessClass():
 			sizecall.size_1_key, sizecall.size_1_depth,
 			sizecall.size_2_key, sizecall.size_2_depth,
 			sizecall.size_3_key, sizecall.size_3_depth,
-			sizecall
+			sizecall,
+			bs_sizecall, bs_confidence
 		]
 
 
@@ -1145,7 +1219,7 @@ class assessClass():
 			start = 1
 		gff_line = [
 			chrom, 'yasma_locus',feature_type, start, stop, '.', strand, '.',
-			f'ID={name};project={project};annotation={annotation};sizecall={sizecall};depth={depth};rpm={rpm};fracTop={frac_top};complexity={complexity};skew={skew};majorRNA={major_rna}'
+			f'ID={name};project={project};annotation={annotation};sizecall={sizecall};bsSizecall={bs_sizecall};bs_confidence{bs_confidence};depth={depth};rpm={rpm};fracTop={frac_top};complexity={complexity};skew={skew};majorRNA={major_rna}'
 		]
 
 
