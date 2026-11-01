@@ -1047,6 +1047,12 @@ class sizeClass():
 		self.depth  += other.depth
 		return(self)
 
+	def __add__(self, other):
+		new = type(self)(minmax=(self.min_size, self.max_size))
+		new.size_c = self.size_c + other.size_c
+		new.depth  = self.depth + other.depth
+		return(new)
+
 
 	####################################
 	## bootstrap size call (Oct 2026)
