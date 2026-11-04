@@ -942,6 +942,8 @@ class sizeClass():
 		self.size_1_key, self.size_2_key, self.size_3_key = None, None, None
 
 		for key, depth in mc:
+			key = "_".join(list(map(str, key)))
+
 			if self.size_1_depth == 0 and len(key) == 1:
 				self.size_1_key, self.size_1_depth = key, depth
 
@@ -1100,7 +1102,7 @@ class sizeClass():
 		return(len(set(ref_call) & set(call)) > 0)
  
  
-	def bootstrap(self, boot_fraction=0.5, n_reps=100, min_depth=100, seed=None):
+	def bootstrap(self, boot_fraction=0.5, n_reps=100, min_depth=100, min_conf=0.9, seed=None):
 		import numpy as np
  
 		sizes, counts = self.size_counts()
@@ -1108,9 +1110,11 @@ class sizeClass():
  
 		self.boot_sizecall   = self.strict_call(sizes, counts)
 		self.boot_confidence = None
+
+
  
 		if depth < min_depth:
-			return(self.boot_sizecall, self.boot_confidence)
+			return("_".join(self.boot_sizecall), self.boot_confidence, "low_depth", "N")
  
 		rng      = np.random.default_rng(seed)
 		n_draw   = max(1, round(depth * boot_fraction))
@@ -1124,7 +1128,16 @@ class sizeClass():
 				agree += 1
  
 		self.boot_confidence = agree / n_reps
-		return(self.boot_sizecall, self.boot_confidence)
+
+		if self.boot_confidence < 0.9:
+			flags = "low_conf"
+			df_sizecall = "N"
+		else:
+			flags = ""
+			df_sizecall = "_".join(self.boot_sizecall)
+
+		return("_".join(self.boot_sizecall), self.boot_confidence, flags, df_sizecall)
+		# return(self.boot_sizecall, self.boot_confidence)
 
 class assessClass():
 	'''produces a line assessment of a locus, similar to ShortStack3'''
@@ -1133,7 +1146,7 @@ class assessClass():
 
 		self.header =  ['Locus','Name','Length','Reads','RPM']
 		self.header += ['UniqueReads','FracTop','Strand','MajorRNA','MajorRNAReads','Complexity']
-		self.header += ['Gap', 'skew', 'size_1n','size_1n_depth', 'size_2n','size_2n_depth', 'size_3n','size_3n_depth', 'sizecall', "bs_sizecall", "bs_confidence"]
+		self.header += ['Gap', 'skew', 'size_1n','size_1n_depth', 'size_2n','size_2n_depth', 'size_3n','size_3n_depth', 'sizecall', "bs_sizecall", "bs_confidence", "bs_flag", "df_sizecall"]
 
 
 
@@ -1158,7 +1171,7 @@ class assessClass():
 						'NA', 'NA',
 						'NA', 'NA',
 						'NA', 'NA',
-						'NA', "NA", "NA"
+						'NA', "NA", "NA", "NA", "NA" # bs_sc, conf, flags, df_sizecall
 			]
 
 			return(result_line, gff_line)
@@ -1202,7 +1215,7 @@ class assessClass():
 		skew       = round(skew, 3)
 
 		sizecall.get()
-		bs_sizecall, bs_confidence = sizecall.bootstrap(boot_fraction=0.5, n_reps=100, min_depth=100)
+		bs_sizecall, bs_confidence, bs_flag, df_sizecall = sizecall.bootstrap(boot_fraction=0.5, n_reps=100, min_depth=100)
 
 		result_line = [f"{chrom}:{start}-{stop}", name, stop-start, depth, rpm]
 		result_line += [unique_reads, frac_top, strand, major_rna, major_rna_depth, complexity]
@@ -1212,7 +1225,7 @@ class assessClass():
 			sizecall.size_2_key, sizecall.size_2_depth,
 			sizecall.size_3_key, sizecall.size_3_depth,
 			sizecall,
-			bs_sizecall, bs_confidence
+			bs_sizecall, bs_confidence, bs_flag, df_sizecall
 		]
 
 
@@ -1225,7 +1238,7 @@ class assessClass():
 			start = 1
 		gff_line = [
 			chrom, 'yasma_locus',feature_type, start, stop, '.', strand, '.',
-			f'ID={name};project={project};annotation={annotation};sizecall={sizecall};bsSizecall={bs_sizecall};bs_confidence{bs_confidence};depth={depth};rpm={rpm};fracTop={frac_top};complexity={complexity};skew={skew};majorRNA={major_rna}'
+			f'ID={name};project={project};annotation={annotation};sizecall={sizecall};bsSizecall={bs_sizecall};bsConfidence{bs_confidence}bsFlag={bs_flag};dfSizecall={df_sizecall};depth={depth};rpm={rpm};fracTop={frac_top};complexity={complexity};skew={skew};majorRNA={major_rna}'
 		]
 
 
